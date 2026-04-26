@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   try {
-    const { entityId, date, description, amount, currency, category, expenseType } = await req.json();
+    const { entityId, date, description, amount, currency, category, subcategory, expenseType } = await req.json();
 
     if (!entityId || !date || !description || !amount)
       return NextResponse.json({ error: "entityId, date, description, amount required" }, { status: 400 });
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
         date: new Date(date),
         description,
         status: "FINALIZED",
-        category: category || "Expense",
+        category: subcategory ? `${category || "Expense"} › ${subcategory}` : (category || "Expense"),
         createdById: session.id,
         createdByRole: session.role as any,
         lines: {

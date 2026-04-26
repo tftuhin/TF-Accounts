@@ -6,19 +6,15 @@ import { toast } from "sonner";
 import { Receipt, Wallet, Building2, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import type { UserRole } from "@/types";
+import { EXPENSE_CATEGORIES, CATEGORY_KEYS } from "@/lib/expense-categories";
 
 interface Entity { id: string; slug: string; name: string; type: string; color: string }
 interface BankAccount { id: string; accountName: string; accountType: string; currency: string; bankName: string | null; entityId: string }
 
 type ExpenseType = "BDT_BANK" | "USD_BANK";
 
-const CATEGORIES = [
-  "Hosting & Infrastructure", "Salaries & Contractors", "Marketing & Ads",
-  "Tools & Software", "Office & Misc", "Freelancer", "Travel", "Support", "Domain & SSL",
-];
-
 export function ExpenseClient({
-  entities, bankAccounts, userRole,
+  entities, bankAccounts,
 }: { entities: Entity[]; bankAccounts: BankAccount[]; userRole: UserRole }) {
   const currentEntityId = useAppStore((s) => s.currentEntityId);
   const [tab, setTab] = useState<ExpenseType>("BDT_BANK");
@@ -30,7 +26,8 @@ export function ExpenseClient({
     date: new Date().toISOString().split("T")[0],
     description: "",
     amount: "",
-    category: CATEGORIES[0],
+    category: CATEGORY_KEYS[0],
+    subcategory: EXPENSE_CATEGORIES[CATEGORY_KEYS[0]][0],
     bankAccountId: "",
   });
 
@@ -38,6 +35,12 @@ export function ExpenseClient({
   const relevantBankAccounts = bankAccounts.filter(
     (ba) => ba.entityId === form.entityId && ba.currency === currency
   );
+  const subcategories = EXPENSE_CATEGORIES[form.category] || [];
+
+  function handleCategoryChange(category: string) {
+    const firstSub = EXPENSE_CATEGORIES[category]?.[0] || "";
+    setForm((f) => ({ ...f, category, subcategory: firstSub }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,6 +60,7 @@ export function ExpenseClient({
           amount: parseFloat(form.amount),
           currency,
           category: form.category,
+          subcategory: form.subcategory,
           expenseType: tab,
           bankAccountId: form.bankAccountId || undefined,
         }),
@@ -81,7 +85,6 @@ export function ExpenseClient({
 
       {/* Tab selector */}
       <div className="grid grid-cols-3 gap-2">
-        {/* Petty Cash — link to petty cash page */}
         <Link href="/petty-cash"
           className="flex flex-col items-center gap-2 p-4 rounded-xl border border-surface-border bg-surface-2 hover:border-accent-blue/30 hover:bg-surface-3 transition-all text-center group"
         >
@@ -149,6 +152,22 @@ export function ExpenseClient({
           </div>
         </div>
 
+        {/* Category + Subcategory */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="input-label">Category *</label>
+            <select value={form.category} onChange={(e) => handleCategoryChange(e.target.value)} className="input">
+              {CATEGORY_KEYS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="input-label">Subcategory</label>
+            <select value={form.subcategory} onChange={(e) => setForm({ ...form, subcategory: e.target.value })} className="input">
+              {subcategories.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+
         <div>
           <label className="input-label">Description *</label>
           <input
@@ -174,31 +193,24 @@ export function ExpenseClient({
             />
           </div>
           <div>
-            <label className="input-label">Category</label>
-            <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="input">
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
+            {relevantBankAccounts.length > 0 ? (
+              <>
+                <label className="input-label">Bank Account <span className="text-ink-faint">(optional)</span></label>
+                <select value={form.bankAccountId} onChange={(e) => setForm({ ...form, bankAccountId: e.target.value })} className="input">
+                  <option value="">— Not specified —</option>
+                  {relevantBankAccounts.map((ba) => (
+                    <option key={ba.id} value={ba.id}>{ba.accountName}{ba.bankName ? ` · ${ba.bankName}` : ""}</option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <div className="text-2xs text-ink-faint bg-surface-2 rounded-lg px-3 py-2.5 mt-5 border border-surface-border">
+                No {currency} accounts.{" "}
+                <Link href="/settings" className="text-accent-blue hover:underline">Add in Settings →</Link>
+              </div>
+            )}
           </div>
         </div>
-
-        {relevantBankAccounts.length > 0 && (
-          <div>
-            <label className="input-label">Bank Account <span className="text-ink-faint">(optional)</span></label>
-            <select value={form.bankAccountId} onChange={(e) => setForm({ ...form, bankAccountId: e.target.value })} className="input">
-              <option value="">— Not specified —</option>
-              {relevantBankAccounts.map((ba) => (
-                <option key={ba.id} value={ba.id}>{ba.accountName}{ba.bankName ? ` · ${ba.bankName}` : ""}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {relevantBankAccounts.length === 0 && (
-          <div className="text-2xs text-ink-faint bg-surface-2 rounded-lg px-3 py-2">
-            No {currency} bank accounts for this entity.{" "}
-            <Link href="/settings" className="text-accent-blue hover:underline">Add one in Settings →</Link>
-          </div>
-        )}
 
         <button type="submit" disabled={saving} className="btn-primary w-full">
           {saving ? "Recording…" : `Record ${currency} Expense`}

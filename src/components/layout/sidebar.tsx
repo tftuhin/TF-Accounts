@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { canAccess } from "@/lib/rbac";
 import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/types";
 import {
   LayoutDashboard, Receipt, Wallet, Crown, BarChart3, ArrowLeftRight,
-  Upload, Settings, Landmark, ChevronDown, Menu, X, TrendingUp, BookOpen,
+  Upload, Settings, Landmark, ChevronDown, Menu, X, TrendingUp, BookOpen, LogOut,
 } from "lucide-react";
 
 interface Entity {
@@ -36,7 +36,14 @@ const NAV_ITEMS = [
 
 export function Sidebar({ entities, user }: { entities: Entity[]; user: SessionUser }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { currentEntityId, setCurrentEntityId, sidebarOpen, toggleSidebar } = useAppStore();
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  }
 
   const visibleNav = NAV_ITEMS.filter((item) => canAccess(user.role, item.resource));
 
@@ -119,13 +126,20 @@ export function Sidebar({ entities, user }: { entities: Entity[]; user: SessionU
         {/* Footer */}
         <div className="px-4 py-3 border-t border-surface-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md bg-accent-blue/15 flex items-center justify-center text-2xs font-bold text-accent-blue">
+            <div className="w-7 h-7 rounded-md bg-accent-blue/15 flex items-center justify-center text-2xs font-bold text-accent-blue flex-shrink-0">
               {user.fullName.charAt(0)}
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-xs font-medium text-ink-primary truncate">{user.fullName}</div>
               <div className="text-2xs text-ink-faint">{user.role.replace(/_/g, " ")}</div>
             </div>
+            <button
+              onClick={handleLogout}
+              title="Sign Out"
+              className="p-1.5 rounded-md text-ink-faint hover:text-accent-red hover:bg-accent-red/10 transition-colors flex-shrink-0"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </aside>

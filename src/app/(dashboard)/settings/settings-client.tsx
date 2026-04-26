@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Building2, Calendar, Wallet, CreditCard, Users, Trash2 } from "lucide-react";
+import { Plus, Building2, Calendar, Wallet, CreditCard, Users, Trash2, Pencil, Check, X } from "lucide-react";
 
 interface Entity { id: string; slug: string; name: string; type: string; color: string }
 interface BankAccount { id: string; entityId: string; entityName: string; entityColor: string; accountName: string; accountType: string; currency: string; bankName: string | null }
@@ -44,6 +44,34 @@ export function SettingsClient({
   // ── Entity form ──────────────────────────────────────────────
   const [entityForm, setEntityForm] = useState({ name: "", slug: "", type: "SUB_BRAND", color: ENTITY_COLORS[0] });
   const [savingEntity, setSavingEntity] = useState(false);
+  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
+  const [editEntityForm, setEditEntityForm] = useState({ name: "", slug: "", color: "", type: "" });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  function startEditEntity(en: Entity) {
+    setEditingEntityId(en.id);
+    setEditEntityForm({ name: en.name, slug: en.slug, color: en.color, type: en.type });
+  }
+
+  async function handleEditEntity(id: string) {
+    setSavingEdit(true);
+    try {
+      const res = await fetch("/api/entities", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...editEntityForm }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setEntities((prev) => prev.map((e) => e.id === id ? { ...e, ...editEntityForm } : e));
+      setEditingEntityId(null);
+      toast.success("Entity updated");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update entity");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   async function handleCreateEntity(e: React.FormEvent) {
     e.preventDefault();
@@ -197,11 +225,67 @@ export function SettingsClient({
         {entities.length > 0 && (
           <div className="space-y-1.5">
             {entities.map((en) => (
-              <div key={en.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2 border border-surface-border">
-                <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: en.color }} />
-                <span className="text-sm text-ink-primary flex-1">{en.name}</span>
-                <span className="text-2xs text-ink-faint font-mono">{en.slug}</span>
-                <span className="badge bg-surface-4 text-ink-faint">{en.type === "PARENT" ? "Parent" : "Sub-brand"}</span>
+              <div key={en.id}>
+                {editingEntityId === en.id ? (
+                  <div className="p-3 rounded-lg bg-surface-3 border border-accent-blue/30 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="input-label">Name</label>
+                        <input
+                          type="text" value={editEntityForm.name} className="input text-sm"
+                          onChange={(e) => {
+                            const name = e.target.value;
+                            const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+                            setEditEntityForm((f) => ({ ...f, name, slug }));
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="input-label">Slug</label>
+                        <input type="text" value={editEntityForm.slug} className="input text-sm font-mono"
+                          onChange={(e) => setEditEntityForm((f) => ({ ...f, slug: e.target.value.toLowerCase() }))} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="input-label">Type</label>
+                        <select value={editEntityForm.type} onChange={(e) => setEditEntityForm((f) => ({ ...f, type: e.target.value }))} className="input text-sm">
+                          <option value="SUB_BRAND">Sub-brand</option>
+                          <option value="PARENT">Parent / Holding</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="input-label">Color</label>
+                        <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                          {ENTITY_COLORS.map((c) => (
+                            <button key={c} type="button" onClick={() => setEditEntityForm((f) => ({ ...f, color: c }))}
+                              className="w-6 h-6 rounded-md transition-transform hover:scale-110"
+                              style={{ background: c, outline: editEntityForm.color === c ? `2px solid ${c}` : "none", outlineOffset: "2px" }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => setEditingEntityId(null)} className="btn-secondary text-xs py-1.5">
+                        <X className="w-3 h-3" /> Cancel
+                      </button>
+                      <button onClick={() => handleEditEntity(en.id)} disabled={savingEdit} className="btn-primary text-xs py-1.5">
+                        <Check className="w-3 h-3" /> {savingEdit ? "Saving…" : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2 border border-surface-border group">
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: en.color }} />
+                    <span className="text-sm text-ink-primary flex-1">{en.name}</span>
+                    <span className="text-2xs text-ink-faint font-mono">{en.slug}</span>
+                    <span className="badge bg-surface-4 text-ink-faint">{en.type === "PARENT" ? "Parent" : "Sub-brand"}</span>
+                    <button onClick={() => startEditEntity(en)} className="opacity-0 group-hover:opacity-100 p-1 rounded text-ink-faint hover:text-accent-blue transition-all">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

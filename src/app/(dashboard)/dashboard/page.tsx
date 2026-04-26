@@ -1,59 +1,60 @@
+import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { supabaseServer } from "@/lib/supabase-server";
+import { prisma } from "@/lib/prisma";
 import { DashboardClient } from "./dashboard-client";
+
+export const revalidate = 60;
 
 export default async function DashboardPage() {
   const session = await getSession();
   if (!session) return null;
 
-  if (!supabaseServer) return <div>Supabase not configured</div>;
+  // Entry Managers only have access to petty cash
+  if (session.role === "ENTRY_MANAGER") redirect("/petty-cash");
 
-  // Fetch entities
-  const { data: entities } = await supabaseServer
-    .from("entities")
-    .select("id, slug, name, type, color, parent_id")
-    .eq("is_active", true)
-    .order("type", { ascending: true });
+  const entities = await prisma.entity.findMany({
+    where: { isActive: true },
+    orderBy: { type: "asc" },
+    select: { id: true, slug: true, name: true, type: true, color: true, parentId: true },
+  });
 
-  // Fetch all journal entry lines for the past 13 months (enough for a full year view)
   const startDate = new Date();
   startDate.setMonth(startDate.getMonth() - 12);
 
-  const { data: entryLines } = await supabaseServer
-    .from("journal_entry_lines")
-    .select(`
-      pf_account,
-      entry_type,
-      amount,
-      entity_id,
-      journal_entries!inner(date, status, entity_id)
-    `)
-    .eq("journal_entries.status", "FINALIZED")
-    .gte("journal_entries.date", startDate.toISOString().split("T")[0]);
+  const entryLines = await prisma.journalEntryLine.findMany({
+    where: {
+      journalEntry: {
+        status: "FINALIZED",
+        date: { gte: startDate },
+      },
+      pfAccount: { in: ["INCOME", "OPEX"] },
+    },
+    select: {
+      entityId: true,
+      pfAccount: true,
+      entryType: true,
+      amount: true,
+      journalEntry: { select: { date: true } },
+    },
+  });
 
-  // Build monthly income/expense data per entity
-  // income = CREDIT lines on INCOME pf_account
-  // expenses = DEBIT lines on OPEX pf_account
   const monthlyByEntity: Record<string, Record<string, { income: number; expenses: number }>> = {};
 
-  if (entryLines) {
-    for (const line of entryLines) {
-      const eid = line.entity_id as string;
-      const monthKey = (line.journal_entries as any).date.slice(0, 7);
+  for (const line of entryLines) {
+    const eid = line.entityId;
+    const monthKey = line.journalEntry.date.toISOString().slice(0, 7);
 
-      if (!monthlyByEntity[eid]) monthlyByEntity[eid] = {};
-      if (!monthlyByEntity[eid][monthKey]) monthlyByEntity[eid][monthKey] = { income: 0, expenses: 0 };
+    if (!monthlyByEntity[eid]) monthlyByEntity[eid] = {};
+    if (!monthlyByEntity[eid][monthKey]) monthlyByEntity[eid][monthKey] = { income: 0, expenses: 0 };
 
-      const amt = Number(line.amount);
-      if (line.pf_account === "INCOME" && line.entry_type === "CREDIT") {
-        monthlyByEntity[eid][monthKey].income += amt;
-      } else if (line.pf_account === "OPEX" && line.entry_type === "DEBIT") {
-        monthlyByEntity[eid][monthKey].expenses += amt;
-      }
+    const amt = Number(line.amount);
+    if (line.pfAccount === "INCOME" && line.entryType === "CREDIT") {
+      monthlyByEntity[eid][monthKey].income += amt;
+    } else if (line.pfAccount === "OPEX" && line.entryType === "DEBIT") {
+      monthlyByEntity[eid][monthKey].expenses += amt;
     }
   }
 
-  // Serialize monthly data
   const serializedMonthly = Object.fromEntries(
     Object.entries(monthlyByEntity).map(([eid, months]) => [
       eid,
@@ -63,13 +64,13 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClient
-      entities={(entities || []).map((e: any) => ({
+      entities={entities.map((e) => ({
         id: e.id,
         slug: e.slug,
         name: e.name,
         type: e.type,
         color: e.color,
-        parentId: e.parent_id,
+        parentId: e.parentId,
       }))}
       monthlyByEntity={serializedMonthly}
     />

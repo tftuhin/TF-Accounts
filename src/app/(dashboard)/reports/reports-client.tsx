@@ -21,7 +21,8 @@ interface IncomeStatementData {
 
 interface BalanceSheetData {
   entityName: string;
-  asOf: string;
+  from: string | null;
+  to: string;
   assets: { label: string; amount: number; currency: string }[];
   totalAssets: number;
   equity: number;
@@ -65,7 +66,7 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
   async function generateBalanceSheet() {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ asOf: dateTo });
+      const params = new URLSearchParams({ from: dateFrom, to: dateTo });
       if (reportEntityId !== "consolidated") params.set("entityId", reportEntityId);
       const res = await fetch(`/api/reports/balance-sheet?${params}`);
       const json = await res.json();
@@ -135,23 +136,14 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
               {entities.map((en) => <option key={en.id} value={en.id}>{en.name}</option>)}
             </select>
           </div>
-          {tab === "income" ? (
-            <>
-              <div>
-                <label className="input-label">From</label>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input" />
-              </div>
-              <div>
-                <label className="input-label">To</label>
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input" />
-              </div>
-            </>
-          ) : (
-            <div>
-              <label className="input-label">As of Date</label>
-              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input" />
-            </div>
-          )}
+          <div>
+            <label className="input-label">From</label>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input" />
+          </div>
+          <div>
+            <label className="input-label">To</label>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input" />
+          </div>
           <div className="flex items-end">
             <button
               onClick={tab === "income" ? generateIncomeStatement : generateBalanceSheet}
@@ -234,7 +226,7 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
             <div>
               <div className="text-sm font-semibold text-ink-white">Balance Sheet</div>
               <div className="text-2xs text-ink-faint mt-0.5">
-                {balanceSheet.entityName} · As of {balanceSheet.asOf}
+                {balanceSheet.entityName} · {balanceSheet.from ? `${balanceSheet.from} to ` : "As of "}{balanceSheet.to}
               </div>
             </div>
             <button onClick={exportReport} className="flex items-center gap-1.5 text-xs text-ink-secondary hover:text-ink-primary">

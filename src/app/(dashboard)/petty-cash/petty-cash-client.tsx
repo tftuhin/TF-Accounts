@@ -8,6 +8,7 @@ import {
   Building2, TrendingDown, TrendingUp, CircleDollarSign, History,
 } from "lucide-react";
 import type { UserRole } from "@/types";
+import { EXPENSE_CATEGORIES, CATEGORY_KEYS } from "@/lib/expense-categories";
 
 interface Balances {
   bankBalance:      number;
@@ -66,10 +67,18 @@ export function PettyCashClient({
     description: "",
     amount:      "",
     txnType:     userRole === "ENTRY_MANAGER" ? "CASH_EXPENSE" : "FLOAT_TOPUP",
+    category:    CATEGORY_KEYS[0],
+    subcategory: EXPENSE_CATEGORIES[CATEGORY_KEYS[0]][0],
     receipt:     null as File | null,
   });
 
   const allowedTypes = userRole === "ENTRY_MANAGER" ? ENTRY_MANAGER_TYPES : MANAGER_TYPES;
+  const isExpenseTxn = form.txnType !== "FLOAT_TOPUP";
+  const subcategories = EXPENSE_CATEGORIES[form.category] || [];
+
+  function handleCategoryChange(category: string) {
+    setForm((f) => ({ ...f, category, subcategory: EXPENSE_CATEGORIES[category]?.[0] || "" }));
+  }
 
   if (!data) {
     return (
@@ -98,7 +107,9 @@ export function PettyCashClient({
           periodId:    period.id,
           entityId:    period.entityId,
           date:        form.date,
-          description: form.description,
+          description: isExpenseTxn && form.category
+            ? `[${form.category} › ${form.subcategory}] ${form.description}`
+            : form.description,
           amount:      parseFloat(form.amount),
           txnType:     form.txnType,
         }),
@@ -107,7 +118,7 @@ export function PettyCashClient({
       if (!res.ok) throw new Error(json.error || "Failed");
       toast.success("Entry saved — refresh to see updated balances");
       setShowForm(false);
-      setForm({ date: new Date().toISOString().split("T")[0], description: "", amount: "", txnType: allowedTypes[0], receipt: null });
+      setForm({ date: new Date().toISOString().split("T")[0], description: "", amount: "", txnType: allowedTypes[0], category: CATEGORY_KEYS[0], subcategory: EXPENSE_CATEGORIES[CATEGORY_KEYS[0]][0], receipt: null });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error saving entry");
     } finally {
@@ -296,6 +307,23 @@ export function PettyCashClient({
               </select>
             </div>
           </div>
+
+          {isExpenseTxn && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="input-label">Category</label>
+                <select value={form.category} onChange={(e) => handleCategoryChange(e.target.value)} className="input">
+                  {CATEGORY_KEYS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="input-label">Subcategory</label>
+                <select value={form.subcategory} onChange={(e) => setForm({ ...form, subcategory: e.target.value })} className="input">
+                  {subcategories.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="input-label">Description</label>

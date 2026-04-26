@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { useAppStore } from "@/lib/store";
-import { formatUSD, formatBDT } from "@/lib/utils";
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from "recharts";
+import { formatUSD } from "@/lib/utils";
+import dynamic from "next/dynamic";
 import { TrendingUp, TrendingDown, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
+
+// Lazy-load Recharts to keep initial JS bundle small
+const PerformanceChart = dynamic(() => import("./_chart").then((m) => m.PerformanceChart), {
+  ssr: false,
+  loading: () => <div className="h-[280px] rounded-lg bg-surface-2 animate-pulse" />,
+});
 
 interface Entity {
   id: string; slug: string; name: string; type: string; color: string; parentId: string | null;
@@ -51,30 +55,26 @@ export function DashboardClient({ entities, monthlyByEntity }: DashboardClientPr
 
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth()); // 0-based
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
 
   const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
 
   const subBrands = entities.filter((e) => e.type === "SUB_BRAND");
   const allEntityIds = entities.map((e) => e.id);
 
-  // Stats for the header cards
   const stats = isConsolidated
     ? consolidatedStats(allEntityIds, monthlyByEntity, monthKey)
     : getEntityStats(currentEntityId, monthlyByEntity, monthKey);
 
   const selectedEntity = entities.find((e) => e.id === currentEntityId);
 
-  // Chart data: per sub-brand for selected month
   const chartData = subBrands.map((e) => {
     const s = getEntityStats(e.id, monthlyByEntity, monthKey);
-    return { name: e.name, Income: s.income, Expenses: s.expenses, Profit: s.profit, color: e.color };
+    return { name: e.name, Income: s.income, Expenses: s.expenses, Profit: s.profit };
   });
-
-  // Also add consolidated bar to chart
   if (subBrands.length > 1) {
     const cs = consolidatedStats(allEntityIds, monthlyByEntity, monthKey);
-    chartData.push({ name: "Consolidated", Income: cs.income, Expenses: cs.expenses, Profit: cs.profit, color: "#6B7280" });
+    chartData.push({ name: "Consolidated", Income: cs.income, Expenses: cs.expenses, Profit: cs.profit });
   }
 
   function prevMonth() {
@@ -99,7 +99,6 @@ export function DashboardClient({ entities, monthlyByEntity }: DashboardClientPr
           <p className="text-sm text-ink-muted mt-0.5">Income, Expenses & Profit</p>
         </div>
 
-        {/* Month / Year selector */}
         <div className="flex items-center gap-2">
           <button onClick={prevMonth} className="p-1.5 rounded-lg bg-surface-2 border border-surface-border hover:bg-surface-3 text-ink-secondary">
             <ChevronLeft className="w-4 h-4" />
@@ -122,7 +121,7 @@ export function DashboardClient({ entities, monthlyByEntity }: DashboardClientPr
         </div>
       </div>
 
-      {/* Summary stat cards */}
+      {/* Stat cards */}
       <div className="grid grid-cols-3 gap-4">
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-2">
@@ -152,7 +151,7 @@ export function DashboardClient({ entities, monthlyByEntity }: DashboardClientPr
         </div>
       </div>
 
-      {/* Sub-brand breakdown grid */}
+      {/* Sub-brand breakdown */}
       {(isConsolidated ? subBrands : entities.filter(e => e.id === currentEntityId)).length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-ink-secondary uppercase tracking-wider mb-3">
@@ -187,33 +186,16 @@ export function DashboardClient({ entities, monthlyByEntity }: DashboardClientPr
         </div>
       )}
 
-      {/* Performance Chart */}
+      {/* Performance Chart — dynamically loaded */}
       {chartData.length > 0 && (
         <div className="card p-5">
           <div className="text-sm font-semibold text-ink-white mb-4">
             Income vs Expenses vs Profit — {MONTHS[selectedMonth]} {selectedYear}
           </div>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3a" />
-              <XAxis dataKey="name" tick={{ fill: "#6b7280", fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} axisLine={false} tickLine={false}
-                tickFormatter={(v) => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} />
-              <Tooltip
-                contentStyle={{ background: "#1a1a2e", border: "1px solid #2a2a3a", borderRadius: 8 }}
-                labelStyle={{ color: "#e2e8f0" }}
-                formatter={(value: number) => [`$${value.toLocaleString()}`, undefined]}
-              />
-              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Income" fill="#10B981" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Expenses" fill="#EF4444" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Profit" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <PerformanceChart data={chartData} />
         </div>
       )}
 
-      {/* Empty state */}
       {chartData.length === 0 && (
         <div className="card p-10 text-center text-ink-faint">
           No entities configured yet. Go to Settings to create your first entity.

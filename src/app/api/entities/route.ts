@@ -26,6 +26,30 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PATCH(req: NextRequest) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const { id, name, slug, color, type } = await req.json();
+    if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+    const entity = await prisma.entity.update({
+      where: { id },
+      data: {
+        ...(name ? { name } : {}),
+        ...(slug ? { slug: slug.toLowerCase().replace(/\s+/g, "-") } : {}),
+        ...(color ? { color } : {}),
+        ...(type ? { type } : {}),
+      },
+    });
+    return NextResponse.json({ success: true, data: { id: entity.id } });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Internal error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
 export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

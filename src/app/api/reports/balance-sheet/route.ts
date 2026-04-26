@@ -9,24 +9,27 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const entityId = searchParams.get("entityId");
-  const asOf = searchParams.get("asOf") || new Date().toISOString().split("T")[0];
+  const from = searchParams.get("from");
+  const to = searchParams.get("to") || new Date().toISOString().split("T")[0];
+
+  const entityFilter = entityId && entityId !== "consolidated" ? { entityId } : {};
 
   const where: any = {
     status: "FINALIZED",
-    date: { lte: new Date(asOf) },
-    ...(entityId && entityId !== "consolidated" ? { entityId } : {}),
+    date: {
+      ...(from ? { gte: new Date(from) } : {}),
+      lte: new Date(to),
+    },
+    ...entityFilter,
   };
 
   const lines = await prisma.journalEntryLine.findMany({
-    where: {
-      journalEntry: where,
-    },
+    where: { journalEntry: where },
     select: { pfAccount: true, entryType: true, amount: true, currency: true },
   });
 
   let totalIncome = 0;
   let totalExpenses = 0;
-  let pettyCashBalance = 0;
 
   for (const line of lines) {
     const amt = Number(line.amount);
@@ -34,38 +37,42 @@ export async function GET(req: NextRequest) {
     else if (line.pfAccount === "OPEX" && line.entryType === "DEBIT") totalExpenses += amt;
   }
 
-  // Petty cash balance
+  // Petty cash balance within the date range
   const pettyCashEntries = await prisma.pettyCashEntry.findMany({
     where: {
-      date: { lte: new Date(asOf) },
-      ...(entityId && entityId !== "consolidated" ? { entityId } : {}),
+      date: {
+        ...(from ? { gte: new Date(from) } : {}),
+        lte: new Date(to),
+      },
+      ...entityFilter,
     },
     select: { txnType: true, amount: true },
   });
 
+  let pettyCashBalance = 0;
   for (const e of pettyCashEntries) {
     const amt = Number(e.amount);
     if (e.txnType === "FLOAT_TOPUP") pettyCashBalance += amt;
-    else if (e.txnType === "ATM_WITHDRAWAL" || e.txnType === "CARD_PAYMENT" || e.txnType === "CASH_EXPENSE") {
+    else if (["ATM_WITHDRAWAL", "CARD_PAYMENT", "CASH_EXPENSE"].includes(e.txnType)) {
       pettyCashBalance -= amt;
     }
   }
 
-  const isConsolidated = !entityId || entityId === "consolidated";
   let entityName = "Consolidated";
-  if (!isConsolidated) {
-    const entity = await prisma.entity.findUnique({ where: { id: entityId! }, select: { name: true } });
-    entityName = entity?.name ?? entityId!;
+  if (entityId && entityId !== "consolidated") {
+    const entity = await prisma.entity.findUnique({ where: { id: entityId }, select: { name: true } });
+    entityName = entity?.name ?? entityId;
   }
 
   const equity = totalIncome - totalExpenses;
-  const bankBalance = Math.max(0, equity - pettyCashBalance);
+  const bankBalance = Math.max(0, equity - Math.max(0, pettyCashBalance));
 
   return NextResponse.json({
     success: true,
     data: {
       entityName,
-      asOf,
+      from: from || null,
+      to,
       assets: [
         { label: "Bank Accounts (estimated)", amount: bankBalance, currency: "USD" },
         { label: "Petty Cash (BDT)", amount: Math.max(0, pettyCashBalance), currency: "BDT" },
