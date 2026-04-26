@@ -51,6 +51,21 @@ export const EXPENSE_CATEGORIES: Record<string, string[]> = {
     "Cleaning & Maintenance",
     "Security & CCTV",
   ],
+  "Food & Entertainment": [
+    "Team Lunch / Dinner",
+    "Office Snacks & Beverages",
+    "Employee Treat",
+    "Guest Entertainment",
+    "Client Meal & Hospitality",
+    "Party & Celebration",
+    "Iftar / Eid Treat",
+  ],
+  "Donation & CSR": [
+    "Charitable Donation",
+    "Zakat / Religious Obligation",
+    "Sponsorship",
+    "CSR Initiative",
+  ],
   "Travel & Transport": [
     "Local Transport (Ride-share)",
     "Air Travel",
