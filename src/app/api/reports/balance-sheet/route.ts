@@ -21,10 +21,7 @@ export async function GET(req: NextRequest) {
     where: {
       journalEntry: where,
     },
-    include: {
-      journalEntry: { select: { entityId: true } },
-    },
-    select: { pfAccount: true, entryType: true, amount: true, currency: true, journalEntry: true },
+    select: { pfAccount: true, entryType: true, amount: true, currency: true },
   });
 
   let totalIncome = 0;
