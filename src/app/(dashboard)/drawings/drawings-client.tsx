@@ -1,84 +1,118 @@
 "use client";
 
 import { useState } from "react";
-import { useAppStore } from "@/lib/store";
-import { formatUSD, PF_CONFIG } from "@/lib/utils";
 import { toast } from "sonner";
 import { AlertTriangle } from "lucide-react";
+import { formatUSD, PF_CONFIG } from "@/lib/utils";
+import type { UserRole } from "@/types";
 
 interface DrawingRecord {
-  id: string; date: string; entityName: string; entityColor: string;
+  id: string; date: string; entityName: string; entityColor: string; entityId: string;
   ownerName: string; ownershipPct: number; sourceAccount: string;
   amount: number; currency: string; status: string;
   balanceAtDraw: number | null; note: string | null;
 }
+interface Owner { id: string; ownerName: string; ownershipPct: number; entityId: string; entityName: string }
+interface Entity { id: string; name: string; type: string; color: string }
 
-interface Owner {
-  id: string; ownerName: string; ownershipPct: number;
-  entityId: string; entityName: string;
+interface DrawingsClientProps {
+  drawings: DrawingRecord[];
+  owners: Owner[];
+  entities: Entity[];
+  pfBalances: Record<string, Record<string, number>>;
+  consolidatedBalances: { PROFIT: number; OWNERS_COMP: number };
 }
 
-export function DrawingsClient({ drawings, owners }: { drawings: DrawingRecord[]; owners: Owner[] }) {
-  const currentEntityId = useAppStore((s) => s.currentEntityId);
+export function DrawingsClient({ drawings, owners, entities, pfBalances, consolidatedBalances }: DrawingsClientProps) {
   const [warning, setWarning] = useState("");
-
-  // Simulated balances (in production, fetched via API)
-  const simulatedBalances = { PROFIT: 8500, OWNERS_COMP: 12000 };
+  const [saving, setSaving] = useState(false);
+  const [localDrawings, setLocalDrawings] = useState(drawings);
 
   const [form, setForm] = useState({
+    entityId: entities[0]?.id || "",
     ownerId: owners[0]?.id || "",
-    sourceAccount: "PROFIT" as string,
+    sourceAccount: "PROFIT",
     amount: "",
     date: new Date().toISOString().split("T")[0],
     note: "",
   });
 
-  const filteredDrawings = currentEntityId === "consolidated"
-    ? drawings
-    : drawings.filter((d) => {
-        const owner = owners.find((o) => o.id === form.ownerId);
-        return owner?.entityId === currentEntityId;
-      });
+  // Get available balance for selected entity + account
+  function getBalance(entityId: string, account: string): number {
+    if (!entityId) return consolidatedBalances[account as "PROFIT" | "OWNERS_COMP"] || 0;
+    const bal = pfBalances[entityId];
+    if (!bal) return 0;
+    return bal[account] || 0;
+  }
 
-  function handleSubmit(e: React.FormEvent) {
+  const selectedBalance = getBalance(form.entityId, form.sourceAccount);
+  const filteredOwners = owners.filter((o) => !form.entityId || o.entityId === form.entityId);
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const amt = parseFloat(form.amount);
-    if (!amt || !form.ownerId) {
+    if (!amt || !form.ownerId || !form.entityId) {
       toast.error("Fill all required fields");
       return;
     }
 
-    const balance = simulatedBalances[form.sourceAccount as keyof typeof simulatedBalances] || 0;
-    if (amt > balance) {
+    if (amt > selectedBalance) {
       setWarning(
-        `Drawing of ${formatUSD(amt)} exceeds ${PF_CONFIG[form.sourceAccount as keyof typeof PF_CONFIG]?.label || form.sourceAccount} balance of ${formatUSD(balance)}. This may destabilize your Profit First ratios.`
+        `Drawing of ${formatUSD(amt)} exceeds ${PF_CONFIG[form.sourceAccount as keyof typeof PF_CONFIG]?.label} balance of ${formatUSD(selectedBalance)}.`
       );
       return;
     }
 
-    const owner = owners.find((o) => o.id === form.ownerId);
-    toast.success("Drawing recorded", {
-      description: `${formatUSD(amt)} from ${PF_CONFIG[form.sourceAccount as keyof typeof PF_CONFIG]?.label} to ${owner?.ownerName}`,
-    });
-    setForm({ ...form, amount: "", note: "" });
-    setWarning("");
+    setSaving(true);
+    try {
+      const res = await fetch("/api/drawings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, amount: amt }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      const owner = owners.find((o) => o.id === form.ownerId);
+      const entity = entities.find((en) => en.id === form.entityId);
+      setLocalDrawings((prev) => [{
+        id: json.data?.id || String(Date.now()),
+        date: form.date,
+        entityName: entity?.name || "",
+        entityColor: entity?.color || "#3B82F6",
+        entityId: form.entityId,
+        ownerName: owner?.ownerName || "",
+        ownershipPct: owner?.ownershipPct || 0,
+        sourceAccount: form.sourceAccount,
+        amount: amt,
+        currency: "USD",
+        status: "PENDING",
+        balanceAtDraw: selectedBalance,
+        note: form.note,
+      }, ...prev]);
+
+      toast.success(`Drawing of ${formatUSD(amt)} recorded`);
+      setForm((f) => ({ ...f, amount: "", note: "" }));
+      setWarning("");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to record drawing");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="max-w-3xl animate-fade-in">
       <div className="mb-6">
         <h1 className="text-2xl font-display text-ink-white">Owner Drawings</h1>
-        <p className="text-sm text-ink-muted mt-1">
-          Distribute from Profit or Owner's Comp · Cap warnings enabled
-        </p>
+        <p className="text-sm text-ink-muted mt-1">Distribute from Profit or Owner's Comp</p>
       </div>
 
-      {/* New Drawing Form */}
       <form onSubmit={handleSubmit} className="card p-6 mb-6 space-y-4">
         <div className="text-sm font-semibold text-ink-white">New Distribution</div>
 
         {warning && (
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-accent-red/10 border border-accent-red/20 text-accent-red text-sm animate-slide-down">
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-accent-red/10 border border-accent-red/20 text-accent-red text-sm">
             <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
             <div>
               <div className="font-semibold">Cap Warning</div>
@@ -86,7 +120,7 @@ export function DrawingsClient({ drawings, owners }: { drawings: DrawingRecord[]
               <button
                 type="button"
                 onClick={() => { setWarning(""); toast.warning("Drawing forced through — flagged for review"); }}
-                className="text-xs underline mt-1 hover:text-accent-red/80"
+                className="text-xs underline mt-1"
               >
                 Force proceed anyway
               </button>
@@ -94,24 +128,34 @@ export function DrawingsClient({ drawings, owners }: { drawings: DrawingRecord[]
           </div>
         )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="input-label">Owner</label>
+            <label className="input-label">Entity *</label>
+            <select value={form.entityId} onChange={(e) => setForm({ ...form, entityId: e.target.value, ownerId: "" })} className="input">
+              {entities.map((en) => <option key={en.id} value={en.id}>{en.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="input-label">Owner *</label>
             <select value={form.ownerId} onChange={(e) => setForm({ ...form, ownerId: e.target.value })} className="input">
-              {owners.map((o) => (
-                <option key={o.id} value={o.id}>{o.ownerName} ({o.ownershipPct}%) — {o.entityName}</option>
+              <option value="">— Select owner —</option>
+              {filteredOwners.map((o) => (
+                <option key={o.id} value={o.id}>{o.ownerName} ({o.ownershipPct}%)</option>
               ))}
             </select>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label className="input-label">Source Account</label>
-            <select value={form.sourceAccount} onChange={(e) => setForm({ ...form, sourceAccount: e.target.value })} className="input">
-              <option value="PROFIT">Profit ({formatUSD(simulatedBalances.PROFIT)} avail.)</option>
-              <option value="OWNERS_COMP">Owner's Comp ({formatUSD(simulatedBalances.OWNERS_COMP)} avail.)</option>
+            <select value={form.sourceAccount} onChange={(e) => { setForm({ ...form, sourceAccount: e.target.value }); setWarning(""); }} className="input">
+              <option value="PROFIT">Profit ({formatUSD(getBalance(form.entityId, "PROFIT"))})</option>
+              <option value="OWNERS_COMP">Owner's Comp ({formatUSD(getBalance(form.entityId, "OWNERS_COMP"))})</option>
             </select>
           </div>
           <div>
-            <label className="input-label">Amount (USD)</label>
+            <label className="input-label">Amount (USD) *</label>
             <input
               type="number" step="0.01" value={form.amount}
               onChange={(e) => { setForm({ ...form, amount: e.target.value }); setWarning(""); }}
@@ -122,12 +166,15 @@ export function DrawingsClient({ drawings, owners }: { drawings: DrawingRecord[]
             <label className="input-label">Date</label>
             <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="input" />
           </div>
+          <div>
+            <label className="input-label">Note</label>
+            <input type="text" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Optional…" className="input" />
+          </div>
         </div>
-        <div>
-          <label className="input-label">Note</label>
-          <input type="text" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Q2 Owner Draw..." className="input" />
-        </div>
-        <button type="submit" className="btn-primary w-full">Record Drawing</button>
+
+        <button type="submit" disabled={saving} className="btn-primary w-full">
+          {saving ? "Recording…" : "Record Drawing"}
+        </button>
       </form>
 
       {/* History */}
@@ -144,7 +191,7 @@ export function DrawingsClient({ drawings, owners }: { drawings: DrawingRecord[]
             </tr>
           </thead>
           <tbody>
-            {filteredDrawings.map((d) => (
+            {localDrawings.map((d) => (
               <tr key={d.id} className="table-row">
                 <td className="table-cell font-mono text-xs text-ink-secondary">{d.date}</td>
                 <td className="table-cell text-ink-white text-sm">{d.ownerName}</td>
@@ -166,7 +213,7 @@ export function DrawingsClient({ drawings, owners }: { drawings: DrawingRecord[]
                 </td>
               </tr>
             ))}
-            {filteredDrawings.length === 0 && (
+            {localDrawings.length === 0 && (
               <tr><td colSpan={6} className="table-cell text-center text-ink-faint py-10">No drawings recorded.</td></tr>
             )}
           </tbody>

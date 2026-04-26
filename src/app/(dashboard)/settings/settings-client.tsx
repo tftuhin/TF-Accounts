@@ -2,13 +2,22 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Building2, Calendar, Wallet } from "lucide-react";
+import { Plus, Building2, Calendar, Wallet, CreditCard, Users, Trash2 } from "lucide-react";
 
 interface Entity { id: string; slug: string; name: string; type: string; color: string }
+interface BankAccount { id: string; entityId: string; entityName: string; entityColor: string; accountName: string; accountType: string; currency: string; bankName: string | null }
+interface TeamMember { id: string; email: string; fullName: string; role: string; isActive: boolean }
 
 const ENTITY_COLORS = [
   "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
   "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16",
+];
+
+const ACCOUNT_TYPES = [
+  { value: "FOREIGN_USD", label: "Foreign USD (Stripe, PayPal, Wise)" },
+  { value: "LOCAL_USD",   label: "Local USD account" },
+  { value: "LOCAL_BDT",   label: "Local BDT account" },
+  { value: "PETTY_CASH",  label: "Petty Cash" },
 ];
 
 const currentMonth = () => {
@@ -19,13 +28,21 @@ const currentMonth = () => {
   return { start: `${y}-${m}-01`, end: `${y}-${m}-${lastDay}` };
 };
 
-export function SettingsClient({ entities: initialEntities }: { entities: Entity[] }) {
-  const [entities, setEntities] = useState<Entity[]>(initialEntities);
+export function SettingsClient({
+  entities: initialEntities,
+  bankAccounts: initialBankAccounts,
+  teamMembers: initialTeamMembers,
+}: {
+  entities: Entity[];
+  bankAccounts: BankAccount[];
+  teamMembers: TeamMember[];
+}) {
+  const [entities, setEntities] = useState(initialEntities);
+  const [bankAccounts, setBankAccounts] = useState(initialBankAccounts);
+  const [teamMembers, setTeamMembers] = useState(initialTeamMembers);
 
   // ── Entity form ──────────────────────────────────────────────
-  const [entityForm, setEntityForm] = useState({
-    name: "", slug: "", type: "SUB_BRAND", color: ENTITY_COLORS[0],
-  });
+  const [entityForm, setEntityForm] = useState({ name: "", slug: "", type: "SUB_BRAND", color: ENTITY_COLORS[0] });
   const [savingEntity, setSavingEntity] = useState(false);
 
   async function handleCreateEntity(e: React.FormEvent) {
@@ -50,13 +67,9 @@ export function SettingsClient({ entities: initialEntities }: { entities: Entity
     }
   }
 
-  // ── Petty cash period form ────────────────────────────────────
+  // ── Petty cash period ────────────────────────────────────────
   const defaultDates = currentMonth();
-  const [periodForm, setPeriodForm] = useState({
-    entityId:    entities[0]?.id || "",
-    periodStart: defaultDates.start,
-    periodEnd:   defaultDates.end,
-  });
+  const [periodForm, setPeriodForm] = useState({ entityId: entities[0]?.id || "", periodStart: defaultDates.start, periodEnd: defaultDates.end });
   const [savingPeriod, setSavingPeriod] = useState(false);
 
   async function handleCreatePeriod(e: React.FormEvent) {
@@ -71,7 +84,7 @@ export function SettingsClient({ entities: initialEntities }: { entities: Entity
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      toast.success("Petty cash period created — entry manager can now record expenses");
+      toast.success("Petty cash period created");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to create period");
     } finally {
@@ -79,24 +92,108 @@ export function SettingsClient({ entities: initialEntities }: { entities: Entity
     }
   }
 
+  // ── Bank account form ────────────────────────────────────────
+  const [bankForm, setBankForm] = useState({ entityId: entities[0]?.id || "", accountName: "", accountType: "LOCAL_BDT", currency: "BDT", bankName: "", accountNumber: "" });
+  const [savingBank, setSavingBank] = useState(false);
+
+  function handleAccountTypeChange(accountType: string) {
+    const currency = accountType === "FOREIGN_USD" || accountType === "LOCAL_USD" ? "USD" : "BDT";
+    setBankForm((f) => ({ ...f, accountType, currency }));
+  }
+
+  async function handleCreateBankAccount(e: React.FormEvent) {
+    e.preventDefault();
+    if (!bankForm.entityId || !bankForm.accountName) { toast.error("Entity and account name required"); return; }
+    setSavingBank(true);
+    try {
+      const res = await fetch("/api/bank-accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bankForm),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      const entity = entities.find((e) => e.id === bankForm.entityId);
+      setBankAccounts((prev) => [...prev, {
+        id: json.data.id,
+        entityId: bankForm.entityId,
+        entityName: entity?.name ?? "",
+        entityColor: entity?.color ?? "#3B82F6",
+        accountName: bankForm.accountName,
+        accountType: bankForm.accountType,
+        currency: bankForm.currency,
+        bankName: bankForm.bankName || null,
+      }]);
+      toast.success(`Bank account "${bankForm.accountName}" created`);
+      setBankForm((f) => ({ ...f, accountName: "", bankName: "", accountNumber: "" }));
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to create bank account");
+    } finally {
+      setSavingBank(false);
+    }
+  }
+
+  async function handleDeleteBankAccount(id: string, name: string) {
+    if (!confirm(`Remove "${name}"?`)) return;
+    const res = await fetch(`/api/bank-accounts?id=${id}`, { method: "DELETE" });
+    if ((await res.json()).success) {
+      setBankAccounts((prev) => prev.filter((a) => a.id !== id));
+      toast.success("Account removed");
+    }
+  }
+
+  // ── Invite user ──────────────────────────────────────────────
+  const [inviteForm, setInviteForm] = useState({ email: "", fullName: "", role: "ENTRY_MANAGER" });
+  const [savingInvite, setSavingInvite] = useState(false);
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteForm.email || !inviteForm.fullName) { toast.error("Email and name required"); return; }
+    setSavingInvite(true);
+    try {
+      const res = await fetch("/api/users/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(inviteForm),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      toast.success(`Invitation sent to ${inviteForm.email}`);
+      setTeamMembers((prev) => [...prev, {
+        id: json.data.id,
+        email: inviteForm.email,
+        fullName: inviteForm.fullName,
+        role: inviteForm.role,
+        isActive: true,
+      }]);
+      setInviteForm({ email: "", fullName: "", role: "ENTRY_MANAGER" });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to send invite");
+    } finally {
+      setSavingInvite(false);
+    }
+  }
+
+  const ROLE_LABELS: Record<string, string> = {
+    ADMIN: "Admin",
+    ACCOUNTS_MANAGER: "Accounts Manager",
+    ENTRY_MANAGER: "Entry Manager",
+  };
+
   return (
     <div className="max-w-2xl animate-fade-in space-y-6">
       <div>
         <h1 className="text-2xl font-display text-ink-white">Settings</h1>
-        <p className="text-sm text-ink-muted mt-1">Admin only · Configure entities and petty cash</p>
+        <p className="text-sm text-ink-muted mt-1">Admin only · Entities, bank accounts, petty cash, team</p>
       </div>
 
-      {/* ── Entities ─────────────────────────────────────────── */}
+      {/* ── Entities ────────────────────────────────────────── */}
       <div className="card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Building2 className="w-4 h-4 text-accent-blue" />
           <div className="text-sm font-semibold text-ink-white">Entities (Brands)</div>
         </div>
-        <p className="text-2xs text-ink-faint -mt-2">
-          Entities represent your brands or sub-brands. Create at least one before recording anything.
-        </p>
 
-        {/* Existing entities */}
         {entities.length > 0 && (
           <div className="space-y-1.5">
             {entities.map((en) => (
@@ -110,34 +207,27 @@ export function SettingsClient({ entities: initialEntities }: { entities: Entity
           </div>
         )}
 
-        {/* Create entity form */}
         <form onSubmit={handleCreateEntity} className="space-y-3 pt-2 border-t border-surface-border">
-          <div className="text-xs font-semibold text-ink-secondary flex items-center gap-1.5">
-            <Plus className="w-3.5 h-3.5" /> Add Entity
-          </div>
+          <div className="text-xs font-semibold text-ink-secondary flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Add Entity</div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="input-label">Name</label>
               <input
-                type="text"
-                value={entityForm.name}
+                type="text" value={entityForm.name}
                 onChange={(e) => {
                   const name = e.target.value;
                   const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
                   setEntityForm({ ...entityForm, name, slug });
                 }}
-                placeholder="e.g., Teamosis BD"
-                className="input"
+                placeholder="e.g., Teamosis BD" className="input"
               />
             </div>
             <div>
               <label className="input-label">Slug</label>
               <input
-                type="text"
-                value={entityForm.slug}
+                type="text" value={entityForm.slug}
                 onChange={(e) => setEntityForm({ ...entityForm, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") })}
-                placeholder="teamosis-bd"
-                className="input font-mono"
+                placeholder="teamosis-bd" className="input font-mono"
               />
             </div>
           </div>
@@ -153,16 +243,9 @@ export function SettingsClient({ entities: initialEntities }: { entities: Entity
               <label className="input-label">Color</label>
               <div className="flex gap-1.5 mt-1.5 flex-wrap">
                 {ENTITY_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setEntityForm({ ...entityForm, color: c })}
+                  <button key={c} type="button" onClick={() => setEntityForm({ ...entityForm, color: c })}
                     className="w-6 h-6 rounded-md transition-transform hover:scale-110"
-                    style={{
-                      background: c,
-                      outline: entityForm.color === c ? `2px solid ${c}` : "none",
-                      outlineOffset: "2px",
-                    }}
+                    style={{ background: c, outline: entityForm.color === c ? `2px solid ${c}` : "none", outlineOffset: "2px" }}
                   />
                 ))}
               </div>
@@ -174,58 +257,91 @@ export function SettingsClient({ entities: initialEntities }: { entities: Entity
         </form>
       </div>
 
+      {/* ── Bank Accounts ────────────────────────────────────── */}
+      <div className="card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <CreditCard className="w-4 h-4 text-accent-blue" />
+          <div className="text-sm font-semibold text-ink-white">Bank Accounts</div>
+        </div>
+
+        {bankAccounts.length > 0 && (
+          <div className="space-y-1.5">
+            {bankAccounts.map((ba) => (
+              <div key={ba.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2 border border-surface-border">
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ba.entityColor }} />
+                <span className="text-sm text-ink-primary flex-1">{ba.accountName}</span>
+                <span className="text-2xs text-ink-faint">{ba.entityName}</span>
+                <span className="badge bg-surface-4 text-ink-faint">{ba.currency}</span>
+                <button onClick={() => handleDeleteBankAccount(ba.id, ba.accountName)} className="text-ink-faint hover:text-accent-red">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {entities.length === 0 ? (
+          <div className="text-sm text-ink-muted text-center py-3">Create an entity first.</div>
+        ) : (
+          <form onSubmit={handleCreateBankAccount} className="space-y-3 pt-2 border-t border-surface-border">
+            <div className="text-xs font-semibold text-ink-secondary flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Add Bank Account</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="input-label">Entity</label>
+                <select value={bankForm.entityId} onChange={(e) => setBankForm({ ...bankForm, entityId: e.target.value })} className="input">
+                  {entities.map((en) => <option key={en.id} value={en.id}>{en.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="input-label">Account Name</label>
+                <input type="text" value={bankForm.accountName} onChange={(e) => setBankForm({ ...bankForm, accountName: e.target.value })} placeholder="e.g., DBBL BDT Account" className="input" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="input-label">Account Type</label>
+                <select value={bankForm.accountType} onChange={(e) => handleAccountTypeChange(e.target.value)} className="input">
+                  {ACCOUNT_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="input-label">Bank Name</label>
+                <input type="text" value={bankForm.bankName} onChange={(e) => setBankForm({ ...bankForm, bankName: e.target.value })} placeholder="DBBL, Stripe…" className="input" />
+              </div>
+            </div>
+            <button type="submit" disabled={savingBank} className="btn-primary w-full text-sm">
+              {savingBank ? "Creating…" : `Create ${bankForm.currency} Account`}
+            </button>
+          </form>
+        )}
+      </div>
+
       {/* ── Petty Cash Period ────────────────────────────────── */}
       <div className="card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Wallet className="w-4 h-4 text-accent-green" />
           <div className="text-sm font-semibold text-ink-white">Petty Cash Period</div>
         </div>
-        <p className="text-2xs text-ink-faint -mt-2">
-          Create a monthly period to activate petty cash tracking for the Entry Manager.
-          Currency is always <strong className="text-ink-secondary">BDT</strong>.
-          Fund the account by recording a <em>Fund Top-up</em> entry after creation.
-        </p>
+        <p className="text-2xs text-ink-faint -mt-2">Open a monthly period to activate petty cash tracking. Currency is always BDT.</p>
 
         {entities.length === 0 ? (
-          <div className="px-4 py-3 rounded-lg bg-surface-2 border border-surface-border text-sm text-ink-muted text-center">
-            Create an entity first before opening a petty cash period.
-          </div>
+          <div className="text-sm text-ink-muted text-center py-3">Create an entity first.</div>
         ) : (
           <form onSubmit={handleCreatePeriod} className="space-y-3">
             <div>
               <label className="input-label">Entity</label>
-              <select
-                value={periodForm.entityId}
-                onChange={(e) => setPeriodForm({ ...periodForm, entityId: e.target.value })}
-                className="input"
-              >
-                {entities.map((en) => (
-                  <option key={en.id} value={en.id}>{en.name}</option>
-                ))}
+              <select value={periodForm.entityId} onChange={(e) => setPeriodForm({ ...periodForm, entityId: e.target.value })} className="input">
+                {entities.map((en) => <option key={en.id} value={en.id}>{en.name}</option>)}
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="input-label flex items-center gap-1.5">
-                  <Calendar className="w-3 h-3" /> Period Start
-                </label>
-                <input
-                  type="date"
-                  value={periodForm.periodStart}
-                  onChange={(e) => setPeriodForm({ ...periodForm, periodStart: e.target.value })}
-                  className="input"
-                />
+                <label className="input-label">Period Start</label>
+                <input type="date" value={periodForm.periodStart} onChange={(e) => setPeriodForm({ ...periodForm, periodStart: e.target.value })} className="input" />
               </div>
               <div>
-                <label className="input-label flex items-center gap-1.5">
-                  <Calendar className="w-3 h-3" /> Period End
-                </label>
-                <input
-                  type="date"
-                  value={periodForm.periodEnd}
-                  onChange={(e) => setPeriodForm({ ...periodForm, periodEnd: e.target.value })}
-                  className="input"
-                />
+                <label className="input-label">Period End</label>
+                <input type="date" value={periodForm.periodEnd} onChange={(e) => setPeriodForm({ ...periodForm, periodEnd: e.target.value })} className="input" />
               </div>
             </div>
             <button type="submit" disabled={savingPeriod} className="btn-primary w-full text-sm">
@@ -233,6 +349,58 @@ export function SettingsClient({ entities: initialEntities }: { entities: Entity
             </button>
           </form>
         )}
+      </div>
+
+      {/* ── Team / Invite ─────────────────────────────────────── */}
+      <div className="card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-accent-blue" />
+          <div className="text-sm font-semibold text-ink-white">Team Members</div>
+        </div>
+
+        {teamMembers.length > 0 && (
+          <div className="space-y-1.5">
+            {teamMembers.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2 border border-surface-border">
+                <div className="w-7 h-7 rounded-md bg-accent-blue/15 flex items-center justify-center text-2xs font-bold text-accent-blue">
+                  {m.fullName.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-ink-white">{m.fullName}</div>
+                  <div className="text-2xs text-ink-faint">{m.email}</div>
+                </div>
+                <span className={`badge text-2xs ${m.role === "ADMIN" ? "bg-accent-red/10 text-accent-red" : m.role === "ACCOUNTS_MANAGER" ? "bg-accent-blue/10 text-accent-blue" : "bg-surface-4 text-ink-faint"}`}>
+                  {ROLE_LABELS[m.role] || m.role}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={handleInvite} className="space-y-3 pt-2 border-t border-surface-border">
+          <div className="text-xs font-semibold text-ink-secondary flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Invite Team Member</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="input-label">Full Name</label>
+              <input type="text" value={inviteForm.fullName} onChange={(e) => setInviteForm({ ...inviteForm, fullName: e.target.value })} placeholder="Rafiqul Islam" className="input" />
+            </div>
+            <div>
+              <label className="input-label">Email</label>
+              <input type="email" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} placeholder="rafiq@teamosis.com" className="input" />
+            </div>
+          </div>
+          <div>
+            <label className="input-label">Role</label>
+            <select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })} className="input">
+              <option value="ENTRY_MANAGER">Entry Manager — petty cash only</option>
+              <option value="ACCOUNTS_MANAGER">Accounts Manager — full access, no delete</option>
+              <option value="ADMIN">Admin — full access</option>
+            </select>
+          </div>
+          <button type="submit" disabled={savingInvite} className="btn-primary w-full text-sm">
+            {savingInvite ? "Sending…" : "Send Invite Email"}
+          </button>
+        </form>
       </div>
     </div>
   );

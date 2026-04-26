@@ -1,11 +1,11 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
-import { ExpenseClient } from "./expense-client";
+import { IncomeClient } from "./income-client";
 
-export default async function ExpensesPage() {
+export default async function IncomePage() {
   const session = await getSession();
-  if (!session || !canAccess(session.role, "expenses")) {
+  if (!session || !canAccess(session.role, "income")) {
     return <div className="card p-10 text-center text-ink-faint">Access denied.</div>;
   }
 
@@ -22,5 +22,5 @@ export default async function ExpensesPage() {
     }),
   ]);
 
-  return <ExpenseClient entities={entities} bankAccounts={bankAccounts} userRole={session.role} />;
+  return <IncomeClient entities={entities} bankAccounts={bankAccounts} userRole={session.role} />;
 }

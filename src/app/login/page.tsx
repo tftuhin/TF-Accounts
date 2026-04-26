@@ -9,9 +9,9 @@ export default function LoginPage() {
         <div className="absolute -bottom-1/2 -left-1/4 w-[600px] h-[600px] rounded-full bg-accent-blue/[0.03] blur-3xl" />
         {/* Grid pattern */}
         <div
-          className="absolute inset-0 opacity-[0.02]"
+          className="absolute inset-0"
           style={{
-            backgroundImage: `linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)`,
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px)`,
             backgroundSize: "60px 60px",
           }}
         />

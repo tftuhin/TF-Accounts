@@ -5,7 +5,8 @@ import { z } from "zod";
 
 const CreateDrawingSchema = z.object({
   entityId: z.string().uuid(),
-  ownershipRegistryId: z.string().uuid(),
+  ownershipRegistryId: z.string().uuid().optional(),
+  ownerId: z.string().uuid().optional(),
   sourceAccount: z.enum(["PROFIT", "OWNERS_COMP"]),
   amount: z.number().positive(),
   date: z.string(),
@@ -72,10 +73,13 @@ export async function POST(req: NextRequest) {
       return sum + (l.entryType === "CREDIT" ? amt : -amt);
     }, 0);
 
+    const registryId = data.ownershipRegistryId || data.ownerId;
+    if (!registryId) return NextResponse.json({ error: "ownershipRegistryId or ownerId required" }, { status: 400 });
+
     const drawing = await prisma.drawing.create({
       data: {
         entityId: data.entityId,
-        ownershipRegistryId: data.ownershipRegistryId,
+        ownershipRegistryId: registryId,
         sourceAccount: data.sourceAccount,
         amount: data.amount,
         date: new Date(data.date),

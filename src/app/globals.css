@@ -33,7 +33,7 @@
 
   /* Selection */
   ::selection {
-    @apply bg-accent-blue/30 text-ink-white;
+    @apply bg-accent-blue/20 text-ink-strong;
   }
 }
 

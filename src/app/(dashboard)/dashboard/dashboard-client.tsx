@@ -1,239 +1,224 @@
 "use client";
 
+import { useState } from "react";
 import { useAppStore } from "@/lib/store";
-import { formatUSD, PF_CONFIG, type PfAccountKey } from "@/lib/utils";
-import { PfAccountCard } from "@/components/dashboard/pf-account-card";
-import { SubBrandCharts, ConsolidatedComparisonChart } from "@/components/dashboard/sub-brand-charts";
-import { MoneyFlowDiagram } from "@/components/dashboard/money-flow-diagram";
-import { AllocationEngine } from "@/components/dashboard/allocation-engine";
-import { toast } from "sonner";
-import type { UserRole } from "@/types";
+import { formatUSD, formatBDT } from "@/lib/utils";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from "recharts";
+import { TrendingUp, TrendingDown, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
 
-interface DashboardData {
-  entities: {
-    id: string; slug: string; name: string; type: string; color: string;
-    currentRatios: { quarter: string; profitPct: number; ownerCompPct: number; taxPct: number; opexPct: number } | null;
-  }[];
-  pfBalances: Record<string, Record<string, { opening: number; deposits: number; withdrawals: number; balance: number }>>;
-  entityMonthly: Record<string, { month: string; income: number; expenses: number }[]>;
-  recentTransactions: {
-    id: string; date: string; description: string; entityName: string; entityColor: string;
-    status: string; category: string | null; hasReceipt: boolean;
-    lines: { pfAccount: string | null; entryType: string; amount: number }[];
-  }[];
-  bankAccounts: { id: string; accountName: string; accountType: string; currency: string; bankName: string | null }[];
+interface Entity {
+  id: string; slug: string; name: string; type: string; color: string; parentId: string | null;
 }
 
-export function DashboardClient({ data, userRole }: { data: DashboardData; userRole: UserRole }) {
+interface DashboardClientProps {
+  entities: Entity[];
+  monthlyByEntity: Record<string, { month: string; income: number; expenses: number }[]>;
+}
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function getEntityStats(
+  entityId: string,
+  monthlyByEntity: Record<string, { month: string; income: number; expenses: number }[]>,
+  monthKey: string
+) {
+  const data = monthlyByEntity[entityId] || [];
+  const row = data.find((d) => d.month === monthKey);
+  const income = row?.income ?? 0;
+  const expenses = row?.expenses ?? 0;
+  return { income, expenses, profit: income - expenses };
+}
+
+function consolidatedStats(
+  entityIds: string[],
+  monthlyByEntity: Record<string, { month: string; income: number; expenses: number }[]>,
+  monthKey: string
+) {
+  let income = 0, expenses = 0;
+  for (const eid of entityIds) {
+    const s = getEntityStats(eid, monthlyByEntity, monthKey);
+    income += s.income;
+    expenses += s.expenses;
+  }
+  return { income, expenses, profit: income - expenses };
+}
+
+export function DashboardClient({ entities, monthlyByEntity }: DashboardClientProps) {
   const currentEntityId = useAppStore((s) => s.currentEntityId);
   const isConsolidated = currentEntityId === "consolidated";
 
-  // Get current entity's PF balances
-  const getEntityBalances = (entityId: string) => data.pfBalances[entityId] || {};
+  const now = new Date();
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth()); // 0-based
 
-  // For consolidated, aggregate all entities
-  const consolidatedBalances = (() => {
-    const result: Record<string, { opening: number; deposits: number; withdrawals: number; balance: number }> = {};
-    for (const pf of ["INCOME", "PROFIT", "OWNERS_COMP", "TAX", "OPEX"]) {
-      result[pf] = { opening: 0, deposits: 0, withdrawals: 0, balance: 0 };
-      for (const eid of Object.keys(data.pfBalances)) {
-        const acc = data.pfBalances[eid]?.[pf];
-        if (acc) {
-          result[pf].opening += acc.opening;
-          result[pf].deposits += acc.deposits;
-          result[pf].withdrawals += acc.withdrawals;
-          result[pf].balance += acc.balance;
-        }
-      }
-    }
-    return result;
-  })();
+  const monthKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}`;
 
-  const balances = isConsolidated ? consolidatedBalances : getEntityBalances(currentEntityId);
-  const entity = data.entities.find((e) => e.id === currentEntityId);
-  const currentRatios = entity?.currentRatios;
+  const subBrands = entities.filter((e) => e.type === "SUB_BRAND");
+  const allEntityIds = entities.map((e) => e.id);
 
-  // Total equity
-  const totalEquity = Object.values(balances).reduce((s, a) => s + a.balance, 0);
+  // Stats for the header cards
+  const stats = isConsolidated
+    ? consolidatedStats(allEntityIds, monthlyByEntity, monthKey)
+    : getEntityStats(currentEntityId, monthlyByEntity, monthKey);
 
-  // Sub-brand chart data
-  const subBrands = data.entities.filter((e) => e.type === "SUB_BRAND");
-  const chartData = subBrands.map((e) => ({
-    entityName: e.name,
-    entityColor: e.color,
-    monthlyData: data.entityMonthly[e.id] || [],
-  }));
+  const selectedEntity = entities.find((e) => e.id === currentEntityId);
 
-  // Consolidated comparison data
-  const comparisonData = data.entities.map((e) => {
-    const monthly = data.entityMonthly[e.id] || [];
-    return {
-      name: e.name,
-      income: monthly.reduce((s, m) => s + m.income, 0),
-      expenses: monthly.reduce((s, m) => s + m.expenses, 0),
-      color: e.color,
-    };
+  // Chart data: per sub-brand for selected month
+  const chartData = subBrands.map((e) => {
+    const s = getEntityStats(e.id, monthlyByEntity, monthKey);
+    return { name: e.name, Income: s.income, Expenses: s.expenses, Profit: s.profit, color: e.color };
   });
 
-  const handleAllocate = (total: number, allocations: Record<string, number>) => {
-    toast.success(`Allocated ${formatUSD(total)} across PF accounts`, {
-      description: Object.entries(allocations)
-        .map(([k, v]) => `${PF_CONFIG[k as PfAccountKey]?.label}: ${formatUSD(v)}`)
-        .join(" · "),
-    });
-  };
+  // Also add consolidated bar to chart
+  if (subBrands.length > 1) {
+    const cs = consolidatedStats(allEntityIds, monthlyByEntity, monthKey);
+    chartData.push({ name: "Consolidated", Income: cs.income, Expenses: cs.expenses, Profit: cs.profit, color: "#6B7280" });
+  }
 
-  // Filter recent transactions by entity
-  const filteredTxns = isConsolidated
-    ? data.recentTransactions
-    : data.recentTransactions.filter((t) => {
-        const ent = data.entities.find((e) => e.name === t.entityName);
-        return ent?.id === currentEntityId;
-      });
+  function prevMonth() {
+    if (selectedMonth === 0) { setSelectedMonth(11); setSelectedYear(y => y - 1); }
+    else setSelectedMonth(m => m - 1);
+  }
+  function nextMonth() {
+    const future = selectedYear > now.getFullYear() || (selectedYear === now.getFullYear() && selectedMonth >= now.getMonth());
+    if (future) return;
+    if (selectedMonth === 11) { setSelectedMonth(0); setSelectedYear(y => y + 1); }
+    else setSelectedMonth(m => m + 1);
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="card p-5 flex items-center justify-between">
+      <div className="flex items-center justify-between">
         <div>
-          <div className="text-2xs text-ink-faint uppercase tracking-wider">
-            {isConsolidated ? "Consolidated Group" : entity?.name} · Total Equity
-          </div>
-          <div className="text-3xl font-bold text-ink-white font-mono tracking-tight mt-1">
-            {formatUSD(totalEquity)}
-          </div>
+          <h1 className="text-2xl font-display text-ink-white">
+            {isConsolidated ? "Consolidated" : selectedEntity?.name ?? "Dashboard"}
+          </h1>
+          <p className="text-sm text-ink-muted mt-0.5">Income, Expenses & Profit</p>
         </div>
-        <div className="flex gap-6 text-center">
-          <div>
-            <div className="text-2xs text-ink-faint">Transactions</div>
-            <div className="text-lg font-bold text-ink-white">{filteredTxns.length}</div>
+
+        {/* Month / Year selector */}
+        <div className="flex items-center gap-2">
+          <button onClick={prevMonth} className="p-1.5 rounded-lg bg-surface-2 border border-surface-border hover:bg-surface-3 text-ink-secondary">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="px-4 py-1.5 rounded-lg bg-surface-2 border border-surface-border text-sm text-ink-white font-medium min-w-[120px] text-center">
+            {MONTHS[selectedMonth]} {selectedYear}
           </div>
-          <div>
-            <div className="text-2xs text-ink-faint">Quarter</div>
-            <div className="text-lg font-bold text-accent-green">{currentRatios?.quarter || "Q2-2025"}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Money Flow Pipeline */}
-      <MoneyFlowDiagram />
-
-      {/* Allocation Engine (only for specific entity) */}
-      {!isConsolidated && currentRatios && (
-        <AllocationEngine ratios={currentRatios} onAllocate={handleAllocate} />
-      )}
-
-      {/* PF Account Cards */}
-      <div>
-        <h3 className="text-base font-semibold text-ink-white mb-4">Profit First Accounts</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          {(["INCOME", "PROFIT", "OWNERS_COMP", "TAX", "OPEX"] as const).map((pf) => {
-            const acc = balances[pf] || { opening: 0, deposits: 0, withdrawals: 0, balance: 0 };
-            const targetPct = currentRatios
-              ? pf === "PROFIT" ? currentRatios.profitPct
-                : pf === "OWNERS_COMP" ? currentRatios.ownerCompPct
-                : pf === "TAX" ? currentRatios.taxPct
-                : pf === "OPEX" ? currentRatios.opexPct
-                : undefined
-              : undefined;
-
-            return (
-              <PfAccountCard
-                key={pf}
-                account={pf}
-                opening={acc.opening}
-                deposits={acc.deposits}
-                withdrawals={acc.withdrawals}
-                balance={acc.balance}
-                targetPct={targetPct}
-                trendData={[acc.opening, acc.opening + acc.deposits * 0.3, acc.opening + acc.deposits * 0.6, acc.balance]}
-              />
-            );
-          })}
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            className="input py-1.5 text-sm w-24"
+          >
+            {[now.getFullYear() - 1, now.getFullYear()].map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <button onClick={nextMonth} className="p-1.5 rounded-lg bg-surface-2 border border-surface-border hover:bg-surface-3 text-ink-secondary">
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Sub-Brand Income/Expense Charts */}
-      {isConsolidated && chartData.length > 0 && (
-        <>
-          <SubBrandCharts data={chartData} />
-          <ConsolidatedComparisonChart data={comparisonData} />
-        </>
-      )}
-
-      {/* Recent Transactions Table */}
-      <div className="table-container">
-        <div className="card-header flex items-center justify-between">
-          <div className="text-sm font-semibold text-ink-white">Recent Transactions</div>
-          <div className="text-2xs text-ink-faint">{filteredTxns.length} entries</div>
+      {/* Summary stat cards */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingUp className="w-4 h-4 text-accent-green" />
+            <div className="text-2xs text-ink-faint uppercase tracking-wider">Income</div>
+          </div>
+          <div className="text-2xl font-bold font-mono text-accent-green">{formatUSD(stats.income)}</div>
+          <div className="text-xs text-ink-faint mt-1">{MONTHS[selectedMonth]} {selectedYear}</div>
         </div>
-        <div className="overflow-x-auto max-h-96 overflow-y-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="table-header">
-                {["Date", "Description", "Entity", "Account", "Amount", "Receipt"].map((h) => (
-                  <th key={h} className="table-cell text-left">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTxns.slice(0, 15).map((t) => {
-                const primaryLine = t.lines[0];
-                const isCredit = primaryLine?.entryType === "CREDIT";
-                const totalAmount = t.lines.reduce(
-                  (s, l) => s + (l.entryType === "CREDIT" ? l.amount : 0), 0
-                ) || t.lines.reduce((s, l) => s + (l.entryType === "DEBIT" ? l.amount : 0), 0);
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <TrendingDown className="w-4 h-4 text-accent-red" />
+            <div className="text-2xs text-ink-faint uppercase tracking-wider">Expenses</div>
+          </div>
+          <div className="text-2xl font-bold font-mono text-accent-red">{formatUSD(stats.expenses)}</div>
+          <div className="text-xs text-ink-faint mt-1">{MONTHS[selectedMonth]} {selectedYear}</div>
+        </div>
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="w-4 h-4 text-accent-blue" />
+            <div className="text-2xs text-ink-faint uppercase tracking-wider">Profit</div>
+          </div>
+          <div className={`text-2xl font-bold font-mono ${stats.profit >= 0 ? "text-accent-blue" : "text-accent-red"}`}>
+            {formatUSD(stats.profit)}
+          </div>
+          <div className="text-xs text-ink-faint mt-1">{MONTHS[selectedMonth]} {selectedYear}</div>
+        </div>
+      </div>
 
-                return (
-                  <tr key={t.id} className="table-row">
-                    <td className="table-cell font-mono text-xs text-ink-secondary">{t.date}</td>
-                    <td className="table-cell text-ink-white">{t.description}</td>
-                    <td className="table-cell">
-                      <span
-                        className="badge"
-                        style={{
-                          background: `${t.entityColor}15`,
-                          color: t.entityColor,
-                          border: `1px solid ${t.entityColor}30`,
-                        }}
-                      >
-                        {t.entityName}
+      {/* Sub-brand breakdown grid */}
+      {(isConsolidated ? subBrands : entities.filter(e => e.id === currentEntityId)).length > 0 && (
+        <div>
+          <h3 className="text-sm font-semibold text-ink-secondary uppercase tracking-wider mb-3">
+            {isConsolidated ? "Sub-Brand Breakdown" : "Entity Summary"} — {MONTHS[selectedMonth]} {selectedYear}
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {(isConsolidated ? subBrands : entities.filter(e => e.id === currentEntityId)).map((e) => {
+              const s = getEntityStats(e.id, monthlyByEntity, monthKey);
+              return (
+                <div key={e.id} className="card p-4" style={{ borderLeftColor: e.color, borderLeftWidth: 3 }}>
+                  <div className="text-sm font-semibold mb-3" style={{ color: e.color }}>{e.name}</div>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-ink-faint">Income</span>
+                      <span className="font-mono text-accent-green">{formatUSD(s.income)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-ink-faint">Expenses</span>
+                      <span className="font-mono text-accent-red">{formatUSD(s.expenses)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs border-t border-surface-border pt-1.5 mt-1.5">
+                      <span className="text-ink-secondary font-medium">Profit</span>
+                      <span className={`font-mono font-semibold ${s.profit >= 0 ? "text-accent-blue" : "text-accent-red"}`}>
+                        {formatUSD(s.profit)}
                       </span>
-                    </td>
-                    <td className="table-cell">
-                      {primaryLine?.pfAccount && (
-                        <span
-                          className="text-xs font-medium"
-                          style={{ color: PF_CONFIG[primaryLine.pfAccount as PfAccountKey]?.color }}
-                        >
-                          {PF_CONFIG[primaryLine.pfAccount as PfAccountKey]?.label}
-                        </span>
-                      )}
-                    </td>
-                    <td className={`table-cell font-mono font-semibold ${isCredit ? "text-accent-green" : "text-accent-red"}`}>
-                      {isCredit ? "+" : "-"}{formatUSD(totalAmount)}
-                    </td>
-                    <td className="table-cell">
-                      {t.hasReceipt ? (
-                        <span className="text-2xs text-accent-green">✓ Attached</span>
-                      ) : (
-                        <span className="text-2xs text-ink-faint">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              {filteredTxns.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="table-cell text-center text-ink-faint py-10">
-                    No transactions yet. Record your first income or expense.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Performance Chart */}
+      {chartData.length > 0 && (
+        <div className="card p-5">
+          <div className="text-sm font-semibold text-ink-white mb-4">
+            Income vs Expenses vs Profit — {MONTHS[selectedMonth]} {selectedYear}
+          </div>
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3a" />
+              <XAxis dataKey="name" tick={{ fill: "#6b7280", fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: "#6b7280", fontSize: 11 }} axisLine={false} tickLine={false}
+                tickFormatter={(v) => v >= 1000 ? `$${(v/1000).toFixed(0)}k` : `$${v}`} />
+              <Tooltip
+                contentStyle={{ background: "#1a1a2e", border: "1px solid #2a2a3a", borderRadius: 8 }}
+                labelStyle={{ color: "#e2e8f0" }}
+                formatter={(value: number) => [`$${value.toLocaleString()}`, undefined]}
+              />
+              <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="Income" fill="#10B981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Expenses" fill="#EF4444" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Profit" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {chartData.length === 0 && (
+        <div className="card p-10 text-center text-ink-faint">
+          No entities configured yet. Go to Settings to create your first entity.
+        </div>
+      )}
     </div>
   );
 }
