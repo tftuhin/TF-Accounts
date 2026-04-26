@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    @apply bg-surface-0 text-ink-primary font-body;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-surface-border-light;
+  }
+
+  /* Selection */
+  ::selection {
+    @apply bg-accent-blue/30 text-ink-white;
+  }
+}
+
+@layer components {
+  /* Card */
+  .card {
+    @apply bg-surface-1 border border-surface-border rounded-xl;
+  }
+  .card-header {
+    @apply px-5 py-4 border-b border-surface-border;
+  }
+  .card-body {
+    @apply p-5;
+  }
+
+  /* Form inputs */
+  .input {
+    @apply w-full px-3 py-2.5 bg-surface-2 border border-surface-border rounded-lg text-ink-primary text-sm
+           outline-none transition-colors placeholder:text-ink-faint
+           focus:border-accent-blue/50 focus:ring-1 focus:ring-accent-blue/20;
+  }
+  .input-label {
+    @apply block text-2xs font-medium text-ink-muted uppercase tracking-wider mb-1.5;
+  }
+
+  /* Button variants */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-lg
+           transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-accent-blue hover:bg-accent-blue/90 text-white;
+  }
+  .btn-secondary {
+    @apply btn bg-surface-3 hover:bg-surface-4 text-ink-primary border border-surface-border;
+  }
+  .btn-danger {
+    @apply btn bg-accent-red/10 hover:bg-accent-red/20 text-accent-red border border-accent-red/20;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent hover:bg-surface-3 text-ink-secondary;
+  }
+
+  /* Badge */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold;
+  }
+
+  /* Table */
+  .table-container {
+    @apply card overflow-hidden;
+  }
+  .table-row {
+    @apply border-b border-surface-border last:border-0 hover:bg-surface-2/50 transition-colors;
+  }
+  .table-header {
+    @apply bg-surface-2 text-ink-muted text-2xs font-medium uppercase tracking-wider;
+  }
+  .table-cell {
+    @apply px-4 py-3 text-sm;
+  }
+
+  /* Stat card for PF accounts */
+  .pf-card {
+    @apply card relative overflow-hidden transition-all duration-200 hover:border-surface-border-light;
+  }
+
+  /* Shimmer loading */
+  .shimmer {
+    @apply bg-gradient-to-r from-surface-2 via-surface-3 to-surface-2 bg-[length:400%_100%] animate-shimmer rounded;
+  }
+}
+
+/* Animations */
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-down {
+  animation: slideDown 0.2s ease-out;
+}

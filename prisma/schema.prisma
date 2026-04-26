@@ -1,0 +1,546 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── ENUMS ──────────────────────────────────────────────────
+
+enum EntityType {
+  PARENT
+  SUB_BRAND
+
+  @@map("entity_type")
+}
+
+enum PfAccountType {
+  INCOME
+  PROFIT
+  OWNERS_COMP
+  TAX
+  OPEX
+
+  @@map("pf_account_type")
+}
+
+enum TxnType {
+  DEBIT
+  CREDIT
+
+  @@map("txn_type")
+}
+
+enum TxnStatus {
+  DRAFT
+  FINALIZED
+  VOIDED
+
+  @@map("txn_status")
+}
+
+enum UserRole {
+  ADMIN
+  ACCOUNTS_MANAGER
+  ENTRY_MANAGER
+
+  @@map("user_role")
+}
+
+enum DrawingStatus {
+  PENDING
+  APPROVED
+  COMPLETED
+  REJECTED
+
+  @@map("drawing_status")
+}
+
+enum TransferType {
+  LOAN
+  CAPITAL_TRANSFER
+
+  @@map("transfer_type")
+}
+
+enum TransferStatus {
+  ACTIVE
+  REPAID
+  WRITTEN_OFF
+
+  @@map("transfer_status")
+}
+
+enum ReconciliationStatus {
+  MATCHED
+  UNMATCHED
+  DISPUTED
+
+  @@map("reconciliation_status")
+}
+
+enum Currency {
+  USD
+  BDT
+
+  @@map("currency")
+}
+
+enum BankAccountType {
+  FOREIGN_USD
+  LOCAL_USD
+  LOCAL_BDT
+  PETTY_CASH
+
+  @@map("bank_account_type")
+}
+
+enum PettyCashTxnType {
+  ATM_WITHDRAWAL
+  CARD_PAYMENT
+  CASH_EXPENSE
+  FLOAT_TOPUP
+
+  @@map("petty_cash_txn_type")
+}
+
+// ─── ENTITIES (Multi-Tenancy) ───────────────────────────────
+
+model Entity {
+  id        String     @id @default(uuid())
+  slug      String     @unique
+  name      String
+  type      EntityType @default(SUB_BRAND)
+  parentId  String?    @map("parent_id")
+  parent    Entity?    @relation("EntityHierarchy", fields: [parentId], references: [id])
+  children  Entity[]   @relation("EntityHierarchy")
+  color     String     @default("#3B82F6")
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  ownership       OwnershipRegistry[]
+  ratioVersions   PfRatioVersion[]
+  accounts        ChartOfAccounts[]
+  journalEntries  JournalEntry[]
+  entryLines      JournalEntryLine[]
+  drawings        Drawing[]
+  bankAccounts    BankAccount[]
+  pettyCashPeriods PettyCashPeriod[]
+  pettyCashEntries PettyCashEntry[]
+  bankStatements  BankStatement[]
+  splitAllocations SplitAllocation[]
+  transfersFrom   InterBrandTransfer[] @relation("TransferFrom")
+  transfersTo     InterBrandTransfer[] @relation("TransferTo")
+  userAccess      UserEntityAccess[]
+  fundTransfers   FundTransfer[]
+
+  @@map("entities")
+}
+
+// ─── BANK ACCOUNTS (Money Flow Topology) ────────────────────
+// Tracks: Foreign USD accounts → BD USD/BDT accounts → PF virtual accounts → Petty Cash
+
+model BankAccount {
+  id           String          @id @default(uuid())
+  entityId     String          @map("entity_id")
+  entity       Entity          @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  accountName  String          @map("account_name")    // "Stripe USD", "DBBL BDT", "Petty Cash - Office"
+  accountType  BankAccountType @map("account_type")
+  currency     Currency        @default(USD)
+  bankName     String?         @map("bank_name")       // "Stripe", "Dutch Bangla Bank", etc.
+  accountNumber String?        @map("account_number")   // Last 4 digits only for display
+  isActive     Boolean         @default(true) @map("is_active")
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  transfersFrom FundTransfer[] @relation("FundTransferFrom")
+  transfersTo   FundTransfer[] @relation("FundTransferTo")
+
+  @@map("bank_accounts")
+}
+
+// ─── FUND TRANSFERS (USD Foreign → BD Local → PF Allocation) ─
+
+model FundTransfer {
+  id              String   @id @default(uuid())
+  entityId        String   @map("entity_id")
+  entity          Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  fromAccountId   String   @map("from_account_id")
+  fromAccount     BankAccount @relation("FundTransferFrom", fields: [fromAccountId], references: [id])
+  toAccountId     String   @map("to_account_id")
+  toAccount       BankAccount @relation("FundTransferTo", fields: [toAccountId], references: [id])
+  amountFrom      Decimal  @map("amount_from") @db.Decimal(15, 2)
+  currencyFrom    Currency @map("currency_from")
+  amountTo        Decimal  @map("amount_to") @db.Decimal(15, 2)
+  currencyTo      Currency @map("currency_to")
+  exchangeRate    Decimal? @map("exchange_rate") @db.Decimal(10, 4)  // USD→BDT rate at time of transfer
+  date            DateTime @db.Date
+  reference       String?                                             // Wire ref, transaction ID
+  journalEntryId  String?  @unique @map("journal_entry_id")
+  journalEntry    JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  note            String?
+  createdBy       String   @map("created_by")
+  creator         User     @relation(fields: [createdBy], references: [id])
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("fund_transfers")
+}
+
+// ─── OWNERSHIP REGISTRY ─────────────────────────────────────
+
+model OwnershipRegistry {
+  id            String   @id @default(uuid())
+  entityId      String   @map("entity_id")
+  entity        Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  ownerName     String   @map("owner_name")
+  ownershipPct  Decimal  @map("ownership_pct") @db.Decimal(5, 2)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  drawings Drawing[]
+
+  @@index([entityId])
+  @@map("ownership_registry")
+}
+
+// ─── PROFIT FIRST RATIO VERSIONS ────────────────────────────
+
+model PfRatioVersion {
+  id            String   @id @default(uuid())
+  entityId      String   @map("entity_id")
+  entity        Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  quarter       String                                  // "Q1-2025"
+  profitPct     Decimal  @map("profit_pct") @db.Decimal(5, 2)
+  ownerCompPct  Decimal  @map("owner_comp_pct") @db.Decimal(5, 2)
+  taxPct        Decimal  @map("tax_pct") @db.Decimal(5, 2)
+  opexPct       Decimal  @map("opex_pct") @db.Decimal(5, 2)
+  effectiveFrom DateTime @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+  isCurrent     Boolean  @default(false) @map("is_current")
+  createdAt     DateTime @default(now()) @map("created_at")
+  createdBy     String?  @map("created_by")
+
+  journalEntries JournalEntry[]
+
+  @@unique([entityId, quarter])
+  @@map("pf_ratio_versions")
+}
+
+// ─── CHART OF ACCOUNTS ──────────────────────────────────────
+
+model ChartOfAccounts {
+  id              String        @id @default(uuid())
+  entityId        String        @map("entity_id")
+  entity          Entity        @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  accountCode     String        @map("account_code")
+  accountName     String        @map("account_name")
+  pfAccount       PfAccountType? @map("pf_account")
+  accountGroup    String        @map("account_group")     // asset, liability, equity, revenue, expense
+  parentAccountId String?       @map("parent_account_id")
+  parentAccount   ChartOfAccounts? @relation("AccountHierarchy", fields: [parentAccountId], references: [id])
+  childAccounts   ChartOfAccounts[] @relation("AccountHierarchy")
+  isActive        Boolean       @default(true) @map("is_active")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  entryLines JournalEntryLine[]
+
+  @@unique([entityId, accountCode])
+  @@map("chart_of_accounts")
+}
+
+// ─── JOURNAL ENTRIES (Double-Entry Core) ────────────────────
+
+model JournalEntry {
+  id                String       @id @default(uuid())
+  entityId          String       @map("entity_id")
+  entity            Entity       @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  entryNumber       Int          @default(autoincrement()) @map("entry_number")
+  date              DateTime     @db.Date
+  description       String
+  reference         String?
+  status            TxnStatus    @default(DRAFT)
+  pfRatioVersionId  String?      @map("pf_ratio_version_id")
+  pfRatioVersion    PfRatioVersion? @relation(fields: [pfRatioVersionId], references: [id])
+  receiptUrl        String?      @map("receipt_url")
+  category          String?
+  tags              String[]     @default([])
+  isSplit           Boolean      @default(false) @map("is_split")
+  splitParentId     String?      @map("split_parent_id")
+  splitParent       JournalEntry? @relation("SplitEntries", fields: [splitParentId], references: [id])
+  splitChildren     JournalEntry[] @relation("SplitEntries")
+  createdById       String       @map("created_by")
+  creator           User         @relation(fields: [createdById], references: [id])
+  createdByRole     UserRole     @map("created_by_role")
+  approvedBy        String?      @map("approved_by")
+  voidedAt          DateTime?    @map("voided_at")
+  voidedBy          String?      @map("voided_by")
+  voidReason        String?      @map("void_reason")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  lines            JournalEntryLine[]
+  splitAllocations SplitAllocation[]
+  drawings         Drawing[]
+  fundTransfer     FundTransfer?
+  evidenceFiles    EvidenceFile[]
+  bankStatementItems BankStatementItem[]
+  pettyCashEntries PettyCashEntry[]
+
+  @@index([entityId, date(sort: Desc)])
+  @@index([status])
+  @@map("journal_entries")
+}
+
+// ─── JOURNAL ENTRY LINES ────────────────────────────────────
+
+model JournalEntryLine {
+  id              String        @id @default(uuid())
+  journalEntryId  String        @map("journal_entry_id")
+  journalEntry    JournalEntry  @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId       String        @map("account_id")
+  account         ChartOfAccounts @relation(fields: [accountId], references: [id])
+  pfAccount       PfAccountType? @map("pf_account")
+  entryType       TxnType       @map("entry_type")
+  amount          Decimal       @db.Decimal(15, 2)
+  currency        Currency      @default(USD)
+  entityId        String        @map("entity_id")
+  entity          Entity        @relation(fields: [entityId], references: [id])
+  memo            String?
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@index([journalEntryId])
+  @@index([pfAccount, entityId])
+  @@map("journal_entry_lines")
+}
+
+// ─── SPLIT ALLOCATIONS ──────────────────────────────────────
+
+model SplitAllocation {
+  id              String       @id @default(uuid())
+  parentEntryId   String       @map("parent_entry_id")
+  parentEntry     JournalEntry @relation(fields: [parentEntryId], references: [id], onDelete: Cascade)
+  childEntityId   String       @map("child_entity_id")
+  childEntity     Entity       @relation(fields: [childEntityId], references: [id])
+  allocationType  String       @map("allocation_type")     // "percentage" | "fixed"
+  allocationValue Decimal      @map("allocation_value") @db.Decimal(15, 2)
+  computedAmount  Decimal      @map("computed_amount") @db.Decimal(15, 2)
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  @@map("split_allocations")
+}
+
+// ─── DRAWINGS ───────────────────────────────────────────────
+
+model Drawing {
+  id                    String        @id @default(uuid())
+  entityId              String        @map("entity_id")
+  entity                Entity        @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  ownershipRegistryId   String        @map("ownership_registry_id")
+  ownershipRegistry     OwnershipRegistry @relation(fields: [ownershipRegistryId], references: [id])
+  sourceAccount         PfAccountType @map("source_account")
+  amount                Decimal       @db.Decimal(15, 2)
+  currency              Currency      @default(USD)
+  date                  DateTime      @db.Date
+  status                DrawingStatus @default(PENDING)
+  journalEntryId        String?       @map("journal_entry_id")
+  journalEntry          JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  note                  String?
+  accountBalanceAtDraw  Decimal?      @map("account_balance_at_draw") @db.Decimal(15, 2)
+  approvedBy            String?       @map("approved_by")
+  approvedAt            DateTime?     @map("approved_at")
+  createdById           String        @map("created_by")
+  creator               User          @relation(fields: [createdById], references: [id])
+  createdAt             DateTime      @default(now()) @map("created_at")
+
+  @@index([entityId, date(sort: Desc)])
+  @@map("drawings")
+}
+
+// ─── INTER-BRAND TRANSFERS ──────────────────────────────────
+
+model InterBrandTransfer {
+  id                String         @id @default(uuid())
+  fromEntityId      String         @map("from_entity_id")
+  fromEntity        Entity         @relation("TransferFrom", fields: [fromEntityId], references: [id])
+  toEntityId        String         @map("to_entity_id")
+  toEntity          Entity         @relation("TransferTo", fields: [toEntityId], references: [id])
+  amount            Decimal        @db.Decimal(15, 2)
+  transferType      TransferType   @map("transfer_type") @default(LOAN)
+  status            TransferStatus @default(ACTIVE)
+  outstandingBalance Decimal?      @map("outstanding_balance") @db.Decimal(15, 2)
+  date              DateTime       @db.Date
+  dueDate           DateTime?      @map("due_date") @db.Date
+  note              String?
+  createdById       String         @map("created_by")
+  creator           User           @relation(fields: [createdById], references: [id])
+  createdAt         DateTime       @default(now()) @map("created_at")
+
+  @@map("inter_brand_transfers")
+}
+
+// ─── PETTY CASH (OPEX → Petty Cash Account → ATM/Card → Expense) ─
+
+model PettyCashPeriod {
+  id           String   @id @default(uuid())
+  entityId     String   @map("entity_id")
+  entity       Entity   @relation(fields: [entityId], references: [id])
+  periodStart  DateTime @map("period_start") @db.Date
+  periodEnd    DateTime @map("period_end") @db.Date
+  floatAmount  Decimal  @map("float_amount") @db.Decimal(15, 2) @default(500)
+  currency     Currency @default(BDT)                                            // Petty cash is always local BDT
+  isClosed     Boolean  @default(false) @map("is_closed")
+  closedAt     DateTime? @map("closed_at")
+  closedBy     String?  @map("closed_by")
+  pdfReportUrl String?  @map("pdf_report_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  entries PettyCashEntry[]
+
+  @@unique([entityId, periodStart])
+  @@map("petty_cash_periods")
+}
+
+model PettyCashEntry {
+  id              String             @id @default(uuid())
+  periodId        String             @map("period_id")
+  period          PettyCashPeriod    @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  entityId        String             @map("entity_id")
+  entity          Entity             @relation(fields: [entityId], references: [id])
+  date            DateTime           @db.Date
+  description     String
+  amount          Decimal            @db.Decimal(15, 2)
+  currency        Currency           @default(BDT)
+  txnType         PettyCashTxnType   @map("txn_type") @default(CASH_EXPENSE)
+  receiptUrl      String?            @map("receipt_url")     // Optional — not mandatory
+  journalEntryId  String?            @map("journal_entry_id")
+  journalEntry    JournalEntry?      @relation(fields: [journalEntryId], references: [id])
+  createdById     String             @map("created_by")
+  creator         User               @relation(fields: [createdById], references: [id])
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  evidenceFiles EvidenceFile[]
+
+  @@map("petty_cash_entries")
+}
+
+// ─── BANK RECONCILIATION ────────────────────────────────────
+
+model BankStatement {
+  id            String   @id @default(uuid())
+  entityId      String   @map("entity_id")
+  entity        Entity   @relation(fields: [entityId], references: [id])
+  statementDate DateTime @map("statement_date") @db.Date
+  source        String                                       // "Stripe", "DBBL", etc.
+  fileUrl       String?  @map("file_url")
+  totalCredits  Decimal? @map("total_credits") @db.Decimal(15, 2)
+  totalDebits   Decimal? @map("total_debits") @db.Decimal(15, 2)
+  currency      Currency @default(USD)
+  isReconciled  Boolean  @default(false) @map("is_reconciled")
+  uploadedById  String   @map("uploaded_by")
+  uploader      User     @relation(fields: [uploadedById], references: [id])
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  items BankStatementItem[]
+
+  @@map("bank_statements")
+}
+
+model BankStatementItem {
+  id                    String               @id @default(uuid())
+  statementId           String               @map("statement_id")
+  statement             BankStatement        @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  date                  DateTime             @db.Date
+  description           String
+  amount                Decimal              @db.Decimal(15, 2)
+  entryType             TxnType              @map("entry_type")
+  status                ReconciliationStatus @default(UNMATCHED)
+  matchedJournalEntryId String?              @map("matched_journal_entry_id")
+  matchedJournalEntry   JournalEntry?        @relation(fields: [matchedJournalEntryId], references: [id])
+  matchedAt             DateTime?            @map("matched_at")
+  matchedBy             String?              @map("matched_by")
+  notes                 String?
+  createdAt             DateTime             @default(now()) @map("created_at")
+
+  @@map("bank_statement_items")
+}
+
+// ─── USERS & RBAC ───────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  role         UserRole @default(ENTRY_MANAGER)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  entityAccess     UserEntityAccess[]
+  journalEntries   JournalEntry[]
+  drawings         Drawing[]
+  fundTransfers    FundTransfer[]
+  pettyCashEntries PettyCashEntry[]
+  bankStatements   BankStatement[]
+  interBrandTransfers InterBrandTransfer[]
+  auditLogs        AuditLog[]
+
+  @@map("users")
+}
+
+model UserEntityAccess {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entityId  String   @map("entity_id")
+  entity    Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  grantedAt DateTime @default(now()) @map("granted_at")
+
+  @@unique([userId, entityId])
+  @@map("user_entity_access")
+}
+
+// ─── AUDIT LOG ──────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       User     @relation(fields: [userId], references: [id])
+  userRole   UserRole @map("user_role")
+  action     String                              // "create", "update", "void", "delete_attempt"
+  tableName  String   @map("table_name")
+  recordId   String   @map("record_id")
+  oldData    Json?    @map("old_data")
+  newData    Json?    @map("new_data")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([tableName, recordId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_log")
+}
+
+// ─── EVIDENCE FILES ─────────────────────────────────────────
+
+model EvidenceFile {
+  id               String        @id @default(uuid())
+  journalEntryId   String?       @map("journal_entry_id")
+  journalEntry     JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  pettyCashEntryId String?       @map("petty_cash_entry_id")
+  pettyCashEntry   PettyCashEntry? @relation(fields: [pettyCashEntryId], references: [id])
+  fileName         String        @map("file_name")
+  fileType         String        @map("file_type")
+  fileSize         Int?          @map("file_size")
+  storageBucket    String        @default("receipts") @map("storage_bucket")
+  storagePath      String        @map("storage_path")
+  uploadedById     String        @map("uploaded_by")
+  createdAt        DateTime      @default(now()) @map("created_at")
+
+  @@map("evidence_files")
+}
