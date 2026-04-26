@@ -103,6 +103,15 @@ export function DashboardClient({ entities, monthlyByEntity, userRole }: Dashboa
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Financial Health Advisor — shown first, admin + accounts manager only */}
+      {canSeeInsights && entities.length > 0 && (
+        <InsightsPanel
+          entities={entities}
+          monthlyByEntity={monthlyByEntity}
+          currentMonthKey={monthKey}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -213,15 +222,6 @@ export function DashboardClient({ entities, monthlyByEntity, userRole }: Dashboa
         <div className="card p-10 text-center text-ink-faint">
           No entities configured yet. Go to Settings to create your first entity.
         </div>
-      )}
-
-      {/* Financial Health Advisor — Admin + Accounts Manager only */}
-      {canSeeInsights && entities.length > 0 && (
-        <InsightsPanel
-          entities={entities}
-          monthlyByEntity={monthlyByEntity}
-          currentMonthKey={monthKey}
-        />
       )}
     </div>
   );
