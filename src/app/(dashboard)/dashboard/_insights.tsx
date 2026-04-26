@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, Flame,
   Clock, Target, BarChart2, Zap, ShieldAlert, Activity,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 interface Entity { id: string; name: string; type: string; color: string }
@@ -400,8 +401,10 @@ export function InsightsPanel({
   monthlyByEntity: MonthlyData;
   currentMonthKey: string;
 }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+
   const insights = useMemo(() => {
-    const months = getPrevMonths(currentMonthKey, 9); // up to 9 months back
+    const months = getPrevMonths(currentMonthKey, 9);
     const allEntityIds = entities.map((e) => e.id);
     const rows = consolidate(allEntityIds, monthlyByEntity, months);
 
@@ -422,6 +425,9 @@ export function InsightsPanel({
     return generated;
   }, [entities, monthlyByEntity, currentMonthKey]);
 
+  // Reset index when insights change (e.g. month selector changes)
+  useMemo(() => { setActiveIndex(0); }, [insights]);
+
   if (insights.length === 0) {
     return (
       <div className="card p-6 text-center text-ink-faint text-sm">
@@ -432,9 +438,15 @@ export function InsightsPanel({
 
   const criticalCount = insights.filter((i) => i.level === "critical").length;
   const warningCount  = insights.filter((i) => i.level === "warning").length;
+  const clampedIndex  = Math.min(activeIndex, insights.length - 1);
+
+  function prev() { setActiveIndex((i) => Math.max(0, i - 1)); }
+  function next() { setActiveIndex((i) => Math.min(insights.length - 1, i + 1)); }
+
+  const insight = insights[clampedIndex];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Panel header */}
       <div className="flex items-center justify-between">
         <div>
@@ -443,7 +455,7 @@ export function InsightsPanel({
             Financial Health Advisor
           </h2>
           <p className="text-xs text-ink-faint mt-0.5">
-            Automated analysis based on your last 9 months of transaction data
+            Automated analysis · {insights.length} insight{insights.length > 1 ? "s" : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -465,35 +477,75 @@ export function InsightsPanel({
         </div>
       </div>
 
-      {/* Insight cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {insights.map((insight) => (
+      {/* Carousel */}
+      <div className="relative">
+        {/* Slide track */}
+        <div className="overflow-hidden rounded-xl">
           <div
-            key={insight.id}
-            className={`card border-l-4 p-5 space-y-3 ${LEVEL_STYLES[insight.level]}`}
+            className="flex transition-transform duration-300 ease-in-out"
+            style={{ transform: `translateX(-${clampedIndex * 100}%)` }}
           >
-            {/* Card header */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className={`flex-shrink-0 ${ICON_COLORS[insight.level]}`}>
-                  {insight.icon}
+            {insights.map((ins) => (
+              <div key={ins.id} className="w-full flex-shrink-0">
+                <div className={`card border-l-4 p-5 space-y-3 rounded-xl ${LEVEL_STYLES[ins.level]}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`flex-shrink-0 ${ICON_COLORS[ins.level]}`}>
+                        {ins.icon}
+                      </div>
+                      <span className="text-sm font-semibold text-ink-white leading-tight">
+                        {ins.title}
+                      </span>
+                    </div>
+                    {ins.badge && (
+                      <span className={`flex-shrink-0 text-2xs font-semibold px-2 py-0.5 rounded-full ${ins.badgeColor}`}>
+                        {ins.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-ink-secondary leading-relaxed">
+                    {ins.narrative}
+                  </p>
                 </div>
-                <span className="text-sm font-semibold text-ink-white leading-tight">
-                  {insight.title}
-                </span>
               </div>
-              {insight.badge && (
-                <span className={`flex-shrink-0 text-2xs font-semibold px-2 py-0.5 rounded-full ${insight.badgeColor}`}>
-                  {insight.badge}
-                </span>
-              )}
-            </div>
-
-            {/* Narrative */}
-            <p className="text-sm text-ink-secondary leading-relaxed">
-              {insight.narrative}
-            </p>
+            ))}
           </div>
+        </div>
+
+        {/* Left arrow */}
+        <button
+          onClick={prev}
+          disabled={clampedIndex === 0}
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 w-8 h-8 flex items-center justify-center rounded-full bg-surface-2 border border-surface-border text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition-all disabled:opacity-30 disabled:pointer-events-none shadow-sm"
+          aria-label="Previous insight"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        {/* Right arrow */}
+        <button
+          onClick={next}
+          disabled={clampedIndex === insights.length - 1}
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 w-8 h-8 flex items-center justify-center rounded-full bg-surface-2 border border-surface-border text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition-all disabled:opacity-30 disabled:pointer-events-none shadow-sm"
+          aria-label="Next insight"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Dot indicators */}
+      <div className="flex items-center justify-center gap-1.5 pt-1">
+        {insights.map((ins, i) => (
+          <button
+            key={ins.id}
+            onClick={() => setActiveIndex(i)}
+            aria-label={`Go to insight ${i + 1}`}
+            className={`transition-all rounded-full ${
+              i === clampedIndex
+                ? `w-5 h-1.5 ${ins.level === "critical" ? "bg-accent-red" : ins.level === "warning" ? "bg-accent-amber" : ins.level === "positive" ? "bg-accent-green" : "bg-accent-blue"}`
+                : "w-1.5 h-1.5 bg-surface-border hover:bg-ink-faint"
+            }`}
+          />
         ))}
       </div>
     </div>
