@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { FileText, BarChart3, Download, RefreshCw } from "lucide-react";
 import { formatUSD, formatBDT } from "@/lib/utils";
 import type { UserRole } from "@/types";
+import { exportIncomeStatementPDF, exportBalanceSheetPDF } from "@/lib/pdf-export";
 
 interface Entity { id: string; slug: string; name: string; type: string; color: string }
 
@@ -80,16 +81,11 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
   }
 
   function exportReport() {
-    const data = tab === "income" ? incomeStatement : balanceSheet;
-    if (!data) return;
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${tab}-report-${dateTo}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (tab === "income" && incomeStatement) {
+      exportIncomeStatementPDF(incomeStatement);
+    } else if (tab === "balance" && balanceSheet) {
+      exportBalanceSheetPDF(balanceSheet);
+    }
   }
 
   const selectedEntityName = reportEntityId === "consolidated"
@@ -168,7 +164,7 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
               </div>
             </div>
             <button onClick={exportReport} className="flex items-center gap-1.5 text-xs text-ink-secondary hover:text-ink-primary">
-              <Download className="w-3.5 h-3.5" /> Export
+              <Download className="w-3.5 h-3.5" /> Export PDF
             </button>
           </div>
           <div className="p-5 space-y-4">
@@ -230,7 +226,7 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
               </div>
             </div>
             <button onClick={exportReport} className="flex items-center gap-1.5 text-xs text-ink-secondary hover:text-ink-primary">
-              <Download className="w-3.5 h-3.5" /> Export
+              <Download className="w-3.5 h-3.5" /> Export PDF
             </button>
           </div>
           <div className="p-5 space-y-5">
