@@ -24,7 +24,7 @@ interface BalanceSheetData {
   entityName: string;
   from: string | null;
   to: string;
-  assets: { label: string; amount: number; currency: string }[];
+  assets: { label: string; amount: number; currency: string; usdAmount?: number }[];
   totalAssets: number;
   equity: number;
 }
@@ -174,9 +174,7 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
               <div className="flex justify-between py-2 border-b border-surface-border">
                 <span className="text-sm text-ink-white">Total Income</span>
                 <span className="font-mono font-semibold text-accent-green">
-                  {incomeStatement.income.currency === "BDT"
-                    ? formatBDT(incomeStatement.income.total)
-                    : formatUSD(incomeStatement.income.total)}
+                  {formatBDT(incomeStatement.income.total)}
                 </span>
               </div>
             </div>
@@ -187,12 +185,12 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
               {incomeStatement.expenses.byCategory.map((cat) => (
                 <div key={cat.category} className="flex justify-between py-1.5 text-sm">
                   <span className="text-ink-secondary">{cat.category || "Other"}</span>
-                  <span className="font-mono text-accent-red">({formatUSD(cat.amount)})</span>
+                  <span className="font-mono text-accent-red">({formatBDT(cat.amount)})</span>
                 </div>
               ))}
               <div className="flex justify-between py-2 border-t border-surface-border mt-1">
                 <span className="text-sm text-ink-white font-medium">Total Expenses</span>
-                <span className="font-mono font-semibold text-accent-red">({formatUSD(incomeStatement.expenses.total)})</span>
+                <span className="font-mono font-semibold text-accent-red">({formatBDT(incomeStatement.expenses.total)})</span>
               </div>
             </div>
 
@@ -201,13 +199,13 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
               <div className="flex justify-between text-sm">
                 <span className="text-ink-secondary">Gross Profit</span>
                 <span className={`font-mono font-semibold ${incomeStatement.grossProfit >= 0 ? "text-accent-green" : "text-accent-red"}`}>
-                  {formatUSD(incomeStatement.grossProfit)}
+                  {formatBDT(incomeStatement.grossProfit)}
                 </span>
               </div>
               <div className="flex justify-between text-base font-bold">
                 <span className="text-ink-white">Net Profit</span>
                 <span className={`font-mono ${incomeStatement.netProfit >= 0 ? "text-accent-green" : "text-accent-red"}`}>
-                  {formatUSD(incomeStatement.netProfit)}
+                  {formatBDT(incomeStatement.netProfit)}
                 </span>
               </div>
             </div>
@@ -236,14 +234,17 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
               {balanceSheet.assets.map((asset) => (
                 <div key={asset.label} className="flex justify-between py-1.5 text-sm">
                   <span className="text-ink-secondary">{asset.label}</span>
-                  <span className="font-mono text-ink-white">
-                    {asset.currency === "BDT" ? formatBDT(asset.amount) : formatUSD(asset.amount)}
-                  </span>
+                  <div className="text-right">
+                    <span className="font-mono text-ink-white">{formatBDT(asset.amount)}</span>
+                    {asset.usdAmount != null && asset.usdAmount > 0 && (
+                      <div className="text-2xs text-ink-faint font-mono">{formatUSD(asset.usdAmount)}</div>
+                    )}
+                  </div>
                 </div>
               ))}
               <div className="flex justify-between py-2 border-t border-surface-border mt-1">
                 <span className="text-sm font-semibold text-ink-white">Total Assets</span>
-                <span className="font-mono font-semibold text-accent-blue">{formatUSD(balanceSheet.totalAssets)}</span>
+                <span className="font-mono font-semibold text-accent-blue">{formatBDT(balanceSheet.totalAssets)}</span>
               </div>
             </div>
 
@@ -252,7 +253,7 @@ export function ReportsClient({ entities, userRole }: { entities: Entity[]; user
               <div className="flex justify-between text-base font-bold">
                 <span className="text-ink-white">Total Equity</span>
                 <span className={`font-mono ${balanceSheet.equity >= 0 ? "text-accent-green" : "text-accent-red"}`}>
-                  {formatUSD(balanceSheet.equity)}
+                  {formatBDT(balanceSheet.equity)}
                 </span>
               </div>
               <div className="text-2xs text-ink-faint mt-1">Equity = Total Income − Total Expenses (cumulative)</div>

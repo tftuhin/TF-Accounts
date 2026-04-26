@@ -9,10 +9,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   try {
-    const { entityId, date, description, amount, currency, category, subcategory, expenseType } = await req.json();
+    const { entityId, date, description, amount, usdAmount, currency, category, subcategory } = await req.json();
 
     if (!entityId || !date || !description || !amount)
       return NextResponse.json({ error: "entityId, date, description, amount required" }, { status: 400 });
+
+    // `amount` is always BDT (or BDT equivalent for USD transactions)
+    // `usdAmount` is set only for USD bank transactions
+    const lineCurrency = currency === "USD" ? "USD" : "BDT";
 
     const accounts = await ensureBasicAccounts(entityId);
 
@@ -27,13 +31,14 @@ export async function POST(req: NextRequest) {
         createdByRole: session.role as any,
         lines: {
           create: [
-            // Debit OPEX
+            // Debit OPEX — amount in BDT (BDT equiv for USD transactions)
             {
               accountId: accounts.opex.id,
               pfAccount: "OPEX",
               entryType: "DEBIT",
               amount,
-              currency: currency || "USD",
+              currency: lineCurrency,
+              usdAmount: usdAmount ?? null,
               entityId,
             },
             // Credit Cash/Bank
@@ -42,7 +47,8 @@ export async function POST(req: NextRequest) {
               pfAccount: null,
               entryType: "CREDIT",
               amount,
-              currency: currency || "USD",
+              currency: lineCurrency,
+              usdAmount: usdAmount ?? null,
               entityId,
             },
           ],
@@ -75,7 +81,7 @@ export async function GET(req: NextRequest) {
     take: limit,
     include: {
       entity: { select: { name: true, color: true } },
-      lines: { where: { pfAccount: "OPEX" }, take: 1 },
+      lines: { where: { pfAccount: "OPEX" }, take: 1, select: { amount: true, currency: true, usdAmount: true } },
     },
   });
 
@@ -89,7 +95,8 @@ export async function GET(req: NextRequest) {
       entityName: e.entity.name,
       entityColor: e.entity.color,
       amount: e.lines[0] ? Number(e.lines[0].amount) : 0,
-      currency: e.lines[0]?.currency ?? "USD",
+      currency: e.lines[0]?.currency ?? "BDT",
+      usdAmount: e.lines[0]?.usdAmount ? Number(e.lines[0].usdAmount) : null,
     })),
   });
 }

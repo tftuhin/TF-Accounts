@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { toast } from "sonner";
 import { TrendingUp, Plus } from "lucide-react";
-import { formatUSD, formatBDT } from "@/lib/utils";
+import { formatBDT } from "@/lib/utils";
 import type { UserRole } from "@/types";
 
 interface Entity { id: string; slug: string; name: string; type: string; color: string }
@@ -12,7 +12,7 @@ interface BankAccount { id: string; accountName: string; accountType: string; cu
 
 interface IncomeEntry {
   id: string; date: string; description: string; entityName: string; entityColor: string;
-  amount: number; currency: string;
+  amount: number;
 }
 
 export function IncomeClient({
@@ -32,13 +32,12 @@ export function IncomeClient({
     date: new Date().toISOString().split("T")[0],
     description: "",
     amount: "",
-    currency: "USD" as "USD" | "BDT",
     bankAccountId: "",
   });
 
-  // Filter bank accounts by selected entity
+  // Only BDT accounts for income
   const relevantBankAccounts = bankAccounts.filter(
-    (ba) => ba.entityId === form.entityId && ba.currency === form.currency
+    (ba) => ba.entityId === form.entityId && ba.currency === "BDT"
   );
 
   async function handleSubmit(e: React.FormEvent) {
@@ -58,16 +57,14 @@ export function IncomeClient({
       if (!res.ok) throw new Error(json.error);
 
       const entity = entities.find((e) => e.id === form.entityId);
-      const newEntry: IncomeEntry = {
+      setEntries((prev) => [{
         id: json.data.id,
         date: form.date,
         description: form.description,
         entityName: entity?.name ?? "",
         entityColor: entity?.color ?? "#3B82F6",
         amount: parseFloat(form.amount),
-        currency: form.currency,
-      };
-      setEntries((prev) => [newEntry, ...prev]);
+      }, ...prev]);
       toast.success(`Income recorded: ${form.description}`);
       setForm((f) => ({ ...f, description: "", amount: "", bankAccountId: "" }));
     } catch (err: unknown) {
@@ -77,7 +74,6 @@ export function IncomeClient({
     }
   }
 
-  // Load recent income entries
   async function loadEntries() {
     if (loaded) return;
     const entityParam = currentEntityId !== "consolidated" ? `?entityId=${currentEntityId}` : "";
@@ -91,7 +87,7 @@ export function IncomeClient({
     <div className="max-w-2xl animate-fade-in space-y-6">
       <div>
         <h1 className="text-2xl font-display text-ink-white">Record Income</h1>
-        <p className="text-sm text-ink-muted mt-1">Add revenue received in USD or BDT</p>
+        <p className="text-sm text-ink-muted mt-1">All income is recorded in BDT</p>
       </div>
 
       <form onSubmit={handleSubmit} className="card p-6 space-y-4">
@@ -125,7 +121,7 @@ export function IncomeClient({
             type="text"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="e.g., Stripe payout — April, ThemeForest sales..."
+            placeholder="e.g., ThemeForest payout — April, Client payment..."
             className="input"
             required
           />
@@ -133,38 +129,41 @@ export function IncomeClient({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="input-label">Amount *</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              placeholder="0.00"
-              className="input font-mono"
-              required
-            />
+            <label className="input-label">Amount (BDT) *</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-sm font-medium">৳</span>
+              <input
+                type="number"
+                step="1"
+                min="1"
+                value={form.amount}
+                onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                placeholder="0"
+                className="input font-mono pl-7"
+                required
+              />
+            </div>
           </div>
           <div>
-            <label className="input-label">Currency</label>
-            <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value as "USD" | "BDT", bankAccountId: "" })} className="input">
-              <option value="USD">USD</option>
-              <option value="BDT">BDT</option>
-            </select>
+            {relevantBankAccounts.length > 0 ? (
+              <>
+                <label className="input-label">Bank Account <span className="text-ink-faint">(optional)</span></label>
+                <select value={form.bankAccountId} onChange={(e) => setForm({ ...form, bankAccountId: e.target.value })} className="input">
+                  <option value="">— Not specified —</option>
+                  {relevantBankAccounts.map((ba) => (
+                    <option key={ba.id} value={ba.id}>{ba.accountName}{ba.bankName ? ` · ${ba.bankName}` : ""}</option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <div className="flex items-center h-full pt-5">
+                <div className="text-2xs text-ink-faint bg-surface-2 rounded-lg px-3 py-2.5 w-full border border-surface-border">
+                  Income recorded to default cash account
+                </div>
+              </div>
+            )}
           </div>
         </div>
-
-        {relevantBankAccounts.length > 0 && (
-          <div>
-            <label className="input-label">Bank Account <span className="text-ink-faint">(optional)</span></label>
-            <select value={form.bankAccountId} onChange={(e) => setForm({ ...form, bankAccountId: e.target.value })} className="input">
-              <option value="">— Not specified —</option>
-              {relevantBankAccounts.map((ba) => (
-                <option key={ba.id} value={ba.id}>{ba.accountName}{ba.bankName ? ` · ${ba.bankName}` : ""}</option>
-              ))}
-            </select>
-          </div>
-        )}
 
         <button type="submit" disabled={saving} className="btn-primary w-full flex items-center justify-center gap-2">
           <Plus className="w-4 h-4" />
@@ -184,7 +183,7 @@ export function IncomeClient({
           <table className="w-full">
             <thead>
               <tr className="table-header">
-                {["Date", "Description", "Entity", "Amount"].map((h) => (
+                {["Date", "Description", "Entity", "Amount (BDT)"].map((h) => (
                   <th key={h} className="table-cell text-left">{h}</th>
                 ))}
               </tr>
@@ -200,7 +199,7 @@ export function IncomeClient({
                     </span>
                   </td>
                   <td className="table-cell font-mono font-semibold text-accent-green">
-                    +{en.currency === "BDT" ? formatBDT(en.amount) : formatUSD(en.amount)}
+                    +{formatBDT(en.amount)}
                   </td>
                 </tr>
               ))}

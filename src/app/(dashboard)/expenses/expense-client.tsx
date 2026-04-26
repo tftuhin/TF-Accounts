@@ -25,15 +25,16 @@ export function ExpenseClient({
     entityId: defaultEntity,
     date: new Date().toISOString().split("T")[0],
     description: "",
-    amount: "",
+    amount: "",        // BDT amount (or BDT equivalent for USD tab)
+    usdAmount: "",     // USD amount (only for USD_BANK tab)
     category: CATEGORY_KEYS[0],
     subcategory: EXPENSE_CATEGORIES[CATEGORY_KEYS[0]][0],
     bankAccountId: "",
   });
 
-  const currency = tab === "BDT_BANK" ? "BDT" : "USD";
+  const isUSD = tab === "USD_BANK";
   const relevantBankAccounts = bankAccounts.filter(
-    (ba) => ba.entityId === form.entityId && ba.currency === currency
+    (ba) => ba.entityId === form.entityId && ba.currency === (isUSD ? "USD" : "BDT")
   );
   const subcategories = EXPENSE_CATEGORIES[form.category] || [];
 
@@ -42,10 +43,19 @@ export function ExpenseClient({
     setForm((f) => ({ ...f, category, subcategory: firstSub }));
   }
 
+  function handleTabChange(t: ExpenseType) {
+    setTab(t);
+    setForm((f) => ({ ...f, amount: "", usdAmount: "", bankAccountId: "" }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.entityId || !form.description || !form.amount) {
       toast.error("Fill in all required fields");
+      return;
+    }
+    if (isUSD && !form.usdAmount) {
+      toast.error("Enter the USD amount for USD bank expenses");
       return;
     }
     setSaving(true);
@@ -57,8 +67,9 @@ export function ExpenseClient({
           entityId: form.entityId,
           date: form.date,
           description: form.description,
-          amount: parseFloat(form.amount),
-          currency,
+          amount: parseFloat(form.amount),           // always BDT (or BDT equiv)
+          usdAmount: isUSD ? parseFloat(form.usdAmount) : undefined,
+          currency: isUSD ? "USD" : "BDT",
           category: form.category,
           subcategory: form.subcategory,
           expenseType: tab,
@@ -68,7 +79,7 @@ export function ExpenseClient({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       toast.success(`Expense recorded: ${form.description}`);
-      setForm((f) => ({ ...f, description: "", amount: "", bankAccountId: "" }));
+      setForm((f) => ({ ...f, description: "", amount: "", usdAmount: "", bankAccountId: "" }));
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to record expense");
     } finally {
@@ -98,7 +109,7 @@ export function ExpenseClient({
 
         <button
           type="button"
-          onClick={() => setTab("BDT_BANK")}
+          onClick={() => handleTabChange("BDT_BANK")}
           className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${
             tab === "BDT_BANK"
               ? "border-accent-blue/40 bg-accent-blue/8 text-accent-blue"
@@ -114,7 +125,7 @@ export function ExpenseClient({
 
         <button
           type="button"
-          onClick={() => setTab("USD_BANK")}
+          onClick={() => handleTabChange("USD_BANK")}
           className={`flex flex-col items-center gap-2 p-4 rounded-xl border transition-all ${
             tab === "USD_BANK"
               ? "border-accent-blue/40 bg-accent-blue/8 text-accent-blue"
@@ -132,7 +143,7 @@ export function ExpenseClient({
       {/* Expense Form */}
       <form onSubmit={handleSubmit} className="card p-6 space-y-4">
         <div className="text-sm font-semibold text-ink-white">
-          {tab === "BDT_BANK" ? "Local BDT Bank Expense" : "Foreign USD Bank Expense"}
+          {isUSD ? "Foreign USD Bank Expense" : "Local BDT Bank Expense"}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -174,28 +185,92 @@ export function ExpenseClient({
             type="text"
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder={tab === "BDT_BANK" ? "e.g., Office rent — April" : "e.g., DigitalOcean subscription"}
+            placeholder={isUSD ? "e.g., DigitalOcean subscription" : "e.g., Office rent — April"}
             className="input"
             required
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="input-label">Amount ({currency}) *</label>
-            <input
-              type="number" step="0.01" min="0.01"
-              value={form.amount}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
-              placeholder="0.00"
-              className="input font-mono"
-              required
-            />
+        {/* Amount fields — two fields for USD, one for BDT */}
+        {isUSD ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="input-label">USD Amount *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-sm">$</span>
+                  <input
+                    type="number" step="0.01" min="0.01"
+                    value={form.usdAmount}
+                    onChange={(e) => setForm({ ...form, usdAmount: e.target.value })}
+                    placeholder="0.00"
+                    className="input font-mono pl-7"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="input-label">BDT Equivalent *</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-sm font-medium">৳</span>
+                  <input
+                    type="number" step="1" min="1"
+                    value={form.amount}
+                    onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                    placeholder="0"
+                    className="input font-mono pl-7"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+            <p className="text-2xs text-ink-faint">
+              BDT equivalent is used for all calculations and reports
+            </p>
           </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="input-label">Amount (BDT) *</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-sm font-medium">৳</span>
+                <input
+                  type="number" step="1" min="1"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  placeholder="0"
+                  className="input font-mono pl-7"
+                  required
+                />
+              </div>
+            </div>
+            <div>
+              {relevantBankAccounts.length > 0 ? (
+                <>
+                  <label className="input-label">Bank Account <span className="text-ink-faint">(optional)</span></label>
+                  <select value={form.bankAccountId} onChange={(e) => setForm({ ...form, bankAccountId: e.target.value })} className="input">
+                    <option value="">— Not specified —</option>
+                    {relevantBankAccounts.map((ba) => (
+                      <option key={ba.id} value={ba.id}>{ba.accountName}{ba.bankName ? ` · ${ba.bankName}` : ""}</option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <div className="text-2xs text-ink-faint bg-surface-2 rounded-lg px-3 py-2.5 mt-5 border border-surface-border">
+                  No BDT accounts.{" "}
+                  <Link href="/settings" className="text-accent-blue hover:underline">Add in Settings →</Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Bank account for USD tab */}
+        {isUSD && (
           <div>
             {relevantBankAccounts.length > 0 ? (
               <>
-                <label className="input-label">Bank Account <span className="text-ink-faint">(optional)</span></label>
+                <label className="input-label">USD Bank Account <span className="text-ink-faint">(optional)</span></label>
                 <select value={form.bankAccountId} onChange={(e) => setForm({ ...form, bankAccountId: e.target.value })} className="input">
                   <option value="">— Not specified —</option>
                   {relevantBankAccounts.map((ba) => (
@@ -204,16 +279,16 @@ export function ExpenseClient({
                 </select>
               </>
             ) : (
-              <div className="text-2xs text-ink-faint bg-surface-2 rounded-lg px-3 py-2.5 mt-5 border border-surface-border">
-                No {currency} accounts.{" "}
+              <div className="text-2xs text-ink-faint bg-surface-2 rounded-lg px-3 py-2.5 border border-surface-border">
+                No USD accounts.{" "}
                 <Link href="/settings" className="text-accent-blue hover:underline">Add in Settings →</Link>
               </div>
             )}
           </div>
-        </div>
+        )}
 
         <button type="submit" disabled={saving} className="btn-primary w-full">
-          {saving ? "Recording…" : `Record ${currency} Expense`}
+          {saving ? "Recording…" : `Record ${isUSD ? "USD" : "BDT"} Expense`}
         </button>
       </form>
     </div>

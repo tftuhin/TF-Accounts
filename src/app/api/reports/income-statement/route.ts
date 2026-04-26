@@ -30,15 +30,13 @@ export async function GET(req: NextRequest) {
 
   let totalIncome = 0;
   let totalExpenses = 0;
-  let primaryCurrency = "USD";
   const expenseByCategory: Record<string, number> = {};
 
   for (const entry of entries) {
     for (const line of entry.lines) {
-      const amt = Number(line.amount);
+      const amt = Number(line.amount); // always BDT (or BDT equivalent)
       if (line.pfAccount === "INCOME" && line.entryType === "CREDIT") {
         totalIncome += amt;
-        primaryCurrency = line.currency;
       } else if (line.pfAccount === "OPEX" && line.entryType === "DEBIT") {
         totalExpenses += amt;
         const cat = entry.category || "Other";
@@ -58,10 +56,10 @@ export async function GET(req: NextRequest) {
       entityName,
       from,
       to,
-      income: { total: totalIncome, currency: primaryCurrency },
+      income: { total: totalIncome, currency: "BDT" },
       expenses: {
         total: totalExpenses,
-        currency: "USD",
+        currency: "BDT",
         byCategory: Object.entries(expenseByCategory)
           .sort((a, b) => b[1] - a[1])
           .map(([category, amount]) => ({ category, amount })),

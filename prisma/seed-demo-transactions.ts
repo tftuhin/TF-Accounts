@@ -62,8 +62,8 @@ async function addIncome(
       createdById: adminId, createdByRole: "ADMIN",
       lines: {
         create: [
-          { accountId: accounts.incomeAcc.id, pfAccount: "INCOME", entryType: "CREDIT", amount, currency: "USD", entityId },
-          { accountId: accounts.cashAcc.id,   pfAccount: null,     entryType: "DEBIT",  amount, currency: "USD", entityId },
+          { accountId: accounts.incomeAcc.id, pfAccount: "INCOME", entryType: "CREDIT", amount, currency: "BDT", entityId },
+          { accountId: accounts.cashAcc.id,   pfAccount: null,     entryType: "DEBIT",  amount, currency: "BDT", entityId },
         ],
       },
     },
@@ -82,8 +82,8 @@ async function addExpense(
       createdById: adminId, createdByRole: "ADMIN",
       lines: {
         create: [
-          { accountId: accounts.opexAcc.id, pfAccount: "OPEX", entryType: "DEBIT",  amount, currency: "USD", entityId },
-          { accountId: accounts.cashAcc.id, pfAccount: null,   entryType: "CREDIT", amount, currency: "USD", entityId },
+          { accountId: accounts.opexAcc.id, pfAccount: "OPEX", entryType: "DEBIT",  amount, currency: "BDT", entityId },
+          { accountId: accounts.cashAcc.id, pfAccount: null,   entryType: "CREDIT", amount, currency: "BDT", entityId },
         ],
       },
     },

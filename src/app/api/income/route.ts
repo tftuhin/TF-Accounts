@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   try {
-    const { entityId, date, description, amount, currency, bankAccountId } = await req.json();
+    const { entityId, date, description, amount, bankAccountId } = await req.json();
 
     if (!entityId || !date || !description || !amount)
       return NextResponse.json({ error: "entityId, date, description, amount required" }, { status: 400 });
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
               pfAccount: "INCOME",
               entryType: "CREDIT",
               amount,
-              currency: currency || "USD",
+              currency: "BDT",
               entityId,
             },
             // Debit Cash/Bank account
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
               pfAccount: null,
               entryType: "DEBIT",
               amount,
-              currency: currency || "USD",
+              currency: "BDT",
               entityId,
             },
           ],
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
       entityName: e.entity.name,
       entityColor: e.entity.color,
       amount: e.lines[0] ? Number(e.lines[0].amount) : 0,
-      currency: e.lines[0]?.currency ?? "USD",
+      currency: "BDT",
     })),
   });
 }

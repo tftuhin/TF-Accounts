@@ -137,7 +137,7 @@ export function exportIncomeStatementPDF(data: IncomeStatementData) {
 
   // Revenue
   y = sectionTitle(doc, y, "Revenue");
-  y = lineItem(doc, y, "Total Income", usd(data.income.total), GREEN_C, 4);
+  y = lineItem(doc, y, "Total Income", bdt(data.income.total), GREEN_C, 4);
   y = hRule(doc, y + 1);
 
   // Expenses
@@ -145,23 +145,22 @@ export function exportIncomeStatementPDF(data: IncomeStatementData) {
 
   if (data.expenses.byCategory.length > 0) {
     for (const cat of data.expenses.byCategory) {
-      // Check if we need a new page
       if (y > 260) { doc.addPage(); y = 20; }
-      y = lineItem(doc, y, cat.category || "Other", `(${usd(cat.amount)})`, RED_C, 4);
+      y = lineItem(doc, y, cat.category || "Other", `(${bdt(cat.amount)})`, RED_C, 4);
     }
   } else {
-    y = lineItem(doc, y, "No expenses recorded", usd(0), MUTED, 4);
+    y = lineItem(doc, y, "No expenses recorded", bdt(0), MUTED, 4);
   }
 
   y = hRule(doc, y + 1);
-  y = lineItem(doc, y, "Total Expenses", `(${usd(data.expenses.total)})`, RED_C, 0, true);
+  y = lineItem(doc, y, "Total Expenses", `(${bdt(data.expenses.total)})`, RED_C, 0, true);
   y += 2;
 
   // Profit
   y = hRule(doc, y, true);
-  y = lineItem(doc, y, "Gross Profit", usd(data.grossProfit), data.grossProfit >= 0 ? GREEN_C : RED_C, 0, true);
+  y = lineItem(doc, y, "Gross Profit", bdt(data.grossProfit), data.grossProfit >= 0 ? GREEN_C : RED_C, 0, true);
   y += 1;
-  y = lineItem(doc, y, "Net Profit", usd(data.netProfit), data.netProfit >= 0 ? BLUE_C : RED_C, 0, true);
+  y = lineItem(doc, y, "Net Profit", bdt(data.netProfit), data.netProfit >= 0 ? BLUE_C : RED_C, 0, true);
 
   drawFooter(doc);
   doc.save(`income-statement_${data.entityName.replace(/\s+/g, "-")}_${data.from}_${data.to}.pdf`);
@@ -173,7 +172,7 @@ interface BalanceSheetData {
   entityName: string;
   from: string | null;
   to: string;
-  assets: { label: string; amount: number; currency: string }[];
+  assets: { label: string; amount: number; currency: string; usdAmount?: number }[];
   totalAssets: number;
   equity: number;
 }
@@ -191,18 +190,22 @@ export function exportBalanceSheetPDF(data: BalanceSheetData) {
   // Assets
   y = sectionTitle(doc, y, "Assets");
   for (const asset of data.assets) {
-    const amtStr = asset.currency === "BDT" ? bdt(asset.amount) : usd(asset.amount);
-    y = lineItem(doc, y, asset.label, amtStr, BLUE_C, 4);
+    const amtStr = bdt(asset.amount);
+    // If a USD amount is also available, show both
+    const label = asset.usdAmount != null && asset.usdAmount > 0
+      ? `${asset.label} (${usd(asset.usdAmount)})`
+      : asset.label;
+    y = lineItem(doc, y, label, amtStr, BLUE_C, 4);
   }
   y = hRule(doc, y + 1);
-  y = lineItem(doc, y, "Total Assets", usd(data.totalAssets), BLUE_C, 0, true);
+  y = lineItem(doc, y, "Total Assets", bdt(data.totalAssets), BLUE_C, 0, true);
   y += 6;
 
   // Equity
   y = hRule(doc, y, true);
   y += 2;
   y = sectionTitle(doc, y, "Equity");
-  y = lineItem(doc, y, "Total Equity", usd(data.equity), data.equity >= 0 ? GREEN_C : RED_C, 4, true);
+  y = lineItem(doc, y, "Total Equity", bdt(data.equity), data.equity >= 0 ? GREEN_C : RED_C, 4, true);
 
   // Equity note
   doc.setFontSize(8);

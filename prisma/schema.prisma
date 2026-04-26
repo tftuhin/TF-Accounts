@@ -307,7 +307,8 @@ model JournalEntryLine {
   pfAccount       PfAccountType? @map("pf_account")
   entryType       TxnType       @map("entry_type")
   amount          Decimal       @db.Decimal(15, 2)
-  currency        Currency      @default(USD)
+  currency        Currency      @default(BDT)
+  usdAmount       Decimal?      @db.Decimal(15, 2) @map("usd_amount")
   entityId        String        @map("entity_id")
   entity          Entity        @relation(fields: [entityId], references: [id])
   memo            String?

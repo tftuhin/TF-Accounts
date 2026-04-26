@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAppStore } from "@/lib/store";
-import { formatUSD } from "@/lib/utils";
+import { formatBDT } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { TrendingUp, TrendingDown, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -150,7 +150,7 @@ export function DashboardClient({ entities, monthlyByEntity, userRole }: Dashboa
             <TrendingUp className="w-4 h-4 text-accent-green" />
             <div className="text-2xs text-ink-faint uppercase tracking-wider">Income</div>
           </div>
-          <div className="text-2xl font-bold font-mono text-accent-green">{formatUSD(stats.income)}</div>
+          <div className="text-2xl font-bold font-mono text-accent-green">{formatBDT(stats.income)}</div>
           <div className="text-xs text-ink-faint mt-1">{MONTHS[selectedMonth]} {selectedYear}</div>
         </div>
         <div className="card p-5">
@@ -158,7 +158,7 @@ export function DashboardClient({ entities, monthlyByEntity, userRole }: Dashboa
             <TrendingDown className="w-4 h-4 text-accent-red" />
             <div className="text-2xs text-ink-faint uppercase tracking-wider">Expenses</div>
           </div>
-          <div className="text-2xl font-bold font-mono text-accent-red">{formatUSD(stats.expenses)}</div>
+          <div className="text-2xl font-bold font-mono text-accent-red">{formatBDT(stats.expenses)}</div>
           <div className="text-xs text-ink-faint mt-1">{MONTHS[selectedMonth]} {selectedYear}</div>
         </div>
         <div className="card p-5">
@@ -167,7 +167,7 @@ export function DashboardClient({ entities, monthlyByEntity, userRole }: Dashboa
             <div className="text-2xs text-ink-faint uppercase tracking-wider">Profit</div>
           </div>
           <div className={`text-2xl font-bold font-mono ${stats.profit >= 0 ? "text-accent-blue" : "text-accent-red"}`}>
-            {formatUSD(stats.profit)}
+            {formatBDT(stats.profit)}
           </div>
           <div className="text-xs text-ink-faint mt-1">{MONTHS[selectedMonth]} {selectedYear}</div>
         </div>
@@ -188,16 +188,16 @@ export function DashboardClient({ entities, monthlyByEntity, userRole }: Dashboa
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-xs">
                       <span className="text-ink-faint">Income</span>
-                      <span className="font-mono text-accent-green">{formatUSD(s.income)}</span>
+                      <span className="font-mono text-accent-green">{formatBDT(s.income)}</span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-ink-faint">Expenses</span>
-                      <span className="font-mono text-accent-red">{formatUSD(s.expenses)}</span>
+                      <span className="font-mono text-accent-red">{formatBDT(s.expenses)}</span>
                     </div>
                     <div className="flex justify-between text-xs border-t border-surface-border pt-1.5 mt-1.5">
                       <span className="text-ink-secondary font-medium">Profit</span>
                       <span className={`font-mono font-semibold ${s.profit >= 0 ? "text-accent-blue" : "text-accent-red"}`}>
-                        {formatUSD(s.profit)}
+                        {formatBDT(s.profit)}
                       </span>
                     </div>
                   </div>

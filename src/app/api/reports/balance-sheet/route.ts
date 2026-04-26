@@ -23,21 +23,39 @@ export async function GET(req: NextRequest) {
     ...entityFilter,
   };
 
+  // All journal entry lines (amount is always BDT or BDT equivalent)
   const lines = await prisma.journalEntryLine.findMany({
     where: { journalEntry: where },
-    select: { pfAccount: true, entryType: true, amount: true, currency: true },
+    select: { pfAccount: true, entryType: true, amount: true, currency: true, usdAmount: true },
   });
 
   let totalIncome = 0;
   let totalExpenses = 0;
+  let bdtCashBalance = 0;       // net BDT cash from BDT-currency cash lines
+  let usdCashBalanceBDT = 0;    // net cash from USD-currency cash lines (stored as BDT equiv)
+  let usdCashBalanceUSD = 0;    // net cash from USD-currency cash lines (actual USD)
 
   for (const line of lines) {
     const amt = Number(line.amount);
-    if (line.pfAccount === "INCOME" && line.entryType === "CREDIT") totalIncome += amt;
-    else if (line.pfAccount === "OPEX" && line.entryType === "DEBIT") totalExpenses += amt;
+    const usdAmt = line.usdAmount ? Number(line.usdAmount) : 0;
+    const sign = line.entryType === "DEBIT" ? 1 : -1;
+
+    if (line.pfAccount === "INCOME" && line.entryType === "CREDIT") {
+      totalIncome += amt;
+    } else if (line.pfAccount === "OPEX" && line.entryType === "DEBIT") {
+      totalExpenses += amt;
+    } else if (line.pfAccount === null) {
+      // Cash/bank asset lines
+      if (line.currency === "BDT") {
+        bdtCashBalance += sign * amt;
+      } else if (line.currency === "USD") {
+        usdCashBalanceBDT += sign * amt;
+        usdCashBalanceUSD += sign * usdAmt;
+      }
+    }
   }
 
-  // Petty cash balance within the date range
+  // Petty cash balance from petty cash entries
   const pettyCashEntries = await prisma.pettyCashEntry.findMany({
     where: {
       date: {
@@ -65,20 +83,34 @@ export async function GET(req: NextRequest) {
   }
 
   const equity = totalIncome - totalExpenses;
-  const bankBalance = Math.max(0, equity - Math.max(0, pettyCashBalance));
+
+  // Build assets list — only include lines with positive balance
+  const assets: { label: string; amount: number; currency: string; usdAmount?: number }[] = [];
+
+  if (bdtCashBalance > 0) {
+    assets.push({ label: "BDT Bank Accounts", amount: bdtCashBalance, currency: "BDT" });
+  }
+  if (usdCashBalanceBDT > 0 || usdCashBalanceUSD > 0) {
+    assets.push({
+      label: "USD Bank Accounts",
+      amount: usdCashBalanceBDT,
+      currency: "BDT",
+      usdAmount: usdCashBalanceUSD,
+    });
+  }
+  if (pettyCashBalance > 0) {
+    assets.push({ label: "Petty Cash", amount: pettyCashBalance, currency: "BDT" });
+  }
+
+  // Fallback when no cash lines recorded yet — estimate from equity
+  if (assets.length === 0 && equity > 0) {
+    assets.push({ label: "Bank Accounts (estimated)", amount: equity, currency: "BDT" });
+  }
+
+  const totalAssets = assets.reduce((s, a) => s + a.amount, 0);
 
   return NextResponse.json({
     success: true,
-    data: {
-      entityName,
-      from: from || null,
-      to,
-      assets: [
-        { label: "Bank Accounts (estimated)", amount: bankBalance, currency: "USD" },
-        { label: "Petty Cash (BDT)", amount: Math.max(0, pettyCashBalance), currency: "BDT" },
-      ],
-      totalAssets: bankBalance + Math.max(0, pettyCashBalance),
-      equity,
-    },
+    data: { entityName, from: from || null, to, assets, totalAssets, equity },
   });
 }
