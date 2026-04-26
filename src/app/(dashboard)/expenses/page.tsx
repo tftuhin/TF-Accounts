@@ -1,3 +1,5 @@
+export const revalidate = 300;
+
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";

@@ -6,13 +6,10 @@ const PUBLIC_PATHS = ["/login", "/api/auth"];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-    return NextResponse.next();
-  }
-
-  if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || pathname.includes(".")) {
-    return NextResponse.next();
-  }
+  // Static assets, public paths, and API routes skip middleware entirely
+  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return NextResponse.next();
+  if (pathname.startsWith("/_next") || pathname.startsWith("/favicon") || pathname.includes(".")) return NextResponse.next();
+  if (pathname.startsWith("/api/")) return NextResponse.next(); // API routes handle auth themselves
 
   let supabaseResponse = NextResponse.next({ request });
 
