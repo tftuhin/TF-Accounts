@@ -6,10 +6,21 @@ import { formatUSD } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { TrendingUp, TrendingDown, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
 
-// Lazy-load Recharts to keep initial JS bundle small
 const PerformanceChart = dynamic(() => import("./_chart").then((m) => m.PerformanceChart), {
   ssr: false,
   loading: () => <div className="h-[280px] rounded-lg bg-surface-2 animate-pulse" />,
+});
+
+const InsightsPanel = dynamic(() => import("./_insights").then((m) => m.InsightsPanel), {
+  ssr: false,
+  loading: () => (
+    <div className="space-y-4">
+      <div className="h-6 w-56 rounded shimmer" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {[0,1,2,3].map((i) => <div key={i} className="card h-36 shimmer" />)}
+      </div>
+    </div>
+  ),
 });
 
 interface Entity {
@@ -19,6 +30,7 @@ interface Entity {
 interface DashboardClientProps {
   entities: Entity[];
   monthlyByEntity: Record<string, { month: string; income: number; expenses: number }[]>;
+  userRole: string;
 }
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -49,7 +61,8 @@ function consolidatedStats(
   return { income, expenses, profit: income - expenses };
 }
 
-export function DashboardClient({ entities, monthlyByEntity }: DashboardClientProps) {
+export function DashboardClient({ entities, monthlyByEntity, userRole }: DashboardClientProps) {
+  const canSeeInsights = userRole === "ADMIN" || userRole === "ACCOUNTS_MANAGER";
   const currentEntityId = useAppStore((s) => s.currentEntityId);
   const isConsolidated = currentEntityId === "consolidated";
 
@@ -200,6 +213,15 @@ export function DashboardClient({ entities, monthlyByEntity }: DashboardClientPr
         <div className="card p-10 text-center text-ink-faint">
           No entities configured yet. Go to Settings to create your first entity.
         </div>
+      )}
+
+      {/* Financial Health Advisor — Admin + Accounts Manager only */}
+      {canSeeInsights && entities.length > 0 && (
+        <InsightsPanel
+          entities={entities}
+          monthlyByEntity={monthlyByEntity}
+          currentMonthKey={monthKey}
+        />
       )}
     </div>
   );

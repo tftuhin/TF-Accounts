@@ -73,6 +73,7 @@ export default async function DashboardPage() {
         parentId: e.parentId,
       }))}
       monthlyByEntity={serializedMonthly}
+      userRole={session.role}
     />
   );
 }
