@@ -163,12 +163,6 @@ export function exportIncomeStatementPDF(data: IncomeStatementData) {
   y += 1;
   y = lineItem(doc, y, "Net Profit", usd(data.netProfit), data.netProfit >= 0 ? BLUE_C : RED_C, 0, true);
 
-  // Net profit box highlight
-  doc.setFillColor(...(data.netProfit >= 0 ? GREEN_C : RED_C));
-  doc.setOpacity(0.08);
-  doc.rect(ML - 2, y - 10, MR - ML + 4, 8, "F");
-  doc.setOpacity(1);
-
   drawFooter(doc);
   doc.save(`income-statement_${data.entityName.replace(/\s+/g, "-")}_${data.from}_${data.to}.pdf`);
 }
@@ -216,12 +210,6 @@ export function exportBalanceSheetPDF(data: BalanceSheetData) {
   doc.setTextColor(...MUTED);
   doc.text("Equity = Cumulative Income − Cumulative Expenses for the selected period", ML + 4, y + 2);
   y += 10;
-
-  // Equity highlight box
-  doc.setFillColor(...(data.equity >= 0 ? GREEN_C : RED_C));
-  doc.setOpacity(0.07);
-  doc.rect(ML - 2, y - 22, MR - ML + 4, 14, "F");
-  doc.setOpacity(1);
 
   // Balance check
   y += 4;
