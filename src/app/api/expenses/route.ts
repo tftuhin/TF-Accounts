@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureBasicAccounts } from "@/lib/accounts";
@@ -57,6 +58,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    revalidateTag("dashboard");
+    revalidateTag("pf-balances");
     return NextResponse.json({ success: true, data: { id: entry.id } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";

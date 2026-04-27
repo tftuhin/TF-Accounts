@@ -1,26 +1,15 @@
 import { redirect } from "next/navigation";
-import { unstable_cache } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getActiveEntities } from "@/lib/queries";
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { SessionProvider } from "@/components/layout/session-provider";
-
-// Entities change rarely — cache for 60 s, invalidated by /api/entities on mutation.
-const getEntities = unstable_cache(
-  () => prisma.entity.findMany({
-    orderBy: { type: "asc" },
-    select: { id: true, slug: true, name: true, type: true, color: true, parentId: true },
-  }),
-  ["sidebar-entities"],
-  { revalidate: 60, tags: ["entities"] },
-);
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const entities = await getEntities();
+  const entities = await getActiveEntities();
 
   return (
     <SessionProvider user={session}>

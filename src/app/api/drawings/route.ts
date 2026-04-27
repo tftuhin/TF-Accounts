@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
@@ -154,6 +155,10 @@ export async function POST(req: NextRequest) {
         newData: { amount: data.amount, sourceAccount: data.sourceAccount, balanceAtDraw: currentBalance, journalEntryId: journalEntry.id },
       },
     });
+
+    revalidateTag("drawings");
+    revalidateTag("pf-balances");
+    revalidateTag("dashboard");
 
     const exceeded = data.amount > currentBalance;
 

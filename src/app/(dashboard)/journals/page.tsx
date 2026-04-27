@@ -1,8 +1,6 @@
-export const revalidate = 60;
-
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
+import { getActiveEntities } from "@/lib/queries";
 import { JournalsClient } from "./journals-client";
 
 export default async function JournalsPage() {
@@ -11,11 +9,7 @@ export default async function JournalsPage() {
     return <div className="card p-10 text-center text-ink-faint">Access denied.</div>;
   }
 
-  const entities = await prisma.entity.findMany({
-    where: { isActive: true },
-    orderBy: { type: "asc" },
-    select: { id: true, name: true, color: true },
-  });
+  const entities = await getActiveEntities();
 
   return <JournalsClient entities={entities} userRole={session.role} />;
 }

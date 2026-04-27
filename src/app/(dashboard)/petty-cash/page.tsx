@@ -1,7 +1,5 @@
-export const revalidate = 60;
-
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getPettyCashPeriods } from "@/lib/queries";
 import { PettyCashClient } from "./petty-cash-client";
 
 function calcBalances(entries: { txnType: string; amount: number | { toNumber(): number } }[]) {
@@ -26,14 +24,7 @@ export default async function PettyCashPage() {
   const session = await getSession();
   if (!session) return null;
 
-  const periods = await prisma.pettyCashPeriod.findMany({
-    orderBy: { periodStart: "desc" },
-    take: 2,
-    include: {
-      entity: { select: { name: true, slug: true } },
-      entries: { orderBy: { date: "asc" } },
-    },
-  });
+  const periods = await getPettyCashPeriods();
 
   if (!periods.length) {
     return <PettyCashClient data={null} userRole={session.role} />;

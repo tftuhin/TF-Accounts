@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -157,6 +158,8 @@ export async function POST(req: NextRequest) {
         }),
       ]);
     }
+
+    revalidateTag("fund-transfers");
 
     return NextResponse.json({
       success: true,

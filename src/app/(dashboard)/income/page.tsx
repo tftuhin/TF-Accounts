@@ -1,8 +1,6 @@
-export const revalidate = 300;
-
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { canAccess } from "@/lib/rbac";
+import { getActiveEntities, getActiveBankAccounts } from "@/lib/queries";
 import { IncomeClient } from "./income-client";
 
 export default async function IncomePage() {
@@ -12,17 +10,12 @@ export default async function IncomePage() {
   }
 
   const [entities, bankAccounts] = await Promise.all([
-    prisma.entity.findMany({
-      where: { isActive: true },
-      orderBy: { type: "asc" },
-      select: { id: true, slug: true, name: true, type: true, color: true },
-    }),
-    prisma.bankAccount.findMany({
-      where: { isActive: true },
-      orderBy: { accountType: "asc" },
-      select: { id: true, accountName: true, accountType: true, currency: true, bankName: true, entityId: true },
-    }),
+    getActiveEntities(),
+    getActiveBankAccounts(),
   ]);
 
-  return <IncomeClient entities={entities} bankAccounts={bankAccounts} userRole={session.role} />;
+  return <IncomeClient entities={entities} bankAccounts={bankAccounts.map(b => ({
+    id: b.id, accountName: b.accountName, accountType: b.accountType,
+    currency: b.currency, bankName: b.bankName, entityId: b.entityId,
+  }))} userRole={session.role} />;
 }

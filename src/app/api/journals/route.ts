@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -154,6 +155,8 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
   await prisma.journalEntry.delete({ where: { id } });
+  revalidateTag("dashboard");
+  revalidateTag("pf-balances");
   return NextResponse.json({ success: true });
 }
 
@@ -212,6 +215,8 @@ export async function PATCH(req: NextRequest) {
         VALUES (${id}::uuid, ${userEmail}, ${userRole}, ${changesJson}::jsonb)`.catch(() => {});
     }
 
+    revalidateTag("dashboard");
+    revalidateTag("pf-balances");
     return NextResponse.json({ success: true, data: { id } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";

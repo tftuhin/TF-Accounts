@@ -1,26 +1,15 @@
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+import { getActiveBankAccounts, getFundTransfersList } from "@/lib/queries";
 import { FundTransferClient } from "./fund-transfer-client";
 
 export default async function FundTransfersPage() {
   const session = await getSession();
   if (!session) return null;
 
-  const bankAccounts = await prisma.bankAccount.findMany({
-    where: { isActive: true },
-    orderBy: { accountType: "asc" },
-    include: { entity: { select: { name: true } } },
-  });
-
-  const recentTransfers = await prisma.fundTransfer.findMany({
-    take: 20,
-    orderBy: { date: "desc" },
-    include: {
-      fromAccount: { select: { accountName: true, accountType: true, currency: true } },
-      toAccount: { select: { accountName: true, accountType: true, currency: true } },
-      entity: { select: { name: true } },
-    },
-  });
+  const [bankAccounts, recentTransfers] = await Promise.all([
+    getActiveBankAccounts(),
+    getFundTransfersList(),
+  ]);
 
   return (
     <FundTransferClient
