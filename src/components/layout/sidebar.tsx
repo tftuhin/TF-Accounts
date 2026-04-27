@@ -41,9 +41,30 @@ export function Sidebar({ entities, user }: { entities: Entity[]; user: SessionU
   const { currentEntityId, setCurrentEntityId, sidebarOpen, toggleSidebar } = useAppStore();
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
+    try {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!response.ok) {
+        console.error("Logout failed:", response.status);
+      }
+
+      // Clear any stored data
+      if (typeof window !== "undefined") {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+
+      // Redirect to login
+      router.push("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Force redirect even if logout fails
+      window.location.href = "/login";
+    }
   }
 
   const visibleNav = NAV_ITEMS.filter((item) => canAccess(user.role, item.resource));
