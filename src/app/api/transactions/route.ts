@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { TxnType } from "@prisma/client";
 
 const CreateTransactionSchema = z.object({
   entityId: z.string().uuid(),
@@ -109,14 +110,12 @@ export async function POST(req: NextRequest) {
         lines: {
           create: data.type === "income"
             ? [
-                // Debit Cash, Credit Income
-                { accountId: cashAccount.id, pfAccount: null, entryType: "DEBIT", amount: data.amount, entityId: data.entityId },
-                { accountId: pfChartAccount.id, pfAccount: data.pfAccount, entryType: "CREDIT", amount: data.amount, entityId: data.entityId },
+                { accountId: cashAccount.id, pfAccount: null, entryType: TxnType.DEBIT, amount: data.amount, entityId: data.entityId },
+                { accountId: pfChartAccount.id, pfAccount: data.pfAccount, entryType: TxnType.CREDIT, amount: data.amount, entityId: data.entityId },
               ]
             : [
-                // Debit Expense (OPEX), Credit Cash
-                { accountId: pfChartAccount.id, pfAccount: data.pfAccount, entryType: "DEBIT", amount: data.amount, entityId: data.entityId },
-                { accountId: cashAccount.id, pfAccount: null, entryType: "CREDIT", amount: data.amount, entityId: data.entityId },
+                { accountId: pfChartAccount.id, pfAccount: data.pfAccount, entryType: TxnType.DEBIT, amount: data.amount, entityId: data.entityId },
+                { accountId: cashAccount.id, pfAccount: null, entryType: TxnType.CREDIT, amount: data.amount, entityId: data.entityId },
               ],
         },
       },

@@ -56,8 +56,6 @@ export async function signupAction(email: string, password: string, fullName: st
     // Create profile in profiles table immediately
     if (data.user?.id) {
       try {
-        console.log("Creating profile for user:", data.user.id);
-
         const { data: existingProfile, error: checkError } = await supabase
           .from("profiles")
           .select("id")
@@ -65,12 +63,11 @@ export async function signupAction(email: string, password: string, fullName: st
           .maybeSingle();
 
         if (checkError && checkError.code !== "PGRST116") {
-          console.error("Error checking profile:", checkError);
+          console.error("Profile check error:", checkError);
         }
 
-        // Only insert if profile doesn't exist
         if (!existingProfile) {
-          const { data: insertedProfile, error: profileError } = await supabase
+          const { error: profileError } = await supabase
             .from("profiles")
             .insert({
               id: data.user.id,
@@ -84,14 +81,10 @@ export async function signupAction(email: string, password: string, fullName: st
 
           if (profileError) {
             console.error("Profile creation error:", profileError);
-          } else {
-            console.log("Profile created successfully:", insertedProfile);
           }
-        } else {
-          console.log("Profile already exists");
         }
       } catch (err) {
-        console.error("Error in profile creation:", err);
+        console.error("Profile creation error:", err);
       }
     }
 

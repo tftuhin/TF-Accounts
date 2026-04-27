@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureBasicAccounts } from "@/lib/accounts";
+import { TxnType } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
             {
               accountId: accounts.opex.id,
               pfAccount: "OPEX",
-              entryType: "DEBIT",
+              entryType: TxnType.DEBIT,
               amount,
               currency: lineCurrency,
               usdAmount: usdAmount ?? null,
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
             {
               accountId: accounts.cash.id,
               pfAccount: null,
-              entryType: "CREDIT",
+              entryType: TxnType.CREDIT,
               amount,
               currency: lineCurrency,
               usdAmount: usdAmount ?? null,

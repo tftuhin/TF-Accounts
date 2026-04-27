@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ensureBasicAccounts } from "@/lib/accounts";
+import { TxnType } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
             {
               accountId: accounts.income.id,
               pfAccount: "INCOME",
-              entryType: "CREDIT",
+              entryType: TxnType.CREDIT,
               amount,
               currency: "BDT",
               entityId,
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
                 ? await prisma.chartOfAccounts.findFirst({ where: { entityId, accountCode: "1000" } }).then(a => a?.id ?? accounts.cash.id)
                 : accounts.cash.id,
               pfAccount: null,
-              entryType: "DEBIT",
+              entryType: TxnType.DEBIT,
               amount,
               currency: "BDT",
               entityId,
