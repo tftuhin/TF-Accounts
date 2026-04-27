@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
         status: "FINALIZED",
         category: "Income",
         createdById: session.id,
-        createdByRole: session.role as any,
+        createdByRole: session.role,
         lines: {
           create: [
             // Credit Income account

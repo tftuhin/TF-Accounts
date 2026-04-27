@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
         status: "FINALIZED",
         category: subcategory ? `${category || "Expense"} › ${subcategory}` : (category || "Expense"),
         createdById: session.id,
-        createdByRole: session.role as any,
+        createdByRole: session.role,
         lines: {
           create: [
             // Debit OPEX — amount in BDT (BDT equiv for USD transactions)

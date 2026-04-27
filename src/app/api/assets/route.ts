@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
         status: "FINALIZED",
         category: `Asset › ${validated.category}`,
         createdById: session.id,
-        createdByRole: session.role as any,
+        createdByRole: session.role,
         lines: {
           create: [
             // Debit Fixed Assets account
@@ -236,7 +236,7 @@ export async function PATCH(req: NextRequest) {
         status: "FINALIZED",
         category: "Asset Disposal",
         createdById: session.id,
-        createdByRole: session.role as any,
+        createdByRole: session.role,
         lines: {
           create: [
             // Debit Cash account (proceeds received)

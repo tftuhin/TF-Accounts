@@ -1,12 +1,13 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { UserRole } from "@prisma/client";
 import { supabaseServer } from "./supabase-server";
 
 export interface SessionUser {
   id: string;
   email: string;
   fullName: string;
-  role: "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER";
+  role: UserRole;
 }
 
 export async function getSession(): Promise<SessionUser | null> {

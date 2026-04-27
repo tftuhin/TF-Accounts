@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
-import { TxnType } from "@prisma/client";
+import { TxnType, UserRole } from "@prisma/client";
 import { calcDepreciation } from "@/lib/asset-depreciation";
 import { ensureBasicAccounts } from "@/lib/accounts";
 
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   // For cron jobs, createdById is null; for admin users, use their ID
   const userId = session?.id || null;
-  const userRole = session?.role || "ADMIN";
+  const userRole = session?.role || "ADMIN" as const;
 
   try {
     let entityId, month, year;
@@ -176,7 +176,7 @@ export async function POST(req: NextRequest) {
           status: "FINALIZED",
           category: "Depreciation",
           createdById: userId,
-          createdByRole: userRole as any,
+          createdByRole: userRole,
           lines: {
             create: [
               // Debit Depreciation Expense
