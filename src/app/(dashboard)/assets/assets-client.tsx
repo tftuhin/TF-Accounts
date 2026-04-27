@@ -80,12 +80,14 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
     fetchAccounts();
   }, [selectedEntity, entities]);
 
+  const today = new Date().toISOString().split("T")[0];
+
   const [formData, setFormData] = useState({
     entityId: "",
     name: "",
     description: "",
     category: "COMPUTER_ELECTRONICS",
-    purchaseDate: "",
+    purchaseDate: today,
     purchaseCost: "",
     currency: "BDT",
     usefulLifeYears: "5",
@@ -176,7 +178,7 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
         name: "",
         description: "",
         category: "COMPUTER_ELECTRONICS",
-        purchaseDate: "",
+        purchaseDate: today,
         purchaseCost: "",
         currency: "BDT",
         usefulLifeYears: "5",

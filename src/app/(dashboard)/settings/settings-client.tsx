@@ -97,7 +97,8 @@ export function SettingsClient({
   }
 
   // ── Partnership management ──────────────────────────────────
-  const [partnerForm, setPartnerForm] = useState<{ ownerName: string; ownershipPct: string; effectiveFrom: string; notes: string }>({ ownerName: "", ownershipPct: "", effectiveFrom: "", notes: "" });
+  const todayStr = new Date().toISOString().split("T")[0];
+  const [partnerForm, setPartnerForm] = useState<{ ownerName: string; ownershipPct: string; effectiveFrom: string; notes: string }>({ ownerName: "", ownershipPct: "", effectiveFrom: todayStr, notes: "" });
   const [savingPartner, setSavingPartner] = useState(false);
   const [expandedEntity, setExpandedEntity] = useState<string | null>(null);
 
@@ -131,7 +132,7 @@ export function SettingsClient({
         prev.map((e) => (e.id === entityId ? { ...e, ownership } : e))
       );
       toast.success(`Partner "${partnerForm.ownerName}" added`);
-      setPartnerForm({ ownerName: "", ownershipPct: "", effectiveFrom: "", notes: "" });
+      setPartnerForm({ ownerName: "", ownershipPct: "", effectiveFrom: todayStr, notes: "" });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to add partner");
     } finally {
