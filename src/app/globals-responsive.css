@@ -1,237 +1,41 @@
-/* Responsive fixes and optimizations */
+/* Optimized responsive CSS - minimal rules for performance */
 
-/* Mobile-first responsive improvements */
 @media (max-width: 768px) {
-  /* Reduce padding on mobile */
-  body {
-    padding: 0;
+  .grid-cols-3, .grid-cols-4 {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
   }
+  .grid-cols-2 { grid-template-columns: 1fr !important; }
 
-  /* Fix card overflow on mobile */
-  .card {
-    border-radius: 12px;
-    overflow: hidden;
-  }
+  main { padding: 1rem !important; }
+  .card { overflow: hidden; }
 
-  /* Responsive grid columns */
-  .grid-cols-3 {
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  }
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
 
-  .grid-cols-2 {
-    grid-template-columns: 1fr;
-  }
-
-  .grid-cols-4 {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  }
-
-  /* Responsive text sizes */
-  h1 {
-    font-size: 1.5rem;
-  }
-
-  h2 {
-    font-size: 1.25rem;
-  }
-
-  /* Fix table overflow on mobile */
-  table {
-    font-size: 0.875rem;
-  }
-
-  thead th {
-    padding: 0.5rem;
-  }
-
-  tbody td {
-    padding: 0.5rem;
-  }
-
-  /* Responsive spacing */
-  .space-y-6 {
-    gap: 1rem !important;
-  }
-
-  .space-y-4 {
-    gap: 0.75rem !important;
-  }
-
-  /* Fix input widths */
-  input,
-  select,
-  textarea {
+  input, select, textarea {
     width: 100%;
-    max-width: 100%;
+    font-size: 16px;
   }
 
-  /* Responsive button sizes */
-  button {
-    min-height: 40px;
-    padding: 0.625rem 1rem;
-  }
+  button { min-height: 44px; }
 
-  /* Fix flex wrapping */
-  .flex {
-    flex-wrap: wrap;
-  }
+  table { font-size: 0.875rem; }
+  thead th, tbody td { padding: 0.5rem; }
 
-  .flex-col {
-    flex-direction: column;
-  }
-
-  /* Responsive padding for main container */
-  main {
-    padding: 1rem;
-  }
-
-  /* Fix sidebar on mobile */
-  aside {
-    width: 100%;
-    max-width: none;
-  }
-
-  /* Responsive forms */
-  .form-group {
-    margin-bottom: 1rem;
-  }
-
-  /* Fix large tables */
-  .overflow-x-auto {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* Responsive modal/card widths */
-  .max-w-md {
-    max-width: 100%;
-  }
-
-  .max-w-2xl {
-    max-width: 100%;
-  }
-
-  /* Fix badge sizes */
-  .badge {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
-  }
-
-  /* Responsive list items */
-  li {
-    padding: 0.5rem 0;
-  }
-
-  /* Fix long text wrapping */
-  p,
-  span {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-  }
+  body { overflow-x: hidden; }
+  main { width: 100%; }
 }
 
-/* Tablets (768px - 1024px) */
-@media (min-width: 769px) and (max-width: 1024px) {
-  .grid-cols-3 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .grid-cols-4 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  h1 {
-    font-size: 1.75rem;
-  }
-
-  main {
-    padding: 1.5rem;
-  }
-}
-
-/* Performance optimizations */
-
-/* Reduce motion for animations on slower devices */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
-/* Optimize images */
-img {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Lazy load images */
-img[loading="lazy"] {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-/* Reduce layout shift */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Optimize scrolling performance */
-body {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Fix overflow issues */
-* {
-  max-width: 100%;
-}
-
-/* Responsive font scaling */
 @media (max-width: 480px) {
-  html {
-    font-size: 14px;
-  }
-
-  h1 {
-    font-size: 1.25rem;
-  }
-
-  h2 {
-    font-size: 1.1rem;
-  }
-
-  .text-sm {
-    font-size: 0.75rem;
-  }
-
-  .text-xs {
-    font-size: 0.625rem;
-  }
+  main { padding: 0.75rem !important; }
+  h1 { font-size: 1.25rem; }
+  .text-sm { font-size: 0.75rem; }
 }
 
-/* Ensure proper container widths */
-.container,
-[role="main"] {
-  width: 100%;
-  margin-left: auto;
-  margin-right: auto;
-}
+img { max-width: 100%; height: auto; }
+html { scroll-behavior: smooth; }
+body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 
-/* Fix sticky elements on mobile */
-@media (max-width: 768px) {
-  sticky {
-    position: relative;
-  }
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
