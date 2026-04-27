@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   const toDate   = new Date(to);
   const isConsolidated = !entityId || entityId === "consolidated";
 
-  // Single aggregation query for all journal lines
+  // Single aggregation query for all journal lines (all accounts)
   const lineRows: LineAgg[] = isConsolidated
     ? fromDate
       ? await prisma.$queryRaw<LineAgg[]>`
@@ -71,16 +71,56 @@ export async function GET(req: NextRequest) {
           GROUP BY jel.pf_account, jel.entry_type, jel.currency
         `;
 
-  let totalIncome = 0, totalExpenses = 0;
+  let totalIncome = 0, totalExpenses = 0, totalDrawings = 0;
   let bdtCashBalance = 0, usdCashBalanceBDT = 0, usdCashBalanceUSD = 0;
+  let fixedAssetsGross = 0, accumulatedDepreciation = 0;
 
   for (const row of lineRows) {
     const sign = row.entry_type === "DEBIT" ? 1 : -1;
     if (row.pf_account === "INCOME" && row.entry_type === "CREDIT") totalIncome += row.total;
     else if (row.pf_account === "OPEX" && row.entry_type === "DEBIT") totalExpenses += row.total;
+    else if (row.pf_account === "PROFIT" && row.entry_type === "DEBIT") totalDrawings += row.total;
+    else if (row.pf_account === "OWNERS_COMP" && row.entry_type === "DEBIT") totalDrawings += row.total;
     else if (row.pf_account === null) {
       if (row.currency === "BDT") bdtCashBalance += sign * row.total;
       else if (row.currency === "USD") { usdCashBalanceBDT += sign * row.total; usdCashBalanceUSD += sign * row.usd_total; }
+    }
+  }
+
+  // Query fixed assets and accumulated depreciation from GL
+  const fixedAssetRows: { accountCode: string; entryType: string; total: number }[] = isConsolidated
+    ? await prisma.$queryRaw`
+        SELECT coa.account_code as "accountCode", jel.entry_type as "entryType",
+               SUM(jel.amount)::float8 AS total
+        FROM journal_entry_lines jel
+        JOIN chart_of_accounts coa ON coa.id = jel.account_id
+        JOIN journal_entries je ON je.id = jel.journal_entry_id
+        WHERE je.status = 'FINALIZED'
+          AND je.date <= ${toDate}
+          AND coa.account_code IN ('1500', '1510')
+        GROUP BY coa.account_code, jel.entry_type
+      `
+    : await prisma.$queryRaw`
+        SELECT coa.account_code as "accountCode", jel.entry_type as "entryType",
+               SUM(jel.amount)::float8 AS total
+        FROM journal_entry_lines jel
+        JOIN chart_of_accounts coa ON coa.id = jel.account_id
+        JOIN journal_entries je ON je.id = jel.journal_entry_id
+        WHERE je.status = 'FINALIZED'
+          AND je.entity_id = ${entityId}
+          AND je.date <= ${toDate}
+          AND coa.account_code IN ('1500', '1510')
+        GROUP BY coa.account_code, jel.entry_type
+      `;
+
+  for (const row of fixedAssetRows) {
+    const sign = row.entryType === "DEBIT" ? 1 : -1;
+    if (row.accountCode === "1500") {
+      // Fixed Assets (account 1500): normally debit = asset cost
+      fixedAssetsGross += sign * row.total;
+    } else if (row.accountCode === "1510") {
+      // Accumulated Depreciation (account 1510): normally credit = contra-asset (debit means reversed)
+      accumulatedDepreciation += sign * row.total;
     }
   }
 
@@ -125,15 +165,31 @@ export async function GET(req: NextRequest) {
     entityName = entity?.name ?? entityId!;
   }
 
-  const equity = totalIncome - totalExpenses;
+  // Equity = Income - Expenses - Drawings
+  const equity = totalIncome - totalExpenses - totalDrawings;
+  const netFixedAssets = fixedAssetsGross - accumulatedDepreciation;
 
   const assets: { label: string; amount: number; currency: string; usdAmount?: number }[] = [];
+
+  // Current assets
   if (bdtCashBalance > 0)
     assets.push({ label: "BDT Bank Accounts", amount: bdtCashBalance, currency: "BDT" });
   if (usdCashBalanceBDT > 0 || usdCashBalanceUSD > 0)
     assets.push({ label: "USD Bank Accounts", amount: usdCashBalanceBDT, currency: "BDT", usdAmount: usdCashBalanceUSD });
   if (pettyCashBalance > 0)
     assets.push({ label: "Petty Cash", amount: pettyCashBalance, currency: "BDT" });
+
+  // Fixed assets
+  if (fixedAssetsGross > 0) {
+    if (accumulatedDepreciation > 0) {
+      assets.push({ label: "Fixed Assets (gross)", amount: fixedAssetsGross, currency: "BDT" });
+      assets.push({ label: "Less: Accumulated Depreciation", amount: -accumulatedDepreciation, currency: "BDT" });
+      assets.push({ label: "Fixed Assets (net)", amount: netFixedAssets, currency: "BDT" });
+    } else {
+      assets.push({ label: "Fixed Assets", amount: fixedAssetsGross, currency: "BDT" });
+    }
+  }
+
   if (assets.length === 0 && equity > 0)
     assets.push({ label: "Bank Accounts (estimated)", amount: equity, currency: "BDT" });
 

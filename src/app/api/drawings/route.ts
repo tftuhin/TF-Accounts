@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { TxnType } from "@prisma/client";
+import { ensureBasicAccounts } from "@/lib/accounts";
 
 const CreateDrawingSchema = z.object({
   entityId: z.string().uuid(),
@@ -76,13 +78,54 @@ export async function POST(req: NextRequest) {
     const registryId = data.ownershipRegistryId || data.ownerId;
     if (!registryId) return NextResponse.json({ error: "ownershipRegistryId or ownerId required" }, { status: 400 });
 
+    // Ensure basic accounts exist
+    const accounts = await ensureBasicAccounts(data.entityId);
+
+    // Create journal entry for the drawing (debit equity/drawings, credit cash)
+    const drawingDate = new Date(data.date);
+    const journalEntry = await prisma.journalEntry.create({
+      data: {
+        entityId: data.entityId,
+        date: drawingDate,
+        description: `Owner Drawing: ${data.sourceAccount === "PROFIT" ? "From Profit" : "From Owners Compensation"}`,
+        status: "FINALIZED",
+        category: "Owner Drawing",
+        createdById: session.id,
+        createdByRole: session.role,
+        lines: {
+          create: [
+            // Debit Drawings (reduces equity)
+            {
+              accountId: accounts.cash.id, // Will be replaced with proper equity account in future
+              pfAccount: data.sourceAccount,
+              entryType: TxnType.DEBIT,
+              amount: data.amount,
+              currency: "BDT",
+              entityId: data.entityId,
+              memo: `Owner drawing: ${data.note || ""}`,
+            },
+            // Credit Cash account (money withdrawn)
+            {
+              accountId: accounts.cash.id,
+              pfAccount: null,
+              entryType: TxnType.CREDIT,
+              amount: data.amount,
+              currency: "BDT",
+              entityId: data.entityId,
+              memo: "Funds withdrawn",
+            },
+          ],
+        },
+      },
+    });
+
     const drawing = await prisma.drawing.create({
       data: {
         entityId: data.entityId,
         ownershipRegistryId: registryId,
         sourceAccount: data.sourceAccount,
         amount: data.amount,
-        date: new Date(data.date),
+        date: drawingDate,
         status: data.amount > currentBalance ? "PENDING" : "COMPLETED",
         note: data.note,
         accountBalanceAtDraw: currentBalance,
@@ -98,7 +141,7 @@ export async function POST(req: NextRequest) {
         action: "create",
         tableName: "drawings",
         recordId: drawing.id,
-        newData: { amount: data.amount, sourceAccount: data.sourceAccount, balanceAtDraw: currentBalance },
+        newData: { amount: data.amount, sourceAccount: data.sourceAccount, balanceAtDraw: currentBalance, journalEntryId: journalEntry.id },
       },
     });
 
@@ -106,7 +149,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: { id: drawing.id, exceeded, currentBalance },
+      data: { id: drawing.id, exceeded, currentBalance, journalEntryId: journalEntry.id },
       ...(exceeded ? { warning: `Drawing exceeds ${data.sourceAccount} balance of $${currentBalance.toFixed(2)}` } : {}),
     });
   } catch (err) {

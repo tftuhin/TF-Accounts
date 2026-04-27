@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   const toDate   = new Date(to);
   const isConsolidated = !entityId || entityId === "consolidated";
 
-  // Single aggregation query replaces loading all entries + JS loops
+  // Single aggregation query: includes INCOME, OPEX, and Depreciation/Disposal entries
   const rows: AggRow[] = isConsolidated
     ? await prisma.$queryRaw<AggRow[]>`
         SELECT jel.pf_account, jel.entry_type, je.category,
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
         JOIN journal_entries je ON je.id = jel.journal_entry_id
         WHERE je.status = 'FINALIZED'
           AND je.date >= ${fromDate} AND je.date <= ${toDate}
-          AND jel.pf_account IN ('INCOME', 'OPEX')
+          AND (jel.pf_account IN ('INCOME', 'OPEX') OR je.category IN ('Depreciation', 'Asset Disposal'))
         GROUP BY jel.pf_account, jel.entry_type, je.category
       `
     : await prisma.$queryRaw<AggRow[]>`
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
         WHERE je.status = 'FINALIZED'
           AND je.date >= ${fromDate} AND je.date <= ${toDate}
           AND je.entity_id = ${entityId}
-          AND jel.pf_account IN ('INCOME', 'OPEX')
+          AND (jel.pf_account IN ('INCOME', 'OPEX') OR je.category IN ('Depreciation', 'Asset Disposal'))
         GROUP BY jel.pf_account, jel.entry_type, je.category
       `;
 
@@ -50,11 +50,28 @@ export async function GET(req: NextRequest) {
 
   for (const row of rows) {
     const amt = row.total;
+    // Income: credited to income account (increases revenue)
     if (row.pf_account === "INCOME" && row.entry_type === "CREDIT") {
       totalIncome += amt;
-    } else if (row.pf_account === "OPEX" && row.entry_type === "DEBIT") {
+    }
+    // Operating Expenses: debited to OPEX account (reduces profit)
+    else if (row.pf_account === "OPEX" && row.entry_type === "DEBIT") {
       totalExpenses += amt;
       expenseByCategory[row.category || "Other"] = (expenseByCategory[row.category || "Other"] || 0) + amt;
+    }
+    // Depreciation Expense: debited (reduces profit)
+    else if (row.category === "Depreciation" && row.entry_type === "DEBIT") {
+      totalExpenses += amt;
+      expenseByCategory["Depreciation"] = (expenseByCategory["Depreciation"] || 0) + amt;
+    }
+    // Asset Disposal Loss: debited (reduces profit)
+    else if (row.category === "Asset Disposal" && row.entry_type === "DEBIT") {
+      totalExpenses += amt;
+      expenseByCategory["Asset Disposal Loss"] = (expenseByCategory["Asset Disposal Loss"] || 0) + amt;
+    }
+    // Asset Disposal Gain: credited (increases revenue/reduces expenses)
+    else if (row.category === "Asset Disposal" && row.entry_type === "CREDIT") {
+      totalIncome += amt;
     }
   }
 
