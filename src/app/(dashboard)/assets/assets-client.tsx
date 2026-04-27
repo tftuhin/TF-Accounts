@@ -175,22 +175,28 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-100 rounded-lg">
             <Package className="w-6 h-6 text-blue-600" />
           </div>
-          <h1 className="text-2xl font-bold text-ink">Fixed Assets</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-ink">Fixed Assets</h1>
+            {!isAdmin && <p className="text-xs text-ink-faint mt-1">Admin access required to create assets</p>}
+          </div>
         </div>
-        {isAdmin && (
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-          >
-            <Plus className="w-4 h-4" />
-            Add Asset
-          </button>
-        )}
+        <button
+          onClick={() => setShowForm(!showForm)}
+          disabled={!isAdmin}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
+            isAdmin
+              ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+              : "bg-border text-ink-faint cursor-not-allowed opacity-50"
+          }`}
+        >
+          <Plus className="w-4 h-4" />
+          Add Asset
+        </button>
       </div>
 
       {/* Summary Cards */}
