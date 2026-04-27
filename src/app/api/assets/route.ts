@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import { z } from "zod";
 import { calcDepreciation } from "@/lib/asset-depreciation";
+import { ensureBasicAccounts } from "@/lib/accounts";
 
 const createAssetSchema = z.object({
   entityId: z.string().uuid(),
@@ -99,24 +100,44 @@ export async function POST(req: NextRequest) {
     const purchaseCost = new Decimal(validated.purchaseCost.toString());
     const purchaseDate = new Date(validated.purchaseDate);
 
-    // Find or get asset and bank accounts for the chart of accounts
-    const assetAccount = await prisma.chartOfAccounts.findFirst({
-      where: {
+    // Ensure basic accounts including Fixed Assets
+    const accounts = await ensureBasicAccounts(validated.entityId);
+
+    // Create journal entry for asset purchase
+    const journalEntry = await prisma.journalEntry.create({
+      data: {
         entityId: validated.entityId,
-        accountGroup: "asset",
-        accountName: { contains: "Fixed Asset" },
+        description: `Fixed Asset Purchase: ${validated.name}`,
+        date: purchaseDate,
+        status: "FINALIZED",
+        category: `Asset › ${validated.category}`,
+        createdById: session.id,
+        createdByRole: session.role as any,
+        lines: {
+          create: [
+            // Debit Fixed Assets account
+            {
+              accountId: accounts.fixedAssets.id,
+              entryType: "DEBIT",
+              amount: purchaseCost,
+              currency,
+              entityId: validated.entityId,
+              memo: `Purchase: ${validated.name}`,
+            },
+            // Credit Bank account
+            {
+              accountId: accounts.cash.id,
+              entryType: "CREDIT",
+              amount: purchaseCost,
+              currency,
+              entityId: validated.entityId,
+              memo: `Payment for: ${validated.name}`,
+            },
+          ],
+        },
       },
     });
 
-    const bankAccount = await prisma.chartOfAccounts.findFirst({
-      where: {
-        entityId: validated.entityId,
-        accountGroup: "asset",
-        accountName: { contains: currency === "USD" ? "USD" : "BDT" },
-      },
-    });
-
-    // Create the fixed asset record
     const asset = await prisma.fixedAsset.create({
       data: {
         entityId: validated.entityId,
@@ -129,6 +150,7 @@ export async function POST(req: NextRequest) {
         usefulLifeYears: validated.usefulLifeYears,
         salvageValue: new Decimal((validated.salvageValue || 0).toString()),
         createdById: session.id,
+        journalEntryId: journalEntry.id,
       },
     });
 
