@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { UserRole } from "@prisma/client";
 import { supabaseServer } from "./supabase-server";
 
@@ -10,7 +11,7 @@ export interface SessionUser {
   role: UserRole;
 }
 
-export async function getSession(): Promise<SessionUser | null> {
+export const getSession = cache(async function getSessionImpl(): Promise<SessionUser | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -86,7 +87,7 @@ export async function getSession(): Promise<SessionUser | null> {
     fullName: profile.full_name,
     role: profile.role,
   };
-}
+});
 
 export async function createDemoUsers() {
   if (!supabaseServer) {
