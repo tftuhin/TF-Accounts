@@ -46,6 +46,8 @@ export default async function SettingsPage() {
       ownershipByEntity[entity.id] = ownership.map((o) => ({
         ...o,
         ownershipPct: Number(o.ownershipPct),
+        effectiveFrom: o.effectiveFrom.toISOString(),
+        effectiveTo: o.effectiveTo ? o.effectiveTo.toISOString() : null,
       }));
     }
   } catch (error) {
