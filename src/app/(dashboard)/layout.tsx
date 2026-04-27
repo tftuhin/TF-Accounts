@@ -16,11 +16,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <SessionProvider user={session}>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen overflow-hidden flex-col lg:flex-row">
         <Sidebar entities={entities} user={session} />
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden w-full">
           <TopBar user={session} />
-          <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8">
             {children}
           </main>
         </div>

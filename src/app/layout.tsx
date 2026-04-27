@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { QueryProvider } from "@/lib/query-provider";
 import { Toaster } from "sonner";
 import "./globals.css";
+import "./globals-responsive.css";
 
 export const metadata: Metadata = {
   title: "Teamosis Ledger · Profit First Accounting",
