@@ -34,45 +34,53 @@ export async function signupAction(email: string, password: string, fullName: st
     },
   });
 
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: {
-        full_name: fullName,
-      },
-    },
-  });
-
-  if (error) {
-    if (error.message.includes("already registered")) {
-      return { error: "Email already registered" };
-    }
-    return { error: error.message || "Failed to sign up" };
-  }
-
-  // Create profile in profiles table
-  if (data.user) {
-    try {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          id: data.user.id,
-          email,
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
           full_name: fullName,
-          role: "ENTRY_MANAGER",
-          is_active: true,
-        });
+        },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/auth/callback`,
+      },
+    });
 
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
+    if (error) {
+      if (error.message.includes("already registered")) {
+        return { error: "Email already registered" };
       }
-    } catch (err) {
-      console.error("Error creating profile:", err);
+      return { error: error.message || "Failed to sign up" };
     }
-  }
 
-  return { success: true };
+    // Create profile in profiles table immediately
+    if (data.user?.id) {
+      try {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert({
+            id: data.user.id,
+            email,
+            full_name: fullName,
+            role: "ENTRY_MANAGER",
+            is_active: true,
+          })
+          .select();
+
+        if (profileError) {
+          console.error("Profile creation error:", profileError);
+          // Don't fail signup if profile creation fails, user can still sign in
+        }
+      } catch (err) {
+        console.error("Error creating profile:", err);
+      }
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("Signup error:", err);
+    return { error: err instanceof Error ? err.message : "Failed to sign up" };
+  }
 }
 
 export async function getGoogleOAuthUrl() {

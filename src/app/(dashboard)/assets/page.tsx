@@ -14,18 +14,36 @@ export default async function AssetsPage() {
     );
   }
 
-  const [entities, assets] = await Promise.all([
-    prisma.entity.findMany({
-      orderBy: { type: "asc" },
-      select: { id: true, name: true, color: true, slug: true },
-    }),
-    prisma.fixedAsset.findMany({
-      include: {
-        entity: { select: { name: true, color: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
+  let entities: any[] = [];
+  let assets: any[] = [];
+
+  try {
+    const [entitiesData, assetsData] = await Promise.all([
+      prisma.entity.findMany({
+        orderBy: { type: "asc" },
+        select: { id: true, name: true, color: true, slug: true },
+      }),
+      prisma.fixedAsset.findMany({
+        include: {
+          entity: { select: { name: true, color: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+    entities = entitiesData;
+    assets = assetsData;
+  } catch (error) {
+    console.error("Error loading assets:", error);
+    // Get entities even if assets table doesn't exist yet
+    try {
+      entities = await prisma.entity.findMany({
+        orderBy: { type: "asc" },
+        select: { id: true, name: true, color: true, slug: true },
+      });
+    } catch (err) {
+      console.error("Error loading entities:", err);
+    }
+  }
 
   const serializedAssets = assets.map((asset) => ({
     id: asset.id,
