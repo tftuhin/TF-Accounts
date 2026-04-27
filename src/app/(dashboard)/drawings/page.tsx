@@ -21,7 +21,7 @@ export default async function DrawingsPage() {
     prisma.ownershipRegistry.findMany({
       where: { effectiveTo: null },
       include: { entity: { select: { name: true, id: true } } },
-    }),
+    }).catch(() => []), // Fallback if query fails
     prisma.entity.findMany({
       where: { isActive: true },
       orderBy: { type: "asc" },
@@ -75,7 +75,7 @@ export default async function DrawingsPage() {
         ownerName: o.ownerName,
         ownershipPct: Number(o.ownershipPct),
         entityId: o.entityId,
-        entityName: o.entity.name,
+        entityName: o.entity?.name || "Unknown",
       }))}
       entities={entities}
       pfBalances={pfBalances}
