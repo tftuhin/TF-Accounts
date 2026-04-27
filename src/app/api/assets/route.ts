@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Decimal } from "@prisma/client/runtime/library";
+import { Decimal, TxnStatus } from "@prisma/client";
 import { z } from "zod";
 import { calcDepreciation } from "@/lib/asset-depreciation";
 
@@ -134,9 +134,9 @@ export async function POST(req: NextRequest) {
             entityId: validated.entityId,
             description: `Fixed Asset Purchase: ${validated.name}`,
             date: purchaseDate,
-            status: "FINALIZED",
+            status: TxnStatus.FINALIZED,
             createdById: session.id,
-            createdByRole: session.role,
+            createdByRole: session.role as any,
             lines: {
               create: [
                 {
@@ -252,9 +252,9 @@ export async function PATCH(req: NextRequest) {
           entityId: asset.entityId,
           description: `Fixed Asset Disposal: ${asset.name}`,
           date: disposalDate,
-          status: "FINALIZED",
+          status: TxnStatus.FINALIZED,
           createdById: session.id,
-          createdByRole: session.role,
+          createdByRole: session.role as any,
           lines: {
             create: [
               // Credit the fixed asset account (remove from books)

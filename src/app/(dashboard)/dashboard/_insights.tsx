@@ -85,9 +85,9 @@ function revenueMomentum(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "revenue-momentum",
       level: "positive",
       icon: <TrendingUp className="w-5 h-5" />,
-      title: "Strong Revenue Momentum",
-      narrative: `Revenue is accelerating. Your 3-month average of ${fmt(recentAvg)}/mo is ${pct(change)} higher than the prior 3-month average of ${fmt(priorAvg)}/mo. The most recent month saw a ${pct(momChange)} move ${momChange >= 0 ? "up" : "down"} to ${fmt(last.income)}. This kind of consistent upward trajectory is a strong signal — protect it by ensuring your delivery capacity keeps pace with demand.`,
-      badge: pct(change) + " vs prior quarter",
+      title: "Money Coming In Is Growing Fast",
+      narrative: `Your money coming in is going up by ${pct(change)}. You're making about ${fmt(recentAvg)}/month now compared to ${fmt(priorAvg)}/month before. This is great! Keep doing what you're doing. Just make sure you can handle the work if it keeps growing.`,
+      badge: pct(change) + " growth",
       badgeColor: "text-accent-green bg-accent-green/10",
     };
   } else if (change > 0.03) {
@@ -95,9 +95,9 @@ function revenueMomentum(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "revenue-momentum",
       level: "info",
       icon: <TrendingUp className="w-5 h-5" />,
-      title: "Moderate Revenue Growth",
-      narrative: `Revenue is growing steadily at ${pct(change)} over the last two quarters, with a 3-month average of ${fmt(recentAvg)}/mo. Growth is healthy but not exceptional. To accelerate, consider whether existing clients can be upsold or whether a specific sub-brand has untapped capacity that isn't reflected yet.`,
-      badge: pct(change) + " vs prior quarter",
+      title: "Money Coming In Is Growing",
+      narrative: `Your money coming in is slowly growing by ${pct(change)}. You're averaging about ${fmt(recentAvg)}/month. This is good, but you could do better. Think about how to make more from your current customers or find ways to grow faster.`,
+      badge: pct(change) + " growth",
       badgeColor: "text-accent-blue bg-accent-blue/10",
     };
   } else if (change > -0.05) {
@@ -105,9 +105,9 @@ function revenueMomentum(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "revenue-momentum",
       level: "warning",
       icon: <Activity className="w-5 h-5" />,
-      title: "Revenue Has Plateaued",
-      narrative: `Revenue has been essentially flat for two consecutive quarters, averaging ${fmt(recentAvg)}/mo — only ${pct(change)} off the prior period. Flat revenue combined with rising costs is a slow leak. Identify whether this is seasonal, a client concentration issue, or a sign of market saturation in one of your sub-brands. Acting now is much easier than acting after a downturn begins.`,
-      badge: "Flat (" + pct(change) + ")",
+      title: "Money Coming In Has Stopped Growing",
+      narrative: `Your money coming in hasn't changed much — you're still at about ${fmt(recentAvg)}/month. This is fine for now, but if your spending keeps going up while your income stays the same, you'll have a problem. Figure out what's holding you back and fix it before it becomes serious.`,
+      badge: "Not growing",
       badgeColor: "text-accent-amber bg-accent-amber/10",
     };
   } else {
@@ -115,9 +115,9 @@ function revenueMomentum(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "revenue-momentum",
       level: "critical",
       icon: <TrendingDown className="w-5 h-5" />,
-      title: "Revenue Is Declining",
-      narrative: `Revenue has dropped ${pct(Math.abs(change))} comparing the last two 3-month periods — from an average of ${fmt(priorAvg)}/mo down to ${fmt(recentAvg)}/mo. This is a serious signal that requires immediate attention. Investigate whether it's tied to client churn, reduced project volume, or a specific sub-brand. The earlier you address the root cause, the more options you have to recover.`,
-      badge: pct(change) + " vs prior quarter",
+      title: "Money Coming In Is Falling",
+      narrative: `Your money coming in dropped by ${pct(Math.abs(change))} — from ${fmt(priorAvg)}/month down to ${fmt(recentAvg)}/month. This is serious and needs your attention right now. Find out why: Are you losing customers? Is work slowing down? Fix the problem as soon as you can.`,
+      badge: pct(change) + " decline",
       badgeColor: "text-accent-red bg-accent-red/10",
     };
   }
@@ -146,9 +146,9 @@ function expenseDiscipline(rows: ReturnType<typeof consolidate>): Insight | null
       id: "expense-discipline",
       level: "critical",
       icon: <Flame className="w-5 h-5" />,
-      title: "Expenses Are Consuming Revenue",
-      narrative: `Over the last 3 months, expenses have averaged ${fmt(avgExpense)}/mo against revenue of ${fmt(avgIncome)}/mo — a ratio of ${(expenseRatio * 100).toFixed(0)}%. This leaves almost nothing as retained profit. ${ratioDelta > 0.05 ? `Worse, this ratio has increased by ${(ratioDelta * 100).toFixed(0)} percentage points compared to the prior quarter.` : ""} A business operating near 1:1 revenue-to-expense has zero margin for error. Conduct a line-by-line expense audit immediately.`,
-      badge: `${(expenseRatio * 100).toFixed(0)}% expense ratio`,
+      title: "Spending Is Too High",
+      narrative: `You're spending ${(expenseRatio * 100).toFixed(0)}% of what you earn — that's about ${fmt(avgExpense)}/month while you make ${fmt(avgIncome)}/month. You're left with almost nothing. This is very risky. Look at your spending right now and cut what you don't need.`,
+      badge: `${(expenseRatio * 100).toFixed(0)}% spending`,
       badgeColor: "text-accent-red bg-accent-red/10",
     };
   } else if (expenseRatio > 0.75) {
@@ -156,9 +156,9 @@ function expenseDiscipline(rows: ReturnType<typeof consolidate>): Insight | null
       id: "expense-discipline",
       level: "warning",
       icon: <AlertTriangle className="w-5 h-5" />,
-      title: "Expense Ratio Needs Watching",
-      narrative: `Expenses are running at ${(expenseRatio * 100).toFixed(0)}% of revenue — averaging ${fmt(avgExpense)}/mo against ${fmt(avgIncome)}/mo income. This isn't critical yet, but a 25% margin is thin for a growth-stage company. ${ratioDelta > 0.03 ? `The ratio has been creeping up (+${(ratioDelta * 100).toFixed(0)}pp vs prior quarter), suggesting expenses are growing faster than revenue.` : "Watch whether this ratio holds or continues to tighten."} Prioritize expenses that directly generate revenue over overhead.`,
-      badge: `${(expenseRatio * 100).toFixed(0)}% expense ratio`,
+      title: "Spending Is Getting High",
+      narrative: `You're spending ${(expenseRatio * 100).toFixed(0)}% of what you earn — about ${fmt(avgExpense)}/month against ${fmt(avgIncome)}/month income. You only keep ${(100 - expenseRatio * 100).toFixed(0)}% after spending. This is tight. Focus on reducing spending that doesn't directly make you money.`,
+      badge: `${(expenseRatio * 100).toFixed(0)}% spending`,
       badgeColor: "text-accent-amber bg-accent-amber/10",
     };
   } else if (expenseRatio < 0.5) {
@@ -166,9 +166,9 @@ function expenseDiscipline(rows: ReturnType<typeof consolidate>): Insight | null
       id: "expense-discipline",
       level: "positive",
       icon: <CheckCircle2 className="w-5 h-5" />,
-      title: "Strong Cost Discipline",
-      narrative: `The company is keeping expenses at ${(expenseRatio * 100).toFixed(0)}% of revenue — averaging ${fmt(avgExpense)}/mo against ${fmt(avgIncome)}/mo. A 50%+ profit margin is exceptional for a service company. This financial discipline gives you significant flexibility to invest in growth, build reserves, or distribute to owners without financial stress. Keep monitoring that this ratio doesn't creep up as you hire or expand operations.`,
-      badge: `${(expenseRatio * 100).toFixed(0)}% expense ratio`,
+      title: "Great Spending Control",
+      narrative: `You're only spending ${(expenseRatio * 100).toFixed(0)}% of what you make — about ${fmt(avgExpense)}/month while earning ${fmt(avgIncome)}/month. This means you keep over ${(100 - expenseRatio * 100).toFixed(0)}% of your money. Excellent! You have room to invest in your business or save for the future.`,
+      badge: `${(expenseRatio * 100).toFixed(0)}% spending`,
       badgeColor: "text-accent-green bg-accent-green/10",
     };
   }
@@ -177,9 +177,9 @@ function expenseDiscipline(rows: ReturnType<typeof consolidate>): Insight | null
     id: "expense-discipline",
     level: "info",
     icon: <BarChart2 className="w-5 h-5" />,
-    title: "Expense Ratio Is Healthy",
-    narrative: `Expenses are tracking at ${(expenseRatio * 100).toFixed(0)}% of revenue over the last 3 months — ${fmt(avgExpense)}/mo against ${fmt(avgIncome)}/mo. This is a comfortable operating margin. ${Math.abs(ratioDelta) < 0.02 ? "The ratio has been stable, which reflects consistent cost management." : ratioDelta > 0 ? `The ratio has ticked up slightly (+${(ratioDelta * 100).toFixed(0)}pp) — nothing alarming, but worth keeping an eye on.` : `The ratio has actually improved (${(ratioDelta * 100).toFixed(0)}pp) compared to the prior quarter.`}`,
-    badge: `${(expenseRatio * 100).toFixed(0)}% expense ratio`,
+    title: "Spending Is Balanced",
+    narrative: `You're spending ${(expenseRatio * 100).toFixed(0)}% of what you make — about ${fmt(avgExpense)}/month against ${fmt(avgIncome)}/month. This is a good balance. You keep ${(100 - expenseRatio * 100).toFixed(0)}% of what you earn.`,
+    badge: `${(expenseRatio * 100).toFixed(0)}% spending`,
     badgeColor: "text-accent-blue bg-accent-blue/10",
   };
 }
@@ -197,9 +197,9 @@ function cashRunway(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "cash-runway",
       level: "critical",
       icon: <ShieldAlert className="w-5 h-5" />,
-      title: "Company Is Cash-Negative",
-      narrative: `Cumulative expenses have exceeded cumulative income in the tracked period. The company is in a net negative equity position based on recorded transactions. This means you are burning through reserves or relying on external funding. Immediate action is needed: either increase revenue, cut costs sharply, or identify the source of capital that's sustaining operations.`,
-      badge: "Net negative",
+      title: "You're Spending More Than You Make",
+      narrative: `You've spent more money than you've earned. You need to act now: make more money, spend less, or get money from somewhere else to keep going.`,
+      badge: "Emergency",
       badgeColor: "text-accent-red bg-accent-red/10",
     };
   } else if (runwayMonths < 3) {
@@ -207,9 +207,9 @@ function cashRunway(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "cash-runway",
       level: "critical",
       icon: <Clock className="w-5 h-5" />,
-      title: `Only ~${runwayDays} Days of Runway`,
-      narrative: `Based on cumulative retained earnings of ${fmt(totalEquity)} and a monthly burn rate of ${fmt(recentBurn)}, the company has approximately ${runwayDays} days (${runwayMonths.toFixed(1)} months) of operational runway. This is critically low. You should be actively working to either close new revenue, reduce monthly burn, or secure a capital injection. Do not wait.`,
-      badge: `~${runwayDays}d runway`,
+      title: `Only ${runwayDays} Days Left`,
+      narrative: `Based on your money saved (${fmt(totalEquity)}) and what you spend each month (${fmt(recentBurn)}), you only have about ${runwayDays} days of money left. This is very serious. You need to make money or cut spending immediately.`,
+      badge: `${runwayDays} days left`,
       badgeColor: "text-accent-red bg-accent-red/10",
     };
   } else if (runwayMonths < 6) {
@@ -217,9 +217,9 @@ function cashRunway(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "cash-runway",
       level: "warning",
       icon: <Clock className="w-5 h-5" />,
-      title: `~${Math.round(runwayMonths)} Months of Runway`,
-      narrative: `With ${fmt(totalEquity)} in cumulative retained earnings and a monthly burn of ${fmt(recentBurn)}, you have roughly ${Math.round(runwayMonths)} months of runway. That's enough breathing room to act, but not to be comfortable. Use this window to either grow revenue or cut non-essential costs. Aim for at least 6 months of runway as a safety buffer.`,
-      badge: `~${Math.round(runwayMonths)}mo runway`,
+      title: `${Math.round(runwayMonths)} Months Left`,
+      narrative: `You have about ${Math.round(runwayMonths)} months of money saved. That's getting tight. Work on making more money or spending less so you have more time to grow safely.`,
+      badge: `${Math.round(runwayMonths)} months left`,
       badgeColor: "text-accent-amber bg-accent-amber/10",
     };
   } else if (runwayMonths < 18) {
@@ -227,9 +227,9 @@ function cashRunway(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "cash-runway",
       level: "info",
       icon: <Clock className="w-5 h-5" />,
-      title: `${Math.round(runwayMonths)} Months of Runway`,
-      narrative: `The company has accumulated ${fmt(totalEquity)} in retained earnings. At the current burn rate of ${fmt(recentBurn)}/mo, that translates to approximately ${Math.round(runwayMonths)} months of runway — a solid position. This buffer gives you strategic options: invest in growth, hire ahead of demand, or simply weather a slowdown if one comes.`,
-      badge: `~${Math.round(runwayMonths)}mo runway`,
+      title: `${Math.round(runwayMonths)} Months of Money`,
+      narrative: `You have about ${Math.round(runwayMonths)} months of money saved. That's decent. You have time to grow and make smart business decisions.`,
+      badge: `${Math.round(runwayMonths)} months`,
       badgeColor: "text-accent-blue bg-accent-blue/10",
     };
   } else {
@@ -237,9 +237,9 @@ function cashRunway(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "cash-runway",
       level: "positive",
       icon: <CheckCircle2 className="w-5 h-5" />,
-      title: `Strong: ${Math.round(runwayMonths)}+ Months of Runway`,
-      narrative: `With ${fmt(totalEquity)} in retained earnings against a ${fmt(recentBurn)}/mo burn rate, the company has over ${Math.round(runwayMonths)} months of financial runway. This is an enviable position of strength. You can afford to make bolder strategic bets, invest in talent or infrastructure, or begin planning owner distributions without jeopardizing operational stability.`,
-      badge: `${Math.round(runwayMonths)}mo+`,
+      title: `${Math.round(runwayMonths)}+ Months of Money`,
+      narrative: `You have over ${Math.round(runwayMonths)} months of money saved. Great position! You can take risks, hire people, or invest in your business without worrying.`,
+      badge: `${Math.round(runwayMonths)}+ months`,
       badgeColor: "text-accent-green bg-accent-green/10",
     };
   }
@@ -283,9 +283,9 @@ function subBrandSpotlight(
     id: "best-brand",
     level: best.totalProfit > 0 ? "positive" : "warning",
     icon: <Target className="w-5 h-5" />,
-    title: `${best.entity.name} Is Leading`,
-    narrative: `${best.entity.name} is your top revenue contributor over the last 3 months, generating ${fmt(best.totalIncome)} in revenue with ${best.totalProfit > 0 ? `${fmt(best.totalProfit)} in profit` : `a loss of ${fmt(Math.abs(best.totalProfit))}`}. ${best.growth > 0.1 ? `It's also the fastest growing, up ${pct(best.growth)} vs the prior quarter — a signal that it deserves continued investment.` : best.growth < -0.1 ? `However, its revenue has actually declined ${pct(Math.abs(best.growth))} vs the prior quarter despite leading in absolute terms — watch whether this trend continues.` : "Its performance has been consistent over the period."}`,
-    badge: fmt(best.totalIncome) + " / 3mo",
+    title: `${best.entity.name} Is Your Best`,
+    narrative: `${best.entity.name} makes the most money — ${fmt(best.totalIncome)} in the last 3 months. ${best.totalProfit > 0 ? `You also made ${fmt(best.totalProfit)} in profit.` : `But you lost ${fmt(Math.abs(best.totalProfit))}.`} Keep pushing this one.`,
+    badge: fmt(best.totalIncome),
     badgeColor: "text-accent-green bg-accent-green/10",
   });
 
@@ -295,11 +295,11 @@ function subBrandSpotlight(
       id: "worst-brand",
       level: isLossMaking ? "critical" : worst.totalIncome < best.totalIncome * 0.3 ? "warning" : "info",
       icon: isLossMaking ? <AlertTriangle className="w-5 h-5" /> : <BarChart2 className="w-5 h-5" />,
-      title: isLossMaking ? `${worst.entity.name} Is Loss-Making` : `${worst.entity.name} Is Underperforming`,
+      title: isLossMaking ? `${worst.entity.name} Is Losing Money` : `${worst.entity.name} Is Slower`,
       narrative: isLossMaking
-        ? `${worst.entity.name} generated ${fmt(worst.totalIncome)} in revenue but ran a loss of ${fmt(Math.abs(worst.totalProfit))} over the last 3 months. A loss-making sub-brand is a drain on the company's overall health — the profits of stronger brands are effectively subsidizing it. Decide whether this is a temporary investment phase or a structural problem that needs to be resolved.`
-        : `${worst.entity.name} is generating ${fmt(worst.totalIncome)} over 3 months — significantly behind ${best.entity.name}'s ${fmt(best.totalIncome)}. ${worst.growth < -0.05 ? `Its revenue has also declined ${pct(Math.abs(worst.growth))} versus the prior quarter.` : "While not yet a concern, the gap between your top and bottom performer is worth understanding."} Investigate whether this sub-brand lacks resources, market fit, or simply needs a different sales strategy.`,
-      badge: isLossMaking ? `${fmt(Math.abs(worst.totalProfit))} loss` : fmt(worst.totalIncome) + " / 3mo",
+        ? `${worst.entity.name} made ${fmt(worst.totalIncome)} but lost ${fmt(Math.abs(worst.totalProfit))} in the last 3 months. A business losing money is a problem. Figure out why and fix it.`
+        : `${worst.entity.name} only made ${fmt(worst.totalIncome)} in 3 months — way less than ${best.entity.name}'s ${fmt(best.totalIncome)}. Find out why it's slower and help it grow.`,
+      badge: isLossMaking ? `Loss: ${fmt(Math.abs(worst.totalProfit))}` : fmt(worst.totalIncome),
       badgeColor: isLossMaking ? "text-accent-red bg-accent-red/10" : "text-accent-amber bg-accent-amber/10",
     });
   }
@@ -319,9 +319,9 @@ function revenueStability(rows: ReturnType<typeof consolidate>): Insight | null 
       id: "revenue-stability",
       level: "warning",
       icon: <Zap className="w-5 h-5" />,
-      title: "Revenue Is Highly Volatile",
-      narrative: `Monthly revenue has swung dramatically — ranging from ${fmt(Math.min(...revenues))} to ${fmt(Math.max(...revenues))} with a coefficient of variation of ${(cv * 100).toFixed(0)}%. High volatility makes planning and commitments very difficult. This often signals over-dependence on one-off projects rather than recurring revenue. Consider whether adding retainer-based services or longer-term contracts could reduce this month-to-month uncertainty.`,
-      badge: `±${(cv * 100).toFixed(0)}% volatility`,
+      title: "Money Coming In Is Jumpy",
+      narrative: `Your money from month to month changes a lot — sometimes ${fmt(Math.min(...revenues))}, sometimes ${fmt(Math.max(...revenues))}. This makes it hard to plan. Try to get more steady work with regular customers instead of one-time projects.`,
+      badge: "Unpredictable",
       badgeColor: "text-accent-amber bg-accent-amber/10",
     };
   } else if (cv < 0.15) {
@@ -329,9 +329,9 @@ function revenueStability(rows: ReturnType<typeof consolidate>): Insight | null 
       id: "revenue-stability",
       level: "positive",
       icon: <CheckCircle2 className="w-5 h-5" />,
-      title: "Revenue Is Highly Predictable",
-      narrative: `Monthly revenue has been remarkably consistent, ranging from ${fmt(Math.min(...revenues))} to ${fmt(Math.max(...revenues))} with only ${(cv * 100).toFixed(0)}% variation. Predictable revenue is a significant competitive advantage — it allows confident hiring, investment, and planning. This likely reflects strong recurring relationships or retainer agreements. Protect these relationships as a top priority.`,
-      badge: `±${(cv * 100).toFixed(0)}% volatility`,
+      title: "Money Coming In Is Steady",
+      narrative: `Your money each month is about the same — between ${fmt(Math.min(...revenues))} and ${fmt(Math.max(...revenues))}. This is great! You can plan better and hire people safely. Keep these customers happy.`,
+      badge: "Predictable",
       badgeColor: "text-accent-green bg-accent-green/10",
     };
   }
@@ -352,11 +352,11 @@ function momAlert(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "mom-alert",
       level: positive ? "positive" : "warning",
       icon: positive ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />,
-      title: `${positive ? "Revenue Jumped" : "Revenue Fell"} ${pct(incomeChange)} This Month`,
+      title: `Money ${positive ? "Jumped Up" : "Dropped"} ${pct(incomeChange)} This Month`,
       narrative: positive
-        ? `Revenue jumped from ${fmt(prev.income)} to ${fmt(last.income)} (${pct(incomeChange)}) this month — the largest single-month move in the tracked period. This is excellent news, but a one-month spike doesn't yet confirm a new trend. Verify whether this is repeatable (new client, launched product) or one-off (large milestone payment, catch-up invoice).`
-        : `Revenue dropped from ${fmt(prev.income)} to ${fmt(last.income)} (${pct(incomeChange)}) this month. A ${(Math.abs(incomeChange) * 100).toFixed(0)}% single-month drop is significant. Identify the cause before drawing conclusions — it could be a delayed invoice, a seasonal dip, or a genuine client loss. If it's the latter, act quickly.`,
-      badge: pct(incomeChange) + " MoM",
+        ? `Your money went from ${fmt(prev.income)} to ${fmt(last.income)} this month — great! But is this real or a one-time thing? Find out if this is something you can repeat.`
+        : `Your money dropped from ${fmt(prev.income)} to ${fmt(last.income)} this month. Find out why before you worry — could be a delayed payment, seasonal, or a real problem.`,
+      badge: pct(incomeChange),
       badgeColor: positive ? "text-accent-green bg-accent-green/10" : "text-accent-red bg-accent-red/10",
     };
   }
@@ -366,9 +366,9 @@ function momAlert(rows: ReturnType<typeof consolidate>): Insight | null {
       id: "mom-alert",
       level: "warning",
       icon: <Flame className="w-5 h-5" />,
-      title: `Expenses Spiked ${pct(expenseChange)} This Month`,
-      narrative: `Monthly expenses jumped from ${fmt(prev.expenses)} to ${fmt(last.expenses)} — a ${pct(expenseChange)} increase in a single month. This is larger than typical variation and warrants a review. Check whether this represents a one-time investment (equipment, hiring, project cost) or a new recurring cost line. Unexpected recurring expenses are the most dangerous because they compound over time.`,
-      badge: `+${(expenseChange * 100).toFixed(0)}% expenses`,
+      title: `Spending Shot Up ${pct(expenseChange)} This Month`,
+      narrative: `Your spending went from ${fmt(prev.expenses)} to ${fmt(last.expenses)} — a big jump. Check if this is a one-time cost (like buying equipment) or a new regular cost. If it's new and regular, you need to know about it.`,
+      badge: `+${(expenseChange * 100).toFixed(0)}%`,
       badgeColor: "text-accent-amber bg-accent-amber/10",
     };
   }
