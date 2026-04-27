@@ -300,6 +300,53 @@ export async function PATCH(req: NextRequest) {
       include: { entity: { select: { name: true, color: true } } },
     });
 
+    // If proceeds go to petty cash, record it as a petty cash entry
+    if (validated.cashAccountId) {
+      const selectedAccount = await prisma.bankAccount.findUnique({
+        where: { id: validated.cashAccountId },
+        select: { accountType: true },
+      });
+
+      if (selectedAccount?.accountType === "PETTY_CASH") {
+        // Get or create petty cash period for the disposal date
+        const periodStart = new Date(disposalDate.getFullYear(), disposalDate.getMonth(), 1);
+        const periodEnd = new Date(disposalDate.getFullYear(), disposalDate.getMonth() + 1, 0);
+
+        let period = await prisma.pettyCashPeriod.findFirst({
+          where: {
+            entityId: asset.entityId,
+            periodStart,
+            periodEnd,
+          },
+        });
+
+        if (!period) {
+          period = await prisma.pettyCashPeriod.create({
+            data: {
+              entityId: asset.entityId,
+              periodStart,
+              periodEnd,
+            },
+          });
+        }
+
+        // Record the disposal proceeds as a float topup in petty cash
+        await prisma.pettyCashEntry.create({
+          data: {
+            periodId: period.id,
+            entityId: asset.entityId,
+            date: disposalDate,
+            description: `Asset disposal proceeds: ${asset.name}`,
+            amount: disposalValue,
+            currency: asset.currency,
+            txnType: "FLOAT_TOPUP",
+            journalEntryId: journalEntry.id,
+            createdById: session.id,
+          },
+        });
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
