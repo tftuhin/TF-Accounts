@@ -4,7 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { Download, Trash2, Pencil, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { formatUSD, formatBDT } from "@/lib/utils";
+import { EXPENSE_CATEGORIES, CATEGORY_KEYS } from "@/lib/expense-categories";
 import type { UserRole } from "@/types";
+
+const ALL_CATEGORIES = ["Income", ...CATEGORY_KEYS];
 
 interface Entity { id: string; name: string; color: string }
 interface JournalEntry {
@@ -26,7 +29,7 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
 
   // Edit modal state
   const [editing, setEditing] = useState<JournalEntry | null>(null);
-  const [editForm, setEditForm] = useState({ description: "", category: "", date: "" });
+  const [editForm, setEditForm] = useState({ description: "", category: "", subcategory: "", date: "" });
   const [saving, setSaving] = useState(false);
 
   const canDelete = userRole === "ADMIN";
@@ -83,7 +86,11 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
 
   function openEdit(entry: JournalEntry) {
     setEditing(entry);
-    setEditForm({ description: entry.description, category: entry.category || "", date: entry.date });
+    const raw = entry.category || "";
+    const sepIdx = raw.indexOf(" › ");
+    const cat = sepIdx >= 0 ? raw.slice(0, sepIdx) : raw;
+    const sub = sepIdx >= 0 ? raw.slice(sepIdx + 3) : "";
+    setEditForm({ description: entry.description, category: cat, subcategory: sub, date: entry.date });
   }
 
   async function handleSaveEdit(e: React.FormEvent) {
@@ -91,16 +98,19 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
     if (!editing) return;
     setSaving(true);
     try {
+      const fullCategory = editForm.subcategory
+        ? `${editForm.category} › ${editForm.subcategory}`
+        : editForm.category;
       const res = await fetch("/api/journals", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editing.id, ...editForm }),
+        body: JSON.stringify({ id: editing.id, description: editForm.description, category: fullCategory, date: editForm.date }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       setEntries((prev) => prev.map((en) =>
         en.id === editing.id
-          ? { ...en, description: editForm.description, category: editForm.category, date: editForm.date }
+          ? { ...en, description: editForm.description, category: fullCategory, date: editForm.date }
           : en
       ));
       toast.success("Entry updated");
@@ -249,8 +259,32 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
               </div>
               <div>
                 <label className="input-label">Category</label>
-                <input type="text" value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} className="input" />
+                <select
+                  value={editForm.category}
+                  onChange={(e) => {
+                    const cat = e.target.value;
+                    setEditForm({ ...editForm, category: cat, subcategory: EXPENSE_CATEGORIES[cat]?.[0] || "" });
+                  }}
+                  className="input"
+                >
+                  {ALL_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
+              {(EXPENSE_CATEGORIES[editForm.category]?.length ?? 0) > 0 && (
+                <div>
+                  <label className="input-label">Subcategory</label>
+                  <select
+                    value={editForm.subcategory}
+                    onChange={(e) => setEditForm({ ...editForm, subcategory: e.target.value })}
+                    className="input"
+                  >
+                    <option value="">— None —</option>
+                    {EXPENSE_CATEGORIES[editForm.category].map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setEditing(null)} className="flex-1 py-2 rounded-lg border border-surface-border text-sm text-ink-secondary hover:bg-surface-2">Cancel</button>
                 <button type="submit" disabled={saving} className="flex-1 btn-primary text-sm">{saving ? "Saving…" : "Save Changes"}</button>
