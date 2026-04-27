@@ -46,23 +46,23 @@ export default async function DrawingsPage() {
     <DrawingsClient
       drawings={drawings.map((d) => ({
         id: d.id,
-        date: d.date.toISOString().split("T")[0],
+        date: d.date.split("T")[0],
         entityName: d.entity.name,
         entityColor: d.entity.color,
         entityId: d.entityId,
         ownerName: d.ownershipRegistry?.ownerName || "Unknown Owner",
-        ownershipPct: d.ownershipRegistry ? Number(d.ownershipRegistry.ownershipPct) : 0,
+        ownershipPct: d.ownershipRegistry?.ownershipPct ?? 0,
         sourceAccount: d.sourceAccount,
-        amount: Number(d.amount),
+        amount: d.amount,
         currency: d.currency,
         status: d.status,
-        balanceAtDraw: d.accountBalanceAtDraw ? Number(d.accountBalanceAtDraw) : null,
+        balanceAtDraw: d.accountBalanceAtDraw,
         note: d.note,
       }))}
       owners={owners.map((o) => ({
         id: o.id,
         ownerName: o.ownerName,
-        ownershipPct: Number(o.ownershipPct),
+        ownershipPct: o.ownershipPct,
         entityId: o.entityId,
         entityName: o.entity?.name || "Unknown",
       }))}

@@ -2,11 +2,9 @@ import { getSession } from "@/lib/auth";
 import { getPettyCashPeriods } from "@/lib/queries";
 import { PettyCashClient } from "./petty-cash-client";
 
-function calcBalances(entries: { txnType: string; amount: number | { toNumber(): number } }[]) {
+function calcBalances(entries: { txnType: string; amount: number }[]) {
   const sum = (type: string) =>
-    entries
-      .filter((e) => e.txnType === type)
-      .reduce((s, e) => s + (typeof e.amount === "object" ? e.amount.toNumber() : Number(e.amount)), 0);
+    entries.filter((e) => e.txnType === type).reduce((s, e) => s + e.amount, 0);
 
   const topups        = sum("FLOAT_TOPUP");
   const atmWithdraw   = sum("ATM_WITHDRAWAL");
@@ -44,8 +42,8 @@ export default async function PettyCashPage() {
           id:          current.id,
           entityId:    current.entityId,
           entityName:  current.entity.name,
-          periodStart: current.periodStart.toISOString().split("T")[0],
-          periodEnd:   current.periodEnd.toISOString().split("T")[0],
+          periodStart: current.periodStart.split("T")[0],
+          periodEnd:   current.periodEnd.split("T")[0],
           isClosed:    current.isClosed,
         },
         balances: {
@@ -57,9 +55,9 @@ export default async function PettyCashPage() {
         },
         entries: current.entries.map((e) => ({
           id:          e.id,
-          date:        e.date.toISOString().split("T")[0],
+          date:        e.date.split("T")[0],
           description: e.description,
-          amount:      typeof e.amount === "object" ? e.amount.toNumber() : Number(e.amount),
+          amount:      e.amount,
           txnType:     e.txnType,
           hasReceipt:  !!e.receiptUrl,
         })),

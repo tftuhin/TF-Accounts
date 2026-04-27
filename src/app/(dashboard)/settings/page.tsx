@@ -26,9 +26,9 @@ export default async function SettingsPage() {
     ownershipByEntity[o.entityId].push({
       id: o.id,
       ownerName: o.ownerName,
-      ownershipPct: Number(o.ownershipPct),
-      effectiveFrom: o.effectiveFrom.toISOString(),
-      effectiveTo: o.effectiveTo ? o.effectiveTo.toISOString() : null,
+      ownershipPct: o.ownershipPct,
+      effectiveFrom: o.effectiveFrom,
+      effectiveTo: o.effectiveTo,
       notes: o.notes,
     });
   }

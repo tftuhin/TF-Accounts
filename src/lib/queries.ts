@@ -70,17 +70,38 @@ export const getDashboardRows = unstable_cache(
 
 // ---------------------------------------------------------------------------
 // Petty cash — current + previous period with all entries (30 s)
+// Dates serialized to ISO strings and Decimals to numbers so the shape is
+// stable whether the value came from a cache hit (JSON) or a fresh fetch.
 // ---------------------------------------------------------------------------
 export const getPettyCashPeriods = unstable_cache(
-  () =>
-    prisma.pettyCashPeriod.findMany({
+  async () => {
+    const periods = await prisma.pettyCashPeriod.findMany({
       orderBy: { periodStart: "desc" },
       take: 2,
       include: {
         entity: { select: { name: true, slug: true } },
         entries: { orderBy: { date: "asc" } },
       },
-    }),
+    });
+    return periods.map((p) => ({
+      id: p.id,
+      entityId: p.entityId,
+      periodStart: p.periodStart.toISOString(),
+      periodEnd: p.periodEnd.toISOString(),
+      floatAmount: Number(p.floatAmount),
+      currency: p.currency,
+      isClosed: p.isClosed,
+      entity: p.entity,
+      entries: p.entries.map((e) => ({
+        id: e.id,
+        date: e.date.toISOString(),
+        description: e.description,
+        amount: Number(e.amount),
+        txnType: e.txnType,
+        receiptUrl: e.receiptUrl,
+      })),
+    }));
+  },
   ["petty-cash-periods"],
   { revalidate: 30, tags: ["petty-cash"] },
 );
@@ -89,26 +110,50 @@ export const getPettyCashPeriods = unstable_cache(
 // Drawings — recent drawing records (60 s)
 // ---------------------------------------------------------------------------
 export const getDrawingsList = unstable_cache(
-  () =>
-    prisma.drawing.findMany({
+  async () => {
+    const drawings = await prisma.drawing.findMany({
       take: 50,
       orderBy: { date: "desc" },
       include: {
         entity: { select: { name: true, color: true } },
         ownershipRegistry: { select: { ownerName: true, ownershipPct: true } },
       },
-    }),
+    });
+    return drawings.map((d) => ({
+      id: d.id,
+      entityId: d.entityId,
+      date: d.date.toISOString(),
+      entity: d.entity,
+      ownershipRegistry: d.ownershipRegistry
+        ? { ownerName: d.ownershipRegistry.ownerName, ownershipPct: Number(d.ownershipRegistry.ownershipPct) }
+        : null,
+      sourceAccount: d.sourceAccount,
+      amount: Number(d.amount),
+      currency: d.currency,
+      status: d.status,
+      accountBalanceAtDraw: d.accountBalanceAtDraw ? Number(d.accountBalanceAtDraw) : null,
+      note: d.note,
+    }));
+  },
   ["drawings-list"],
   { revalidate: 60, tags: ["drawings"] },
 );
 
 // Active ownership partners — used in drawings form dropdown (5 min)
 export const getActiveOwners = unstable_cache(
-  () =>
-    prisma.ownershipRegistry.findMany({
+  async () => {
+    const owners = await prisma.ownershipRegistry.findMany({
       where: { effectiveTo: null },
       include: { entity: { select: { name: true, id: true } } },
-    }),
+    });
+    return owners.map((o) => ({
+      id: o.id,
+      entityId: o.entityId,
+      ownerName: o.ownerName,
+      ownershipPct: Number(o.ownershipPct),
+      entity: o.entity,
+    }));
+  },
   ["active-owners"],
   { revalidate: 300, tags: ["ownership"] },
 );
@@ -116,14 +161,21 @@ export const getActiveOwners = unstable_cache(
 // PF-account balances — scans all PROFIT/OWNERS_COMP journal lines (60 s)
 // This is the most expensive query on the drawings page; caching gives the biggest win.
 export const getPfBalances = unstable_cache(
-  () =>
-    prisma.journalEntryLine.findMany({
+  async () => {
+    const lines = await prisma.journalEntryLine.findMany({
       where: {
         pfAccount: { in: ["PROFIT", "OWNERS_COMP"] },
         journalEntry: { status: "FINALIZED" },
       },
       select: { pfAccount: true, entryType: true, amount: true, entityId: true },
-    }),
+    });
+    return lines.map((l) => ({
+      pfAccount: l.pfAccount,
+      entryType: l.entryType,
+      amount: Number(l.amount),
+      entityId: l.entityId,
+    }));
+  },
   ["pf-balances"],
   { revalidate: 60, tags: ["pf-balances"] },
 );
@@ -132,8 +184,8 @@ export const getPfBalances = unstable_cache(
 // Fund transfers — recent list (60 s)
 // ---------------------------------------------------------------------------
 export const getFundTransfersList = unstable_cache(
-  () =>
-    prisma.fundTransfer.findMany({
+  async () => {
+    const transfers = await prisma.fundTransfer.findMany({
       take: 20,
       orderBy: { date: "desc" },
       include: {
@@ -141,7 +193,21 @@ export const getFundTransfersList = unstable_cache(
         toAccount: { select: { accountName: true, accountType: true, currency: true } },
         entity: { select: { name: true } },
       },
-    }),
+    });
+    return transfers.map((t) => ({
+      id: t.id,
+      date: t.date.toISOString(),
+      fromAccount: t.fromAccount,
+      toAccount: t.toAccount,
+      amountFrom: Number(t.amountFrom),
+      currencyFrom: t.currencyFrom,
+      amountTo: Number(t.amountTo),
+      currencyTo: t.currencyTo,
+      exchangeRate: t.exchangeRate ? Number(t.exchangeRate) : null,
+      entityName: t.entity.name,
+      reference: t.reference,
+    }));
+  },
   ["fund-transfers-list"],
   { revalidate: 60, tags: ["fund-transfers"] },
 );
@@ -150,8 +216,8 @@ export const getFundTransfersList = unstable_cache(
 // Settings — all ownership records (single query replaces N+1 loop) (5 min)
 // ---------------------------------------------------------------------------
 export const getAllOwnership = unstable_cache(
-  () =>
-    prisma.ownershipRegistry.findMany({
+  async () => {
+    const rows = await prisma.ownershipRegistry.findMany({
       orderBy: [{ entityId: "asc" }, { effectiveFrom: "desc" }],
       select: {
         id: true,
@@ -162,7 +228,17 @@ export const getAllOwnership = unstable_cache(
         effectiveTo: true,
         notes: true,
       },
-    }),
+    });
+    return rows.map((o) => ({
+      id: o.id,
+      entityId: o.entityId,
+      ownerName: o.ownerName,
+      ownershipPct: Number(o.ownershipPct),
+      effectiveFrom: o.effectiveFrom.toISOString(),
+      effectiveTo: o.effectiveTo ? o.effectiveTo.toISOString() : null,
+      notes: o.notes,
+    }));
+  },
   ["all-ownership"],
   { revalidate: 300, tags: ["ownership"] },
 );

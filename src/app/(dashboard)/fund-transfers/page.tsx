@@ -23,17 +23,17 @@ export default async function FundTransfersPage() {
       }))}
       recentTransfers={recentTransfers.map((t) => ({
         id: t.id,
-        date: t.date.toISOString().split("T")[0],
+        date: t.date.split("T")[0],
         fromAccount: t.fromAccount.accountName,
         fromType: t.fromAccount.accountType,
         toAccount: t.toAccount.accountName,
         toType: t.toAccount.accountType,
-        amountFrom: Number(t.amountFrom),
+        amountFrom: t.amountFrom,
         currencyFrom: t.currencyFrom,
-        amountTo: Number(t.amountTo),
+        amountTo: t.amountTo,
         currencyTo: t.currencyTo,
-        exchangeRate: t.exchangeRate ? Number(t.exchangeRate) : null,
-        entityName: t.entity.name,
+        exchangeRate: t.exchangeRate,
+        entityName: t.entityName,
         reference: t.reference,
         createdBy: "Transfer",
       }))}
