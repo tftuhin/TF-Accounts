@@ -1,0 +1,160 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { Decimal } from "@prisma/client/runtime/library";
+import { z } from "zod";
+import { calcDepreciation } from "@/lib/asset-depreciation";
+
+const createAssetSchema = z.object({
+  entityId: z.string().uuid(),
+  name: z.string().min(1),
+  description: z.string().optional(),
+  category: z.enum(["COMPUTER_ELECTRONICS", "FURNITURE_FIXTURES", "VEHICLES", "SOFTWARE_LICENSES", "OFFICE_EQUIPMENT", "LAND_BUILDING", "OTHER"]),
+  purchaseDate: z.string().datetime(),
+  purchaseCost: z.number().positive(),
+  currency: z.enum(["BDT", "USD"]).optional(),
+  usefulLifeYears: z.number().int().min(1).max(50),
+  salvageValue: z.number().min(0).optional(),
+});
+
+const disposalSchema = z.object({
+  id: z.string().uuid(),
+  disposalDate: z.string().datetime(),
+  disposalValue: z.number().min(0).optional(),
+});
+
+export async function GET(req: NextRequest) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const entityId = searchParams.get("entityId");
+
+  try {
+    const where = entityId ? { entityId } : {};
+    const assets = await prisma.fixedAsset.findMany({
+      where,
+      include: {
+        entity: { select: { name: true, color: true } },
+        creator: { select: { email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const enrichedAssets = assets.map((asset) => {
+      const now = new Date();
+      const depreciation = calcDepreciation(
+        Number(asset.purchaseCost),
+        Number(asset.salvageValue),
+        asset.usefulLifeYears,
+        asset.purchaseDate,
+        asset.status === "DISPOSED" && asset.disposalDate ? asset.disposalDate : now
+      );
+
+      return {
+        id: asset.id,
+        entityId: asset.entityId,
+        entityName: asset.entity.name,
+        entityColor: asset.entity.color,
+        name: asset.name,
+        description: asset.description,
+        category: asset.category,
+        purchaseDate: asset.purchaseDate.toISOString().split("T")[0],
+        purchaseCost: Number(asset.purchaseCost),
+        currency: asset.currency,
+        usefulLifeYears: asset.usefulLifeYears,
+        salvageValue: Number(asset.salvageValue),
+        status: asset.status,
+        disposalDate: asset.disposalDate ? asset.disposalDate.toISOString().split("T")[0] : null,
+        disposalValue: asset.disposalValue ? Number(asset.disposalValue) : null,
+        ...depreciation,
+      };
+    });
+
+    return NextResponse.json({ success: true, data: enrichedAssets });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Internal error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const body = await req.json();
+    const validated = createAssetSchema.parse(body);
+
+    const asset = await prisma.fixedAsset.create({
+      data: {
+        entityId: validated.entityId,
+        name: validated.name,
+        description: validated.description || null,
+        category: validated.category,
+        purchaseDate: new Date(validated.purchaseDate),
+        purchaseCost: new Decimal(validated.purchaseCost.toString()),
+        currency: validated.currency || "BDT",
+        usefulLifeYears: validated.usefulLifeYears,
+        salvageValue: new Decimal((validated.salvageValue || 0).toString()),
+        createdById: session.id,
+      },
+      include: { entity: { select: { name: true, color: true } } },
+    });
+
+    const depreciation = calcDepreciation(
+      Number(asset.purchaseCost),
+      Number(asset.salvageValue),
+      asset.usefulLifeYears,
+      asset.purchaseDate
+    );
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          id: asset.id,
+          entityId: asset.entityId,
+          entityName: asset.entity.name,
+          name: asset.name,
+          ...depreciation,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validation error", details: err.errors }, { status: 400 });
+    }
+    const msg = err instanceof Error ? err.message : "Internal error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function PATCH(req: NextRequest) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN") return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const body = await req.json();
+    const validated = disposalSchema.parse(body);
+
+    const asset = await prisma.fixedAsset.update({
+      where: { id: validated.id },
+      data: {
+        status: "DISPOSED",
+        disposalDate: new Date(validated.disposalDate),
+        disposalValue: validated.disposalValue ? new Decimal(validated.disposalValue.toString()) : null,
+      },
+      include: { entity: { select: { name: true, color: true } } },
+    });
+
+    return NextResponse.json({ success: true, data: { id: asset.id, status: asset.status } });
+  } catch (err: unknown) {
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validation error", details: err.errors }, { status: 400 });
+    }
+    const msg = err instanceof Error ? err.message : "Internal error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

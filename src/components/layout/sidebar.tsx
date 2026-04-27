@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/types";
 import {
   LayoutDashboard, Receipt, Wallet, Crown, BarChart3, ArrowLeftRight,
-  Upload, Settings, Landmark, ChevronDown, Menu, X, TrendingUp, BookOpen, LogOut,
+  Upload, Settings, Landmark, ChevronDown, Menu, X, TrendingUp, BookOpen, LogOut, Package,
 } from "lucide-react";
 
 interface Entity {
@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { id: "journals",       href: "/journals",       label: "All Journals",   icon: BookOpen,         resource: "journals" },
   { id: "fund-transfers", href: "/fund-transfers", label: "Fund Transfers", icon: Landmark,         resource: "fund_transfers" },
   { id: "drawings",       href: "/drawings",       label: "Drawings",       icon: Crown,            resource: "drawings" },
+  { id: "assets",         href: "/assets",         label: "Fixed Assets",   icon: Package,          resource: "assets" },
   { id: "reports",        href: "/reports",        label: "Reports",        icon: BarChart3,        resource: "reports" },
   { id: "reconciliation", href: "/reconciliation", label: "Reconciliation", icon: ArrowLeftRight,   resource: "reconciliation" },
   { id: "import",         href: "/import",         label: "Bulk Import",    icon: Upload,           resource: "import" },

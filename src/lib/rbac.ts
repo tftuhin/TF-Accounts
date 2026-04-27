@@ -8,6 +8,7 @@ export function canAccess(role: UserRole, resource: string): boolean {
     petty_cash:     ["ADMIN", "ACCOUNTS_MANAGER", "ENTRY_MANAGER"],
     journals:       ["ADMIN", "ACCOUNTS_MANAGER"],
     drawings:       ["ADMIN", "ACCOUNTS_MANAGER"],
+    assets:         ["ADMIN", "ACCOUNTS_MANAGER"],
     reports:        ["ADMIN", "ACCOUNTS_MANAGER"],
     reconciliation: ["ADMIN", "ACCOUNTS_MANAGER"],
     import:         ["ADMIN"],

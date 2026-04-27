@@ -107,6 +107,26 @@ enum PettyCashTxnType {
   @@map("petty_cash_txn_type")
 }
 
+enum AssetCategory {
+  COMPUTER_ELECTRONICS
+  FURNITURE_FIXTURES
+  VEHICLES
+  SOFTWARE_LICENSES
+  OFFICE_EQUIPMENT
+  LAND_BUILDING
+  OTHER
+
+  @@map("asset_category")
+}
+
+enum AssetStatus {
+  ACTIVE
+  DISPOSED
+  WRITTEN_OFF
+
+  @@map("asset_status")
+}
+
 // ─── ENTITIES (Multi-Tenancy) ───────────────────────────────
 
 model Entity {
@@ -137,6 +157,7 @@ model Entity {
   transfersTo     InterBrandTransfer[] @relation("TransferTo")
   userAccess      UserEntityAccess[]
   fundTransfers   FundTransfer[]
+  fixedAssets     FixedAsset[]
 
   @@map("entities")
 }
@@ -290,6 +311,7 @@ model JournalEntry {
   evidenceFiles    EvidenceFile[]
   bankStatementItems BankStatementItem[]
   pettyCashEntries PettyCashEntry[]
+  fixedAsset       FixedAsset?
 
   @@index([entityId, date(sort: Desc)])
   @@index([status])
@@ -490,6 +512,7 @@ model User {
   bankStatements   BankStatement[]
   interBrandTransfers InterBrandTransfer[]
   auditLogs        AuditLog[]
+  fixedAssets      FixedAsset[]
 
   @@map("users")
 }
@@ -544,4 +567,32 @@ model EvidenceFile {
   createdAt        DateTime      @default(now()) @map("created_at")
 
   @@map("evidence_files")
+}
+
+// ─── FIXED ASSETS ───────────────────────────────────────────
+
+model FixedAsset {
+  id               String        @id @default(uuid())
+  entityId         String        @map("entity_id")
+  entity           Entity        @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  category         AssetCategory
+  purchaseDate     DateTime      @db.Date @map("purchase_date")
+  purchaseCost     Decimal       @db.Decimal(15, 2) @map("purchase_cost")
+  currency         Currency      @default(BDT)
+  usefulLifeYears  Int           @map("useful_life_years")
+  salvageValue     Decimal       @default(0) @db.Decimal(15, 2) @map("salvage_value")
+  status           AssetStatus   @default(ACTIVE)
+  disposalDate     DateTime?     @db.Date @map("disposal_date")
+  disposalValue    Decimal?      @db.Decimal(15, 2) @map("disposal_value")
+  journalEntryId   String?       @unique @map("journal_entry_id")
+  journalEntry     JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  createdById      String        @map("created_by")
+  creator          User          @relation(fields: [createdById], references: [id])
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  @@index([entityId])
+  @@map("fixed_assets")
 }
