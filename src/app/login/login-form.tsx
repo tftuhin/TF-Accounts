@@ -4,8 +4,6 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { loginAction } from "./actions";
-import { getGoogleOAuthUrl } from "../signup/actions";
-import { Chrome } from "lucide-react";
 
 export function LoginForm() {
   const router = useRouter();
@@ -14,7 +12,6 @@ export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,20 +24,6 @@ export function LoginForm() {
       } else {
         router.push("/dashboard");
         router.refresh();
-      }
-    });
-  }
-
-  function handleGoogleSignin() {
-    setIsGoogleLoading(true);
-    setError("");
-    startTransition(async () => {
-      const result = await getGoogleOAuthUrl();
-      if (result.error) {
-        setError(result.error);
-        setIsGoogleLoading(false);
-      } else if (result.url) {
-        window.location.href = result.url;
       }
     });
   }
@@ -109,40 +92,7 @@ export function LoginForm() {
         )}
       </button>
 
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-surface-border" />
-        </div>
-        <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-surface-1 text-ink-faint">or</span>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={handleGoogleSignin}
-        disabled={isPending || isGoogleLoading}
-        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg
-                   border border-surface-border bg-surface-2 hover:bg-surface-3
-                   transition-colors text-sm font-medium text-ink-primary disabled:opacity-50"
-      >
-        {isGoogleLoading ? (
-          <span className="flex items-center gap-2">
-            <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Redirecting…
-          </span>
-        ) : (
-          <>
-            <Chrome className="w-4 h-4" />
-            Sign in with Google
-          </>
-        )}
-      </button>
-
-      <div className="text-center text-sm">
+      <div className="text-center text-sm pt-2">
         <span className="text-ink-muted">Don't have an account? </span>
         <Link href="/signup" className="text-accent-blue hover:underline font-medium">
           Sign up
