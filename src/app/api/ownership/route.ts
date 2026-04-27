@@ -53,66 +53,30 @@ export async function POST(request: Request) {
   const fromDate = new Date(effectiveFrom);
 
   try {
-    // Get current active owners (excluding Teamosis default record)
+    // Get current active owners for this entity
     const activeOwners = await prisma.ownershipRegistry.findMany({
       where: {
         entityId,
         effectiveTo: null,
-        ownerName: { not: "Teamosis" },
       },
     });
 
-    // Single owner (100%) is only allowed if:
-    // 1. No other owners exist, OR
-    // 2. This is the first owner being added
-    if (pct === 100 && activeOwners.length > 0) {
-      return NextResponse.json(
-        { error: "Single 100% owner not allowed with existing partners. Use 1-99% and Teamosis keeps the rest." },
-        { status: 400 }
-      );
-    }
+    // Calculate total ownership if we add this new owner
+    const currentTotal = activeOwners.reduce((sum, o) => sum + Number(o.ownershipPct), 0);
+    const newTotal = currentTotal + pct;
 
-    // Multi-owner partnerships: each partner must be 1-99%
-    if (pct === 100 && activeOwners.length === 0) {
-      // Single owner case - just create the owner record, Teamosis share becomes 0
-      const newOwner = await prisma.ownershipRegistry.create({
-        data: {
-          entityId,
-          ownerName,
-          ownershipPct: new Decimal(100),
-          effectiveFrom: fromDate,
-          notes,
+    // Validate that total ownership doesn't exceed 100%
+    if (newTotal > 100) {
+      return NextResponse.json(
+        {
+          error: `Total ownership would be ${newTotal}%. Current owners total ${currentTotal}%, new owner ${pct}% would exceed 100%.`
         },
-      });
-
-      return NextResponse.json({ success: true, data: newOwner }, { status: 201 });
-    }
-
-    // Partnership case (1-99%)
-    if (pct < 1 || pct > 99) {
-      return NextResponse.json(
-        { error: "Partner ownership must be 1-99% (Teamosis keeps the rest)" },
         { status: 400 }
       );
     }
 
-    // Get current active Teamosis record
-    const currentTeamosis = await getActiveTeamosisRecord(entityId);
-    if (!currentTeamosis) {
-      return NextResponse.json(
-        { error: "No default Teamosis ownership record found" },
-        { status: 400 }
-      );
-    }
-
-    // Close current Teamosis record
-    await prisma.ownershipRegistry.update({
-      where: { id: currentTeamosis.id },
-      data: { effectiveTo: new Date(fromDate.getTime() - 86400000) }, // day before
-    });
-
-    // Create new partner record
-    const newPartner = await prisma.ownershipRegistry.create({
+    // Simply create the new owner record
+    const newOwner = await prisma.ownershipRegistry.create({
       data: {
         entityId,
         ownerName,
@@ -122,25 +86,35 @@ export async function POST(request: Request) {
       },
     });
 
-    // Create new Teamosis record with reduced percentage
-    const newTeamosisShare = 100 - pct;
-    await prisma.ownershipRegistry.create({
-      data: {
+    // Return the created owner and current ownership summary
+    const allOwners = await prisma.ownershipRegistry.findMany({
+      where: {
         entityId,
-        ownerName: "Teamosis",
-        ownershipPct: new Decimal(newTeamosisShare),
-        effectiveFrom: fromDate,
+        effectiveTo: null,
       },
     });
 
+    const totalOwnership = allOwners.reduce((sum, o) => sum + Number(o.ownershipPct), 0);
+
     return NextResponse.json(
-      { success: true, data: newPartner },
+      {
+        success: true,
+        data: newOwner,
+        summary: {
+          owners: allOwners.map(o => ({
+            ownerName: o.ownerName,
+            ownershipPct: Number(o.ownershipPct),
+          })),
+          totalOwnership,
+          isComplete: totalOwnership === 100,
+        }
+      },
       { status: 201 }
     );
   } catch (error) {
-    console.error("Error creating partnership:", error);
+    console.error("Error creating ownership record:", error);
     return NextResponse.json(
-      { error: "Failed to create partnership" },
+      { error: error instanceof Error ? error.message : "Failed to create ownership record" },
       { status: 500 }
     );
   }
