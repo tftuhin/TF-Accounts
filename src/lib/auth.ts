@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { decodeJwt } from "jose";
 import { UserRole } from "@prisma/client";
 import { supabaseServer } from "./supabase-server";
 
@@ -28,12 +29,65 @@ const fetchProfile = unstable_cache(
   { revalidate: 300, tags: ["user-profiles"] },
 );
 
+// Fast path: decode the Supabase auth JWT directly from cookies without creating
+// a Supabase client. jose.jwtDecode skips signature verification (we trust our
+// own cookie-only session) and is purely CPU-bound — no network round-trip.
+// Falls back to the full Supabase client flow for new/expired sessions.
+async function getUserIdFromCookie(): Promise<{ id: string; email: string } | null> {
+  try {
+    const cookieStore = await cookies();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return null;
+
+    // Supabase SSR stores the session in sb-<project-ref>-auth-token
+    const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+    const tokenCookie =
+      cookieStore.get(`sb-${projectRef}-auth-token`)?.value ??
+      cookieStore.get("sb-access-token")?.value;
+
+    if (!tokenCookie) return null;
+
+    // The cookie value may be a JSON array (chunked) or a plain JWT
+    let accessToken: string;
+    try {
+      const parsed = JSON.parse(decodeURIComponent(tokenCookie));
+      accessToken = parsed.access_token ?? parsed[0] ?? tokenCookie;
+    } catch {
+      accessToken = tokenCookie;
+    }
+
+    const payload = decodeJwt(accessToken) as { sub?: string; email?: string; exp?: number };
+
+    // Reject expired tokens — let Supabase client handle the refresh
+    if (!payload.sub || !payload.exp || payload.exp * 1000 < Date.now()) return null;
+
+    return { id: payload.sub, email: payload.email ?? "" };
+  } catch {
+    return null;
+  }
+}
+
 export const getSession = cache(async function getSessionImpl(): Promise<SessionUser | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey || !supabaseServer) return null;
 
+  // Try the fast path first — decode JWT locally, no network needed
+  const fromCookie = await getUserIdFromCookie();
+  if (fromCookie) {
+    const profile = await fetchProfile(fromCookie.id);
+    if (profile) {
+      return {
+        id: fromCookie.id,
+        email: fromCookie.email,
+        fullName: profile.full_name,
+        role: profile.role,
+      };
+    }
+  }
+
+  // Slow path: full Supabase client (handles token refresh, new users, etc.)
   const cookieStore = await cookies();
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {

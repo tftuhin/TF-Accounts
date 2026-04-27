@@ -6,10 +6,12 @@ import { TopBar } from "@/components/layout/top-bar";
 import { SessionProvider } from "@/components/layout/session-provider";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession();
+  // Fetch session and entities in parallel — entities are cached and don't depend on session
+  const [session, entities] = await Promise.all([
+    getSession(),
+    getActiveEntities(),
+  ]);
   if (!session) redirect("/login");
-
-  const entities = await getActiveEntities();
 
   return (
     <SessionProvider user={session}>
