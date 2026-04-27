@@ -7,7 +7,7 @@ import { TxnType } from "@prisma/client";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session || session.role === "ENTRY_MANAGER")
+  if (!session || !["ADMIN", "ACCOUNTS_MANAGER"].includes(session.role))
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   try {
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session || session.role === "ENTRY_MANAGER")
+  if (!session || !["ADMIN", "ACCOUNTS_MANAGER"].includes(session.role))
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
