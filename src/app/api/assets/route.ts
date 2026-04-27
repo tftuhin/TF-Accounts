@@ -36,7 +36,6 @@ export async function GET(req: NextRequest) {
       where,
       include: {
         entity: { select: { name: true, color: true } },
-        creator: { select: { email: true } },
       },
       orderBy: { createdAt: "desc" },
     });

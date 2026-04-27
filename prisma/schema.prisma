@@ -512,7 +512,6 @@ model User {
   bankStatements   BankStatement[]
   interBrandTransfers InterBrandTransfer[]
   auditLogs        AuditLog[]
-  fixedAssets      FixedAsset[]
 
   @@map("users")
 }
@@ -589,7 +588,6 @@ model FixedAsset {
   journalEntryId   String?       @unique @map("journal_entry_id")
   journalEntry     JournalEntry? @relation(fields: [journalEntryId], references: [id])
   createdById      String        @map("created_by")
-  creator          User          @relation(fields: [createdById], references: [id])
   createdAt        DateTime      @default(now()) @map("created_at")
   updatedAt        DateTime      @updatedAt @map("updated_at")
 
