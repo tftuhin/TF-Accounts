@@ -151,24 +151,55 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
   };
 
   const handleDisposeAsset = async (id: string) => {
-    if (!confirm("Dispose this asset?")) return;
+    const asset = assets.find((a) => a.id === id);
+    if (!asset) return;
 
     const disposalDate = prompt("Disposal date (YYYY-MM-DD):");
     if (!disposalDate) return;
+
+    const disposalValueStr = prompt("Disposal value (amount you got from selling):");
+    if (!disposalValueStr) return;
+
+    const disposalValue = parseFloat(disposalValueStr);
+    if (isNaN(disposalValue) || disposalValue < 0) {
+      alert("Invalid disposal value");
+      return;
+    }
+
+    const gain = disposalValue - asset.purchaseCost;
+    const message = gain >= 0
+      ? `Selling for ${disposalValue.toFixed(2)} - Gain: ${gain.toFixed(2)}`
+      : `Selling for ${disposalValue.toFixed(2)} - Loss: ${Math.abs(gain).toFixed(2)}`;
+
+    if (!confirm(`Dispose asset?\n${message}`)) return;
 
     try {
       const res = await fetch("/api/assets", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, disposalDate: new Date(disposalDate).toISOString() }),
+        body: JSON.stringify({
+          id,
+          disposalDate: new Date(disposalDate).toISOString(),
+          disposalValue,
+          // cashAccountId can be specified if needed, defaults to main cash account
+        }),
       });
 
-      if (!res.ok) throw new Error("Failed to dispose asset");
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to dispose asset");
+      }
 
-      setAssets(assets.map((a) => (a.id === id ? { ...a, status: "DISPOSED", disposalDate } : a)));
+      const result = await res.json();
+      setAssets(assets.map((a) =>
+        a.id === id
+          ? { ...a, status: "DISPOSED", disposalDate, disposalValue }
+          : a
+      ));
+      alert(`Asset disposed!\n${result.data.gain >= 0 ? "Gain" : "Loss"}: ${result.data.gain.toFixed(2)}`);
     } catch (err) {
       console.error(err);
-      alert("Error disposing asset");
+      alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
   };
 
