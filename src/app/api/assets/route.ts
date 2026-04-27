@@ -205,7 +205,10 @@ export async function PATCH(req: NextRequest) {
     // Get asset details for journal entry
     const asset = await prisma.fixedAsset.findUnique({
       where: { id: validated.id },
-      select: { entityId: true, name: true, purchaseCost: true, currency: true },
+      select: {
+        entityId: true, name: true, purchaseCost: true, currency: true,
+        purchaseDate: true, salvageValue: true, usefulLifeYears: true,
+      },
     });
 
     if (!asset) {
@@ -215,7 +218,19 @@ export async function PATCH(req: NextRequest) {
     const disposalDate = new Date(validated.disposalDate);
     const disposalValue = new Decimal(validated.disposalValue.toString());
     const purchaseCost = asset.purchaseCost;
-    const gain = disposalValue.minus(purchaseCost);
+
+    // Calculate accumulated depreciation and book value at the disposal date
+    const depAtDisposal = calcDepreciation(
+      Number(purchaseCost),
+      Number(asset.salvageValue),
+      asset.usefulLifeYears,
+      asset.purchaseDate,
+      disposalDate,
+    );
+    const accumulatedDep = new Decimal(depAtDisposal.accumulated.toFixed(2));
+    const bookValue = new Decimal(depAtDisposal.bookValue.toFixed(2));
+    // Gain/loss vs book value, not purchase cost
+    const gain = disposalValue.minus(bookValue);
 
     // Get accounts
     const accounts = await ensureBasicAccounts(asset.entityId);
@@ -251,7 +266,7 @@ export async function PATCH(req: NextRequest) {
         createdByRole: session.role,
         lines: {
           create: [
-            // Debit Cash account (proceeds received)
+            // Dr Cash — proceeds received
             {
               accountId: cashAccount.id,
               entryType: TxnType.DEBIT,
@@ -260,7 +275,18 @@ export async function PATCH(req: NextRequest) {
               entityId: asset.entityId,
               memo: `Proceeds from sale (${bankAccountName}): ${asset.name}`,
             },
-            // Credit Fixed Assets account (remove from books)
+            // Dr Accumulated Depreciation — clear the contra-asset balance
+            ...(!accumulatedDep.isZero()
+              ? [{
+                  accountId: accounts.accumulatedDepreciation.id,
+                  entryType: TxnType.DEBIT as TxnType,
+                  amount: accumulatedDep,
+                  currency: asset.currency,
+                  entityId: asset.entityId,
+                  memo: `Clear accumulated depreciation: ${asset.name}`,
+                }]
+              : []),
+            // Cr Fixed Assets — remove at original purchase cost
             {
               accountId: accounts.fixedAssets.id,
               entryType: TxnType.CREDIT,
@@ -269,21 +295,19 @@ export async function PATCH(req: NextRequest) {
               entityId: asset.entityId,
               memo: `Disposal of: ${asset.name}`,
             },
-            // Gain or Loss if proceeds differ from cost
-            ...(gain.isZero()
-              ? []
-              : [
-                  {
-                    accountId: gain.isPositive() ? accounts.gainOnDisposal.id : accounts.lossOnDisposal.id,
-                    entryType: gain.isPositive() ? TxnType.CREDIT : TxnType.DEBIT,
-                    amount: gain.abs(),
-                    currency: asset.currency,
-                    entityId: asset.entityId,
-                    memo: gain.isPositive()
-                      ? `Gain on asset disposal: ${asset.name}`
-                      : `Loss on asset disposal: ${asset.name}`,
-                  },
-                ]),
+            // Cr Gain or Dr Loss — based on proceeds vs book value
+            ...(!gain.isZero()
+              ? [{
+                  accountId: gain.isPositive() ? accounts.gainOnDisposal.id : accounts.lossOnDisposal.id,
+                  entryType: (gain.isPositive() ? TxnType.CREDIT : TxnType.DEBIT) as TxnType,
+                  amount: gain.abs(),
+                  currency: asset.currency,
+                  entityId: asset.entityId,
+                  memo: gain.isPositive()
+                    ? `Gain on disposal: ${asset.name}`
+                    : `Loss on disposal: ${asset.name}`,
+                }]
+              : []),
           ],
         },
       },
@@ -353,6 +377,8 @@ export async function PATCH(req: NextRequest) {
         id: updatedAsset.id,
         status: updatedAsset.status,
         disposalValue: Number(disposalValue),
+        bookValueAtDisposal: Number(bookValue),
+        accumulatedDepreciation: Number(accumulatedDep),
         gain: Number(gain),
         journalEntryId: journalEntry.id,
       },

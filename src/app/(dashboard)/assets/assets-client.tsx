@@ -100,16 +100,20 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
     description: "",
   });
   const [showDisposeForm, setShowDisposeForm] = useState(false);
+  const [showDisposed, setShowDisposed] = useState(false);
   const [accrualInProgress, setAccrualInProgress] = useState(false);
   const [accrualMessage, setAccrualMessage] = useState("");
 
   const filteredAssets = assets.filter((a) => {
-    const isActive = a.status === "ACTIVE";
+    const matchesStatus = a.status === "ACTIVE" || (showDisposed && a.status === "DISPOSED");
     const matchesEntity = selectedEntity === "all" || a.entityId === selectedEntity;
-    return isActive && matchesEntity;
+    return matchesStatus && matchesEntity;
   });
 
-  const summaryData = filteredAssets.reduce(
+  const activeAssets = filteredAssets.filter((a) => a.status === "ACTIVE");
+  const disposedAssets = filteredAssets.filter((a) => a.status === "DISPOSED");
+
+  const summaryData = activeAssets.reduce(
     (acc, asset) => {
       const depreciation = calcDepreciation(
         asset.purchaseCost,
@@ -194,10 +198,14 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
     if (!asset) return;
 
     const today = new Date().toISOString().split("T")[0];
+    const dep = calcDepreciation(
+      asset.purchaseCost, asset.salvageValue, asset.usefulLifeYears,
+      new Date(asset.purchaseDate),
+    );
     setDisposeForm({
       assetId: id,
       disposalDate: today,
-      disposalValue: asset.purchaseCost.toString(),
+      disposalValue: dep.bookValue.toFixed(0),
       accountId: bankAccounts[0]?.id || "",
       description: "",
     });
@@ -249,8 +257,9 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
           : a
       ));
 
+      const { gain: apiGain } = result.data;
       alert(
-        `Asset disposed successfully!\n\nAccount: ${selectedAccount?.accountName}\nDisposal Value: ${disposalValue.toFixed(2)}\n${gain >= 0 ? "Gain" : "Loss"}: ${Math.abs(gain).toFixed(2)}`
+        `Asset disposed successfully!\n\nAccount: ${selectedAccount?.accountName}\nProceeds: ৳${disposalValue.toFixed(0)}\n${apiGain >= 0 ? "Gain" : "Loss"} on disposal: ৳${Math.abs(apiGain).toFixed(0)}`
       );
 
       setShowDisposeForm(false);
@@ -326,6 +335,12 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
             }`}
           >
             {accrualInProgress ? "Accruing..." : "Accrue Depreciation"}
+          </button>
+          <button
+            onClick={() => setShowDisposed((v) => !v)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-surface-border bg-surface-2 text-ink-secondary hover:text-ink-primary hover:bg-surface-3 transition text-sm"
+          >
+            {showDisposed ? "Hide Disposed" : `Show Disposed${assets.filter(a => a.status === "DISPOSED").length ? ` (${assets.filter(a => a.status === "DISPOSED").length})` : ""}`}
           </button>
           <button
             onClick={() => setShowForm(!showForm)}
@@ -546,9 +561,9 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
         ))}
       </div>
 
-      {/* Assets Table */}
+      {/* Active Assets Table */}
       <div className="card border border-border overflow-hidden">
-        {filteredAssets.length === 0 ? (
+        {activeAssets.length === 0 ? (
           <div className="p-10 text-center text-ink-faint">
             {selectedEntity === "all" ? "No active assets" : "No active assets for this entity"}
           </div>
@@ -568,12 +583,10 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredAssets.map((asset) => {
+                {activeAssets.map((asset) => {
                   const depreciation = calcDepreciation(
-                    asset.purchaseCost,
-                    asset.salvageValue,
-                    asset.usefulLifeYears,
-                    new Date(asset.purchaseDate)
+                    asset.purchaseCost, asset.salvageValue,
+                    asset.usefulLifeYears, new Date(asset.purchaseDate)
                   );
                   const isExpanded = expandedAssetId === asset.id;
 
@@ -603,10 +616,7 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-24 h-2 bg-border rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-blue-500"
-                              style={{ width: `${Math.min(100, depreciation.percentUsed)}%` }}
-                            />
+                            <div className="h-full bg-blue-500" style={{ width: `${Math.min(100, depreciation.percentUsed)}%` }} />
                           </div>
                           <span className="text-xs text-ink-faint w-8 text-right">
                             {Math.min(100, Math.round(depreciation.percentUsed))}%
@@ -615,20 +625,11 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => setExpandedAssetId(isExpanded ? null : asset.id)}
-                            className="p-1 hover:bg-border rounded transition"
-                          >
-                            <ChevronDown
-                              className="w-4 h-4 text-ink-faint transition"
-                              style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
-                            />
+                          <button onClick={() => setExpandedAssetId(isExpanded ? null : asset.id)} className="p-1 hover:bg-border rounded transition">
+                            <ChevronDown className="w-4 h-4 text-ink-faint transition" style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }} />
                           </button>
                           {isAdmin && (
-                            <button
-                              onClick={() => handleDisposeAsset(asset.id)}
-                              className="p-1 hover:bg-red-100 rounded transition"
-                            >
+                            <button onClick={() => handleDisposeAsset(asset.id)} className="p-1 hover:bg-red-100 rounded transition">
                               <Trash2 className="w-4 h-4 text-red-600" />
                             </button>
                           )}
@@ -645,11 +646,65 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
         {/* Expanded Depreciation Schedule */}
         {expandedAssetId && (
           <DepreciationScheduleRow
-            asset={filteredAssets.find((a) => a.id === expandedAssetId)!}
+            asset={activeAssets.find((a) => a.id === expandedAssetId)!}
             onClose={() => setExpandedAssetId(null)}
           />
         )}
       </div>
+
+      {/* Disposed Assets Log */}
+      {showDisposed && disposedAssets.length > 0 && (
+        <div className="card border border-surface-border overflow-hidden">
+          <div className="px-4 py-3 bg-surface-2 border-b border-surface-border flex items-center gap-2">
+            <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider">Disposed Assets</span>
+            <span className="badge bg-accent-red/10 text-accent-red">{disposedAssets.length}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-surface-border bg-surface-2">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-ink-faint uppercase">Asset</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-ink-faint uppercase">Entity</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-ink-faint uppercase">Purchase Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-ink-faint uppercase">Purchase Cost</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-ink-faint uppercase">Disposal Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-ink-faint uppercase">Disposal Value</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-ink-faint uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border">
+                {disposedAssets.map((asset) => (
+                  <tr key={asset.id} className="opacity-60">
+                    <td className="px-4 py-3">
+                      <div>
+                        <p className="font-medium text-ink-secondary line-through">{asset.name}</p>
+                        <p className="text-xs text-ink-faint">{categoryLabels[asset.category]}</p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: asset.entityColor }} />
+                        <span className="text-sm text-ink-secondary">{asset.entityName}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-ink-secondary">{asset.purchaseDate}</td>
+                    <td className="px-4 py-3 text-right text-sm text-ink-secondary font-mono">
+                      ৳{asset.purchaseCost.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-ink-secondary">{asset.disposalDate ?? "—"}</td>
+                    <td className="px-4 py-3 text-right text-sm font-mono text-ink-secondary">
+                      {asset.disposalValue != null ? `৳${asset.disposalValue.toLocaleString()}` : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="badge bg-accent-red/10 text-accent-red">Disposed</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Dispose Asset Form Modal */}
       {showDisposeForm && (
@@ -723,31 +778,41 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
               </div>
 
               {/* Gain/Loss Preview */}
-              {disposeForm.disposalValue && (
-                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm text-ink-secondary">
-                    Original Cost:{" "}
-                    <span className="font-medium">
-                      {assets.find((a) => a.id === disposeForm.assetId)?.purchaseCost || 0}
-                    </span>
-                  </p>
-                  <p className="text-sm text-ink-secondary">
-                    Disposal Value:{" "}
-                    <span className="font-medium">{parseFloat(disposeForm.disposalValue).toFixed(2)}</span>
-                  </p>
-                  <p className="text-sm font-medium mt-2">
-                    {(() => {
-                      const cost =
-                        assets.find((a) => a.id === disposeForm.assetId)?.purchaseCost || 0;
-                      const value = parseFloat(disposeForm.disposalValue) || 0;
-                      const gain = value - cost;
-                      return gain >= 0
-                        ? `Gain: ${gain.toFixed(2)}`
-                        : `Loss: ${Math.abs(gain).toFixed(2)}`;
-                    })()}
-                  </p>
-                </div>
-              )}
+              {disposeForm.disposalValue && (() => {
+                const a = assets.find((x) => x.id === disposeForm.assetId);
+                if (!a) return null;
+                const dep = calcDepreciation(
+                  a.purchaseCost, a.salvageValue, a.usefulLifeYears,
+                  new Date(a.purchaseDate),
+                  new Date(disposeForm.disposalDate || new Date()),
+                );
+                const proceeds = parseFloat(disposeForm.disposalValue) || 0;
+                const gl = proceeds - dep.bookValue;
+                return (
+                  <div className="p-3 bg-surface-2 rounded-lg border border-surface-border space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-ink-muted">Purchase cost</span>
+                      <span className="font-mono text-ink-primary">৳{a.purchaseCost.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-ink-muted">Accumulated depreciation</span>
+                      <span className="font-mono text-accent-amber">−৳{dep.accumulated.toFixed(0)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm border-t border-surface-border pt-1">
+                      <span className="text-ink-secondary font-medium">Book value</span>
+                      <span className="font-mono font-semibold text-ink-primary">৳{dep.bookValue.toFixed(0)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-ink-muted">Disposal proceeds</span>
+                      <span className="font-mono text-ink-primary">৳{proceeds.toFixed(0)}</span>
+                    </div>
+                    <div className={`flex justify-between text-sm font-bold border-t border-surface-border pt-1 ${gl >= 0 ? "text-accent-green" : "text-accent-red"}`}>
+                      <span>{gl >= 0 ? "Gain on disposal" : "Loss on disposal"}</span>
+                      <span className="font-mono">৳{Math.abs(gl).toFixed(0)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Buttons */}
               <div className="flex gap-3 mt-6">
