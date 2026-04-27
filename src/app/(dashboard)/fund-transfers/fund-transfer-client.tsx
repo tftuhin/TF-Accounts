@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { formatUSD, formatBDT, formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
 import { ArrowRight, Landmark, Building, RefreshCw } from "lucide-react";
@@ -56,6 +56,7 @@ export function FundTransferClient({
     reference: "",
     note: "",
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fromAccount = bankAccounts.find((a) => a.id === form.fromAccountId);
   const toAccount = bankAccounts.find((a) => a.id === form.toAccountId);
@@ -68,7 +69,7 @@ export function FundTransferClient({
   const foreignAccounts = bankAccounts.filter((a) => a.accountType === "FOREIGN_USD");
   const localAccounts = bankAccounts.filter((a) => ["LOCAL_USD", "LOCAL_BDT", "PETTY_CASH"].includes(a.accountType));
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.amount || !form.fromAccountId || !form.toAccountId) {
       toast.error("Fill all required fields");
@@ -79,11 +80,43 @@ export function FundTransferClient({
       return;
     }
 
-    toast.success("Fund transfer recorded", {
-      description: `${formatCurrency(sourceAmount, fromAccount?.currency as "USD" | "BDT")} → ${formatCurrency(destAmount, toAccount?.currency as "USD" | "BDT")}${needsExchange ? ` @ ৳${rate}/$1` : ""}`,
-    });
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/fund-transfers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fromAccountId: form.fromAccountId,
+          toAccountId: form.toAccountId,
+          amountFrom: parseFloat(form.amount),
+          currencyFrom: fromAccount?.currency || "USD",
+          amountTo: destAmount,
+          currencyTo: toAccount?.currency || "BDT",
+          exchangeRate: needsExchange ? rate : undefined,
+          date: new Date(form.date).toISOString(),
+          reference: form.reference || undefined,
+          note: form.note || undefined,
+        }),
+      });
 
-    setForm({ ...form, amount: "", reference: "", note: "" });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to create fund transfer");
+      }
+
+      toast.success("Fund transfer recorded", {
+        description: `${formatCurrency(sourceAmount, fromAccount?.currency as "USD" | "BDT")} → ${formatCurrency(destAmount, toAccount?.currency as "USD" | "BDT")}${needsExchange ? ` @ ৳${rate}/$1` : ""}`,
+      });
+
+      setForm({ ...form, amount: "", reference: "", note: "" });
+      // Optionally: refresh the page or re-fetch transfers
+      window.location.reload();
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      toast.error("Failed to record transfer", { description: errorMsg });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -256,7 +289,9 @@ export function FundTransferClient({
           />
         </div>
 
-        <button type="submit" className="btn-primary w-full">Record Transfer</button>
+        <button type="submit" className="btn-primary w-full" disabled={isSubmitting}>
+          {isSubmitting ? "Recording..." : "Record Transfer"}
+        </button>
       </form>
 
       {/* Transfer History */}
