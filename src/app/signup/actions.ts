@@ -42,7 +42,6 @@ export async function signupAction(email: string, password: string, fullName: st
         data: {
           full_name: fullName,
         },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/auth/callback`,
       },
     });
 
@@ -56,20 +55,27 @@ export async function signupAction(email: string, password: string, fullName: st
     // Create profile in profiles table immediately
     if (data.user?.id) {
       try {
-        const { error: profileError } = await supabase
+        const { data: existingProfile, error: checkError } = await supabase
           .from("profiles")
-          .insert({
-            id: data.user.id,
-            email,
-            full_name: fullName,
-            role: "ENTRY_MANAGER",
-            is_active: true,
-          })
-          .select();
+          .select("id")
+          .eq("id", data.user.id)
+          .single();
 
-        if (profileError) {
-          console.error("Profile creation error:", profileError);
-          // Don't fail signup if profile creation fails, user can still sign in
+        // Only insert if profile doesn't exist
+        if (!existingProfile && !checkError) {
+          const { error: profileError } = await supabase
+            .from("profiles")
+            .insert({
+              id: data.user.id,
+              email,
+              full_name: fullName,
+              role: "ENTRY_MANAGER",
+              is_active: true,
+            });
+
+          if (profileError) {
+            console.error("Profile creation error:", profileError);
+          }
         }
       } catch (err) {
         console.error("Error creating profile:", err);

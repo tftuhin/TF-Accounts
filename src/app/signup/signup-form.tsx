@@ -65,9 +65,10 @@ export function SignupForm() {
           <div className="px-4 py-3 rounded-lg bg-accent-green/10 border border-accent-green/20 text-accent-green text-sm animate-slide-down">
             {success}
           </div>
-          <p className="text-xs text-ink-faint text-center">
-            Redirecting to login in 3 seconds...
-          </p>
+          <div className="text-xs text-ink-faint space-y-2 text-center">
+            <p>Your account is ready!</p>
+            <p>Redirecting to login in 3 seconds...</p>
+          </div>
         </div>
       )}
 
