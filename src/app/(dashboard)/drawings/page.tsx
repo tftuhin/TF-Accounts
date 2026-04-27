@@ -9,33 +9,43 @@ export default async function DrawingsPage() {
     return <div className="card p-10 text-center text-ink-faint">Access denied.</div>;
   }
 
-  const [drawings, owners, entities, pfLines] = await Promise.all([
-    prisma.drawing.findMany({
-      take: 50,
-      orderBy: { date: "desc" },
-      include: {
-        entity: { select: { name: true, color: true } },
-        ownershipRegistry: { select: { ownerName: true, ownershipPct: true } },
-      },
-    }),
-    prisma.ownershipRegistry.findMany({
-      where: { effectiveTo: null },
-      include: { entity: { select: { name: true, id: true } } },
-    }).catch(() => []), // Fallback if query fails
-    prisma.entity.findMany({
-      where: { isActive: true },
-      orderBy: { type: "asc" },
-      select: { id: true, name: true, type: true, color: true },
-    }),
-    // Compute real PF balances (PROFIT + OWNERS_COMP) from journal entries
-    prisma.journalEntryLine.findMany({
-      where: {
-        pfAccount: { in: ["PROFIT", "OWNERS_COMP"] },
-        journalEntry: { status: "FINALIZED" },
-      },
-      select: { pfAccount: true, entryType: true, amount: true, entityId: true },
-    }),
-  ]);
+  let drawings = [];
+  let owners = [];
+  let entities = [];
+  let pfLines = [];
+
+  try {
+    [drawings, owners, entities, pfLines] = await Promise.all([
+      prisma.drawing.findMany({
+        take: 50,
+        orderBy: { date: "desc" },
+        include: {
+          entity: { select: { name: true, color: true } },
+          ownershipRegistry: { select: { ownerName: true, ownershipPct: true } },
+        },
+      }).catch(() => []),
+      prisma.ownershipRegistry.findMany({
+        where: { effectiveTo: null },
+        include: { entity: { select: { name: true, id: true } } },
+      }).catch(() => []),
+      prisma.entity.findMany({
+        where: { isActive: true },
+        orderBy: { type: "asc" },
+        select: { id: true, name: true, type: true, color: true },
+      }).catch(() => []),
+      prisma.journalEntryLine.findMany({
+        where: {
+          pfAccount: { in: ["PROFIT", "OWNERS_COMP"] },
+          journalEntry: { status: "FINALIZED" },
+        },
+        select: { pfAccount: true, entryType: true, amount: true, entityId: true },
+      }).catch(() => []),
+    ]);
+  } catch (error) {
+    console.error("Error loading drawings page data:", error);
+    // Return error state instead of crashing
+    return <div className="card p-10 text-center text-ink-faint">Error loading drawings. Please try again.</div>;
+  }
 
   // Compute balances per entity per PF account
   const pfBalances: Record<string, Record<string, number>> = {};
