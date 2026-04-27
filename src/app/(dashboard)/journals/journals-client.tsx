@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { Download, Trash2, Pencil, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Download, Trash2, Pencil, ChevronLeft, ChevronRight, X, Clock } from "lucide-react";
 import { formatUSD, formatBDT } from "@/lib/utils";
 import { EXPENSE_CATEGORIES, CATEGORY_KEYS } from "@/lib/expense-categories";
 import type { UserRole } from "@/types";
@@ -17,6 +17,31 @@ interface JournalEntry {
 }
 interface Pagination { total: number; page: number; pages: number; limit: number }
 
+interface EditRecord {
+  editedByEmail: string;
+  editedByRole: string;
+  editedAt: string;
+  changes: Record<string, { from: unknown; to: unknown }>;
+}
+interface EntryDetail extends JournalEntry {
+  usdAmount: number | null;
+  createdAt: string;
+  updatedAt: string;
+  createdByEmail: string | null;
+  editLog: EditRecord[];
+}
+
+function formatChangeValue(field: string, val: unknown): string {
+  if (field === "amount") return formatBDT(Number(val));
+  if (field === "date") return String(val);
+  return String(val) || "—";
+}
+
+function fmtDateTime(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 export function JournalsClient({ entities, userRole }: { entities: Entity[]; userRole: UserRole }) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, pages: 1, limit: 50 });
@@ -27,9 +52,13 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
   const [filterTo, setFilterTo] = useState("");
   const [page, setPage] = useState(1);
 
+  // Detail view state
+  const [detail, setDetail] = useState<EntryDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
   // Edit modal state
   const [editing, setEditing] = useState<JournalEntry | null>(null);
-  const [editForm, setEditForm] = useState({ description: "", category: "", subcategory: "", date: "" });
+  const [editForm, setEditForm] = useState({ description: "", category: "", subcategory: "", date: "", amount: "" });
   const [saving, setSaving] = useState(false);
 
   const canDelete = userRole === "ADMIN";
@@ -55,6 +84,18 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
   }, [page, filterEntity, filterFrom, filterTo]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
+
+  async function openDetail(id: string) {
+    setDetailLoading(true);
+    setDetail(null);
+    try {
+      const res = await fetch(`/api/journals?entryId=${id}`);
+      const json = await res.json();
+      if (json.success) setDetail(json.data);
+    } finally {
+      setDetailLoading(false);
+    }
+  }
 
   function exportCSV() {
     const headers = ["Date", "Entity", "Description", "Category", "Type", "Amount", "Currency", "Status"];
@@ -90,7 +131,7 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
     const sepIdx = raw.indexOf(" › ");
     const cat = sepIdx >= 0 ? raw.slice(0, sepIdx) : raw;
     const sub = sepIdx >= 0 ? raw.slice(sepIdx + 3) : "";
-    setEditForm({ description: entry.description, category: cat, subcategory: sub, date: entry.date });
+    setEditForm({ description: entry.description, category: cat, subcategory: sub, date: entry.date, amount: String(entry.amount) });
   }
 
   async function handleSaveEdit(e: React.FormEvent) {
@@ -101,16 +142,23 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
       const fullCategory = editForm.subcategory
         ? `${editForm.category} › ${editForm.subcategory}`
         : editForm.category;
+      const parsedAmount = parseFloat(editForm.amount);
       const res = await fetch("/api/journals", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editing.id, description: editForm.description, category: fullCategory, date: editForm.date }),
+        body: JSON.stringify({
+          id: editing.id,
+          description: editForm.description,
+          category: fullCategory,
+          date: editForm.date,
+          ...(parsedAmount > 0 ? { amount: parsedAmount } : {}),
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       setEntries((prev) => prev.map((en) =>
         en.id === editing.id
-          ? { ...en, description: editForm.description, category: fullCategory, date: editForm.date }
+          ? { ...en, description: editForm.description, category: fullCategory, date: editForm.date, ...(parsedAmount > 0 ? { amount: parsedAmount } : {}) }
           : en
       ));
       toast.success("Entry updated");
@@ -179,7 +227,11 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
               ) : entries.length === 0 ? (
                 <tr><td colSpan={8} className="table-cell text-center text-ink-faint py-10">No journal entries found.</td></tr>
               ) : entries.map((en) => (
-                <tr key={en.id} className="table-row">
+                <tr
+                  key={en.id}
+                  className="table-row cursor-pointer"
+                  onClick={() => openDetail(en.id)}
+                >
                   <td className="table-cell font-mono text-xs text-ink-secondary">{en.date}</td>
                   <td className="table-cell">
                     <span className="badge" style={{ background: `${en.entityColor}15`, color: en.entityColor, border: `1px solid ${en.entityColor}30` }}>
@@ -203,7 +255,7 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
                     </span>
                   </td>
                   {canEdit && (
-                    <td className="table-cell">
+                    <td className="table-cell" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-1.5">
                         <button onClick={() => openEdit(en)} className="p-1.5 rounded hover:bg-accent-blue/10 text-ink-faint hover:text-accent-blue">
                           <Pencil className="w-3.5 h-3.5" />
@@ -240,6 +292,118 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
         )}
       </div>
 
+      {/* Detail Modal */}
+      {(detailLoading || detail) && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setDetail(null)}>
+          <div className="bg-surface-1 border border-surface-border rounded-xl w-full max-w-lg p-6 space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-ink-white">Journal Entry Details</div>
+              <button onClick={() => setDetail(null)} className="text-ink-faint hover:text-ink-primary"><X className="w-4 h-4" /></button>
+            </div>
+
+            {detailLoading ? (
+              <div className="py-10 text-center text-ink-faint text-sm">Loading…</div>
+            ) : detail ? (
+              <>
+                {/* Entry info grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-2xs text-ink-faint uppercase tracking-wide mb-1">Date</div>
+                    <div className="text-sm font-mono text-ink-white">{detail.date}</div>
+                  </div>
+                  <div>
+                    <div className="text-2xs text-ink-faint uppercase tracking-wide mb-1">Entity</div>
+                    <span className="badge text-xs" style={{ background: `${detail.entityColor}15`, color: detail.entityColor, border: `1px solid ${detail.entityColor}30` }}>
+                      {detail.entityName}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-2xs text-ink-faint uppercase tracking-wide mb-1">Description</div>
+                    <div className="text-sm text-ink-white">{detail.description}</div>
+                  </div>
+                  <div>
+                    <div className="text-2xs text-ink-faint uppercase tracking-wide mb-1">Amount</div>
+                    <div className={`text-sm font-mono font-semibold ${detail.type === "Income" ? "text-accent-green" : "text-accent-red"}`}>
+                      {detail.type === "Income" ? "+" : "-"}{formatBDT(detail.amount)}
+                      {detail.usdAmount && <span className="ml-1 text-xs text-ink-faint">(${detail.usdAmount.toLocaleString()} USD)</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-2xs text-ink-faint uppercase tracking-wide mb-1">Type</div>
+                    <span className={`badge text-xs ${detail.type === "Income" ? "bg-accent-green/10 text-accent-green" : detail.type === "Expense" ? "bg-accent-red/10 text-accent-red" : "bg-surface-4 text-ink-faint"}`}>
+                      {detail.type}
+                    </span>
+                  </div>
+                  <div>
+                    <div className="text-2xs text-ink-faint uppercase tracking-wide mb-1">Category</div>
+                    <div className="text-sm text-ink-secondary">{detail.category || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-2xs text-ink-faint uppercase tracking-wide mb-1">Status</div>
+                    <span className={`badge text-2xs ${detail.status === "FINALIZED" ? "bg-accent-green/10 text-accent-green" : "bg-surface-4 text-ink-faint"}`}>
+                      {detail.status}
+                    </span>
+                  </div>
+                  <div className="col-span-2 pt-1 border-t border-surface-border">
+                    <div className="text-2xs text-ink-faint">
+                      Created {fmtDateTime(detail.createdAt)}{detail.createdByEmail ? ` by ${detail.createdByEmail}` : ""}
+                    </div>
+                    {detail.updatedAt !== detail.createdAt && (
+                      <div className="text-2xs text-ink-faint mt-0.5">Last modified {fmtDateTime(detail.updatedAt)}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Change Log */}
+                {detail.editLog.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs text-ink-secondary font-medium mb-3">
+                      <Clock className="w-3.5 h-3.5" />
+                      Change Log ({detail.editLog.length} edit{detail.editLog.length > 1 ? "s" : ""})
+                    </div>
+                    <div className="space-y-2.5">
+                      {detail.editLog.map((edit, i) => (
+                        <div key={i} className="rounded-lg bg-surface-2 border border-surface-border p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs text-ink-secondary">{edit.editedByEmail}</span>
+                            <span className="text-2xs text-ink-faint">{fmtDateTime(edit.editedAt)}</span>
+                          </div>
+                          <div className="space-y-1">
+                            {Object.entries(edit.changes).map(([field, change]) => (
+                              <div key={field} className="text-2xs text-ink-faint">
+                                <span className="text-ink-secondary capitalize">{field}:</span>{" "}
+                                <span className="line-through opacity-60">{formatChangeValue(field, change.from)}</span>
+                                <span className="mx-1 opacity-40">→</span>
+                                <span className="text-ink-white">{formatChangeValue(field, change.to)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {canEdit && (
+                  <div className="pt-1">
+                    <button
+                      onClick={() => {
+                        const entry = entries.find((e) => e.id === detail.id);
+                        if (entry) { setDetail(null); openEdit(entry); }
+                      }}
+                      className="w-full py-2 rounded-lg bg-accent-blue/10 border border-accent-blue/20 text-sm text-accent-blue hover:bg-accent-blue/20"
+                    >
+                      <Pencil className="w-3.5 h-3.5 inline mr-1.5" />
+                      Edit This Entry
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {editing && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -252,6 +416,21 @@ export function JournalsClient({ entities, userRole }: { entities: Entity[]; use
               <div>
                 <label className="input-label">Date</label>
                 <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} className="input" />
+              </div>
+              <div>
+                <label className="input-label">Amount (BDT)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint text-sm">৳</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={editForm.amount}
+                    onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                    className="input pl-7"
+                    required
+                  />
+                </div>
               </div>
               <div>
                 <label className="input-label">Description</label>
