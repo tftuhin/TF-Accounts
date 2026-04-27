@@ -21,6 +21,17 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Auto-create default petty cash account
+    await prisma.bankAccount.create({
+      data: {
+        entityId: entity.id,
+        accountName: `${name} - Petty Cash`,
+        accountType: "PETTY_CASH",
+        currency: "BDT",
+        isActive: true,
+      },
+    });
+
     // Auto-create default Teamosis 100% ownership record
     await prisma.ownershipRegistry.create({
       data: {
