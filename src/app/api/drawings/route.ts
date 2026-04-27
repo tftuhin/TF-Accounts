@@ -104,9 +104,9 @@ export async function POST(req: NextRequest) {
         createdByRole: session.role,
         lines: {
           create: [
-            // Debit Drawings (reduces equity)
+            // Debit Drawings (reduces equity; account 6000 tracks owner withdrawals)
             {
-              accountId: accounts.cash.id, // Will be replaced with proper equity account in future
+              accountId: accounts.drawings.id,
               pfAccount: data.sourceAccount,
               entryType: TxnType.DEBIT,
               amount: data.amount,

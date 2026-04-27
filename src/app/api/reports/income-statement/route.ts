@@ -50,29 +50,44 @@ export async function GET(req: NextRequest) {
 
   for (const row of rows) {
     const amt = row.total;
-    // Income: credited to income account (increases revenue)
     if (row.pf_account === "INCOME" && row.entry_type === "CREDIT") {
       totalIncome += amt;
-    }
-    // Operating Expenses: debited to OPEX account (reduces profit)
-    else if (row.pf_account === "OPEX" && row.entry_type === "DEBIT") {
+    } else if (row.pf_account === "OPEX" && row.entry_type === "DEBIT") {
       totalExpenses += amt;
       expenseByCategory[row.category || "Other"] = (expenseByCategory[row.category || "Other"] || 0) + amt;
-    }
-    // Depreciation Expense: debited (reduces profit)
-    else if (row.category === "Depreciation" && row.entry_type === "DEBIT") {
+    } else if (row.category === "Depreciation" && row.entry_type === "DEBIT") {
       totalExpenses += amt;
       expenseByCategory["Depreciation"] = (expenseByCategory["Depreciation"] || 0) + amt;
-    }
-    // Asset Disposal Loss: debited (reduces profit)
-    else if (row.category === "Asset Disposal" && row.entry_type === "DEBIT") {
+    } else if (row.category === "Asset Disposal" && row.entry_type === "DEBIT") {
       totalExpenses += amt;
       expenseByCategory["Asset Disposal Loss"] = (expenseByCategory["Asset Disposal Loss"] || 0) + amt;
-    }
-    // Asset Disposal Gain: credited (increases revenue/reduces expenses)
-    else if (row.category === "Asset Disposal" && row.entry_type === "CREDIT") {
+    } else if (row.category === "Asset Disposal" && row.entry_type === "CREDIT") {
       totalIncome += amt;
     }
+  }
+
+  // Include petty cash expenses (CASH_EXPENSE, ATM_WITHDRAWAL, CARD_PAYMENT) — these are
+  // recorded directly in petty_cash_entries without journal entry lines, so they must be
+  // queried separately to appear on the income statement.
+  const [pcExpenseRow] = isConsolidated
+    ? await prisma.$queryRaw<{ total: number }[]>`
+        SELECT COALESCE(SUM(amount), 0)::float8 AS total
+        FROM petty_cash_entries
+        WHERE txn_type IN ('CASH_EXPENSE','ATM_WITHDRAWAL','CARD_PAYMENT')
+          AND date >= ${fromDate} AND date <= ${toDate}
+      `
+    : await prisma.$queryRaw<{ total: number }[]>`
+        SELECT COALESCE(SUM(amount), 0)::float8 AS total
+        FROM petty_cash_entries
+        WHERE txn_type IN ('CASH_EXPENSE','ATM_WITHDRAWAL','CARD_PAYMENT')
+          AND entity_id = ${entityId}
+          AND date >= ${fromDate} AND date <= ${toDate}
+      `;
+
+  const pettyCashExpenses = pcExpenseRow?.total ?? 0;
+  if (pettyCashExpenses > 0) {
+    totalExpenses += pettyCashExpenses;
+    expenseByCategory["Petty Cash"] = (expenseByCategory["Petty Cash"] || 0) + pettyCashExpenses;
   }
 
   let entityName = "Consolidated";
@@ -92,7 +107,8 @@ export async function GET(req: NextRequest) {
           .sort((a, b) => b[1] - a[1])
           .map(([category, amount]) => ({ category, amount })),
       },
-      grossProfit: totalIncome - totalExpenses,
+      // grossProfit = total revenue before deducting expenses
+      grossProfit: totalIncome,
       netProfit:   totalIncome - totalExpenses,
     },
   });

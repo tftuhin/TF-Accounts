@@ -10,6 +10,13 @@ type LineAgg = {
   usd_total: number;
 };
 
+type CashRow = {
+  entry_type: string;
+  currency: string;
+  total: number;
+  usd_total: number;
+};
+
 export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role === "ENTRY_MANAGER")
@@ -76,15 +83,73 @@ export async function GET(req: NextRequest) {
   let fixedAssetsGross = 0, accumulatedDepreciation = 0;
 
   for (const row of lineRows) {
-    const sign = row.entry_type === "DEBIT" ? 1 : -1;
     if (row.pf_account === "INCOME" && row.entry_type === "CREDIT") totalIncome += row.total;
     else if (row.pf_account === "OPEX" && row.entry_type === "DEBIT") totalExpenses += row.total;
     else if (row.pf_account === "PROFIT" && row.entry_type === "DEBIT") totalDrawings += row.total;
     else if (row.pf_account === "OWNERS_COMP" && row.entry_type === "DEBIT") totalDrawings += row.total;
-    else if (row.pf_account === null) {
-      if (row.currency === "BDT") bdtCashBalance += sign * row.total;
-      else if (row.currency === "USD") { usdCashBalanceBDT += sign * row.total; usdCashBalanceUSD += sign * row.usd_total; }
-    }
+    // Cash balance is computed from account_code = '1000' query below to avoid
+    // mixing in fixed asset and other null-pf_account lines.
+  }
+
+  // Cash balance: only account 1000 lines (avoids fixed asset / inter-entity lines polluting cash)
+  const cashRows: CashRow[] = isConsolidated
+    ? fromDate
+      ? await prisma.$queryRaw<CashRow[]>`
+          SELECT jel.entry_type, jel.currency,
+                 SUM(jel.amount)::float8 AS total,
+                 SUM(COALESCE(jel.usd_amount,0))::float8 AS usd_total
+          FROM journal_entry_lines jel
+          JOIN chart_of_accounts coa ON coa.id = jel.account_id
+          JOIN journal_entries je ON je.id = jel.journal_entry_id
+          WHERE je.status = 'FINALIZED'
+            AND je.date >= ${fromDate} AND je.date <= ${toDate}
+            AND coa.account_code = '1000'
+          GROUP BY jel.entry_type, jel.currency
+        `
+      : await prisma.$queryRaw<CashRow[]>`
+          SELECT jel.entry_type, jel.currency,
+                 SUM(jel.amount)::float8 AS total,
+                 SUM(COALESCE(jel.usd_amount,0))::float8 AS usd_total
+          FROM journal_entry_lines jel
+          JOIN chart_of_accounts coa ON coa.id = jel.account_id
+          JOIN journal_entries je ON je.id = jel.journal_entry_id
+          WHERE je.status = 'FINALIZED'
+            AND je.date <= ${toDate}
+            AND coa.account_code = '1000'
+          GROUP BY jel.entry_type, jel.currency
+        `
+    : fromDate
+      ? await prisma.$queryRaw<CashRow[]>`
+          SELECT jel.entry_type, jel.currency,
+                 SUM(jel.amount)::float8 AS total,
+                 SUM(COALESCE(jel.usd_amount,0))::float8 AS usd_total
+          FROM journal_entry_lines jel
+          JOIN chart_of_accounts coa ON coa.id = jel.account_id
+          JOIN journal_entries je ON je.id = jel.journal_entry_id
+          WHERE je.status = 'FINALIZED'
+            AND je.entity_id = ${entityId}
+            AND je.date >= ${fromDate} AND je.date <= ${toDate}
+            AND coa.account_code = '1000'
+          GROUP BY jel.entry_type, jel.currency
+        `
+      : await prisma.$queryRaw<CashRow[]>`
+          SELECT jel.entry_type, jel.currency,
+                 SUM(jel.amount)::float8 AS total,
+                 SUM(COALESCE(jel.usd_amount,0))::float8 AS usd_total
+          FROM journal_entry_lines jel
+          JOIN chart_of_accounts coa ON coa.id = jel.account_id
+          JOIN journal_entries je ON je.id = jel.journal_entry_id
+          WHERE je.status = 'FINALIZED'
+            AND je.entity_id = ${entityId}
+            AND je.date <= ${toDate}
+            AND coa.account_code = '1000'
+          GROUP BY jel.entry_type, jel.currency
+        `;
+
+  for (const row of cashRows) {
+    const sign = row.entry_type === "DEBIT" ? 1 : -1;
+    if (row.currency === "BDT") bdtCashBalance += sign * row.total;
+    else if (row.currency === "USD") { usdCashBalanceBDT += sign * row.total; usdCashBalanceUSD += sign * row.usd_total; }
   }
 
   // Query fixed assets and accumulated depreciation from GL
