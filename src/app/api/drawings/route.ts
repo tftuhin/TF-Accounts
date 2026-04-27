@@ -78,16 +78,26 @@ export async function POST(req: NextRequest) {
     const registryId = data.ownershipRegistryId || data.ownerId;
     if (!registryId) return NextResponse.json({ error: "ownershipRegistryId or ownerId required" }, { status: 400 });
 
+    // Get owner details for GL memo
+    const ownershipRegistry = await prisma.ownershipRegistry.findUnique({
+      where: { id: registryId },
+      select: { ownerName: true },
+    });
+
+    const ownerName = ownershipRegistry?.ownerName || "Unknown Owner";
+
     // Ensure basic accounts exist
     const accounts = await ensureBasicAccounts(data.entityId);
 
     // Create journal entry for the drawing (debit equity/drawings, credit cash)
     const drawingDate = new Date(data.date);
+    const sourceLabel = data.sourceAccount === "PROFIT" ? "Profit" : "Owners Compensation";
+
     const journalEntry = await prisma.journalEntry.create({
       data: {
         entityId: data.entityId,
         date: drawingDate,
-        description: `Owner Drawing: ${data.sourceAccount === "PROFIT" ? "From Profit" : "From Owners Compensation"}`,
+        description: `Drawing by ${ownerName} from ${sourceLabel}`,
         status: "FINALIZED",
         category: "Owner Drawing",
         createdById: session.id,
@@ -102,7 +112,7 @@ export async function POST(req: NextRequest) {
               amount: data.amount,
               currency: "BDT",
               entityId: data.entityId,
-              memo: `Owner drawing: ${data.note || ""}`,
+              memo: `${ownerName} drawing from ${sourceLabel}${data.note ? `: ${data.note}` : ""}`,
             },
             // Credit Cash account (money withdrawn)
             {
@@ -112,7 +122,7 @@ export async function POST(req: NextRequest) {
               amount: data.amount,
               currency: "BDT",
               entityId: data.entityId,
-              memo: "Funds withdrawn",
+              memo: `Funds withdrawn - ${ownerName}`,
             },
           ],
         },
