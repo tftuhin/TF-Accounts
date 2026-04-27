@@ -46,7 +46,38 @@ export async function getSession(): Promise<SessionUser | null> {
     .eq("id", session.user.id)
     .single();
 
-  if (!profile) return null;
+  // If profile doesn't exist, create one automatically
+  if (!profile) {
+    try {
+      const fullName = session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "User";
+      const { data: newProfile, error: insertError } = await supabaseServer
+        .from("profiles")
+        .insert({
+          id: session.user.id,
+          email: session.user.email,
+          full_name: fullName,
+          role: "ENTRY_MANAGER",
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("Error creating profile on login:", insertError);
+        return null;
+      }
+
+      return {
+        id: session.user.id,
+        email: session.user.email!,
+        fullName: newProfile?.full_name || fullName,
+        role: newProfile?.role || "ENTRY_MANAGER",
+      };
+    } catch (err) {
+      console.error("Error in profile creation:", err);
+      return null;
+    }
+  }
 
   return {
     id: session.user.id,
