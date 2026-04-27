@@ -92,6 +92,17 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
     salvageValue: "0",
   });
 
+  const [disposeForm, setDisposeForm] = useState({
+    assetId: "",
+    disposalDate: "",
+    disposalValue: "",
+    accountId: "",
+    description: "",
+  });
+  const [showDisposeForm, setShowDisposeForm] = useState(false);
+  const [accrualInProgress, setAccrualInProgress] = useState(false);
+  const [accrualMessage, setAccrualMessage] = useState("");
+
   const filteredAssets = assets.filter((a) => {
     const isActive = a.status === "ACTIVE";
     const matchesEntity = selectedEntity === "all" || a.entityId === selectedEntity;
@@ -178,61 +189,51 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
     }
   };
 
-  const handleDisposeAsset = async (id: string) => {
+  const handleDisposeAsset = (id: string) => {
     const asset = assets.find((a) => a.id === id);
     if (!asset) return;
 
-    const disposalDate = prompt("Disposal date (YYYY-MM-DD):");
-    if (!disposalDate) return;
+    const today = new Date().toISOString().split("T")[0];
+    setDisposeForm({
+      assetId: id,
+      disposalDate: today,
+      disposalValue: asset.purchaseCost.toString(),
+      accountId: bankAccounts[0]?.id || "",
+      description: "",
+    });
+    setShowDisposeForm(true);
+  };
 
-    const disposalValueStr = prompt("Disposal value (amount you received):");
-    if (!disposalValueStr) return;
+  const handleSubmitDispose = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    const disposalValue = parseFloat(disposalValueStr);
+    if (!disposeForm.disposalDate || !disposeForm.disposalValue || !disposeForm.accountId) {
+      alert("Please fill all required fields");
+      return;
+    }
+
+    const disposalValue = parseFloat(disposeForm.disposalValue);
     if (isNaN(disposalValue) || disposalValue < 0) {
       alert("Invalid disposal value");
       return;
     }
 
-    // Ask which account receives the proceeds
-    let accountType = "bank";
-    if (bankAccounts.length > 0) {
-      const accountOptions = bankAccounts
-        .map((acc) => `${acc.accountName} (${acc.accountType})`)
-        .join("\n");
-      const selected = prompt(
-        `Which account receives the proceeds?\n\n${accountOptions}\n\nOr type account number if multiple:`,
-        bankAccounts[0]?.id || ""
-      );
-      if (!selected) return;
-      // Check if it's a petty cash account
-      const selectedAccount = bankAccounts.find((a) => a.id === selected || a.accountName.includes(selected));
-      if (selectedAccount?.accountType === "PETTY_CASH") {
-        accountType = "petty-cash";
-      }
-    } else {
-      accountType = prompt(
-        "Is this going to Bank or Petty Cash?\n(type 'bank' or 'petty-cash')",
-        "bank"
-      ) || "bank";
-    }
+    const asset = assets.find((a) => a.id === disposeForm.assetId);
+    if (!asset) return;
 
     const gain = disposalValue - asset.purchaseCost;
-    const message = gain >= 0
-      ? `Selling for ${disposalValue.toFixed(2)} - Gain: ${gain.toFixed(2)}`
-      : `Selling for ${disposalValue.toFixed(2)} - Loss: ${Math.abs(gain).toFixed(2)}`;
-
-    if (!confirm(`Dispose asset?\n${message}\n\nProceeds → ${accountType === "petty-cash" ? "Petty Cash" : "Bank"}`)) return;
+    const selectedAccount = bankAccounts.find((a) => a.id === disposeForm.accountId);
 
     try {
+      setIsSubmitting(true);
       const res = await fetch("/api/assets", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id,
-          disposalDate: new Date(disposalDate).toISOString(),
+          id: disposeForm.assetId,
+          disposalDate: new Date(disposeForm.disposalDate).toISOString(),
           disposalValue,
-          accountType, // Pass the account type
+          cashAccountId: disposeForm.accountId,
         }),
       });
 
@@ -243,16 +244,52 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
 
       const result = await res.json();
       setAssets(assets.map((a) =>
-        a.id === id
-          ? { ...a, status: "DISPOSED", disposalDate, disposalValue }
+        a.id === disposeForm.assetId
+          ? { ...a, status: "DISPOSED", disposalDate: disposeForm.disposalDate, disposalValue }
           : a
       ));
+
       alert(
-        `Asset disposed!\n${result.data.gain >= 0 ? "Gain" : "Loss"}: ${result.data.gain.toFixed(2)}\nProceeds → ${accountType === "petty-cash" ? "Petty Cash" : "Bank"}`
+        `Asset disposed successfully!\n\nAccount: ${selectedAccount?.accountName}\nDisposal Value: ${disposalValue.toFixed(2)}\n${gain >= 0 ? "Gain" : "Loss"}: ${Math.abs(gain).toFixed(2)}`
       );
+
+      setShowDisposeForm(false);
+      setDisposeForm({ assetId: "", disposalDate: "", disposalValue: "", accountId: "", description: "" });
     } catch (err) {
       console.error(err);
       alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAccrueDepreciation = async () => {
+    setAccrualInProgress(true);
+    setAccrualMessage("");
+    try {
+      const entityId = selectedEntity === "all" ? undefined : selectedEntity;
+      const res = await fetch("/api/assets/accrue-depreciation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityId }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to accrue depreciation");
+      }
+
+      const result = await res.json();
+      setAccrualMessage(
+        `✓ ${result.message} (${result.entriesCreated} journal entries created)`
+      );
+      setTimeout(() => setAccrualMessage(""), 5000);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      setAccrualMessage(`✗ Error: ${errorMsg}`);
+      setTimeout(() => setAccrualMessage(""), 5000);
+    } finally {
+      setAccrualInProgress(false);
     }
   };
 
@@ -269,18 +306,36 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
             {!isAdmin && <p className="text-xs text-ink-faint mt-1">Admin access required to create assets</p>}
           </div>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          disabled={!isAdmin}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
-            isAdmin
-              ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
-              : "bg-border text-ink-faint cursor-not-allowed opacity-50"
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          Add Asset
-        </button>
+        <div className="flex items-center gap-2">
+          {accrualMessage && (
+            <div className={`text-sm px-3 py-2 rounded-lg ${accrualMessage.startsWith("✓") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+              {accrualMessage}
+            </div>
+          )}
+          <button
+            onClick={handleAccrueDepreciation}
+            disabled={!isAdmin || accrualInProgress}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
+              isAdmin
+                ? "bg-amber-600 text-white hover:bg-amber-700 cursor-pointer disabled:opacity-50"
+                : "bg-border text-ink-faint cursor-not-allowed opacity-50"
+            }`}
+          >
+            {accrualInProgress ? "Accruing..." : "Accrue Depreciation"}
+          </button>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            disabled={!isAdmin}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
+              isAdmin
+                ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                : "bg-border text-ink-faint cursor-not-allowed opacity-50"
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            Add Asset
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -591,6 +646,135 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
           />
         )}
       </div>
+
+      {/* Dispose Asset Form Modal */}
+      {showDisposeForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-ink mb-4">Dispose Asset</h2>
+
+            <form onSubmit={handleSubmitDispose} className="space-y-4">
+              {/* Disposal Date */}
+              <div>
+                <label className="block text-sm font-medium text-ink mb-2">Disposal Date *</label>
+                <input
+                  type="date"
+                  value={disposeForm.disposalDate}
+                  onChange={(e) =>
+                    setDisposeForm({ ...disposeForm, disposalDate: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              {/* Disposal Value */}
+              <div>
+                <label className="block text-sm font-medium text-ink mb-2">Disposal Value *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={disposeForm.disposalValue}
+                  onChange={(e) =>
+                    setDisposeForm({ ...disposeForm, disposalValue: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-blue-500"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+
+              {/* Account Selection */}
+              <div>
+                <label className="block text-sm font-medium text-ink mb-2">Where will proceeds go? *</label>
+                <select
+                  value={disposeForm.accountId}
+                  onChange={(e) =>
+                    setDisposeForm({ ...disposeForm, accountId: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select Account...</option>
+                  {bankAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.accountName} ({acc.accountType === "PETTY_CASH" ? "Petty Cash" : "Bank"})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="block text-sm font-medium text-ink mb-2">Description</label>
+                <textarea
+                  value={disposeForm.description}
+                  onChange={(e) =>
+                    setDisposeForm({ ...disposeForm, description: e.target.value })
+                  }
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:border-blue-500 resize-none"
+                  rows={3}
+                  placeholder="e.g., Sold to buyer, condition good..."
+                />
+              </div>
+
+              {/* Gain/Loss Preview */}
+              {disposeForm.disposalValue && (
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-ink-secondary">
+                    Original Cost:{" "}
+                    <span className="font-medium">
+                      {assets.find((a) => a.id === disposeForm.assetId)?.purchaseCost || 0}
+                    </span>
+                  </p>
+                  <p className="text-sm text-ink-secondary">
+                    Disposal Value:{" "}
+                    <span className="font-medium">{parseFloat(disposeForm.disposalValue).toFixed(2)}</span>
+                  </p>
+                  <p className="text-sm font-medium mt-2">
+                    {(() => {
+                      const cost =
+                        assets.find((a) => a.id === disposeForm.assetId)?.purchaseCost || 0;
+                      const value = parseFloat(disposeForm.disposalValue) || 0;
+                      const gain = value - cost;
+                      return gain >= 0
+                        ? `Gain: ${gain.toFixed(2)}`
+                        : `Loss: ${Math.abs(gain).toFixed(2)}`;
+                    })()}
+                  </p>
+                </div>
+              )}
+
+              {/* Buttons */}
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDisposeForm(false);
+                    setDisposeForm({
+                      assetId: "",
+                      disposalDate: "",
+                      disposalValue: "",
+                      accountId: "",
+                      description: "",
+                    });
+                  }}
+                  className="flex-1 px-4 py-2 border border-border rounded-lg text-ink hover:bg-gray-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50"
+                >
+                  {isSubmitting ? "Disposing..." : "Dispose"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

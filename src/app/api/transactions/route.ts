@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
         status: t.status,
         category: t.category,
         hasReceipt: t.evidenceFiles.length > 0 || !!t.receiptUrl,
-        createdBy: t.creator.fullName,
+        createdBy: t.creator?.fullName || "System",
         lines: t.lines.map((l) => ({
           pfAccount: l.pfAccount,
           entryType: l.entryType,

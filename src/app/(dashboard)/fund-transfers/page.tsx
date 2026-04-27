@@ -47,7 +47,7 @@ export default async function FundTransfersPage() {
         exchangeRate: t.exchangeRate ? Number(t.exchangeRate) : null,
         entityName: t.entity.name,
         reference: t.reference,
-        createdBy: t.creator.fullName,
+        createdBy: t.creator?.fullName || "System",
       }))}
     />
   );

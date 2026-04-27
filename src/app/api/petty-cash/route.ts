@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
         amount: Number(e.amount),
         txnType: e.txnType,
         hasReceipt: !!e.receiptUrl,
-        createdBy: e.creator.fullName,
+        createdBy: e.creator?.fullName || "System",
       })),
     })),
   });
