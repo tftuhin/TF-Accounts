@@ -46,6 +46,7 @@ export async function signupAction(email: string, password: string, fullName: st
     });
 
     if (error) {
+      console.error("Signup auth error:", error);
       if (error.message.includes("already registered")) {
         return { error: "Email already registered" };
       }
@@ -55,15 +56,21 @@ export async function signupAction(email: string, password: string, fullName: st
     // Create profile in profiles table immediately
     if (data.user?.id) {
       try {
+        console.log("Creating profile for user:", data.user.id);
+
         const { data: existingProfile, error: checkError } = await supabase
           .from("profiles")
           .select("id")
           .eq("id", data.user.id)
-          .single();
+          .maybeSingle();
+
+        if (checkError && checkError.code !== "PGRST116") {
+          console.error("Error checking profile:", checkError);
+        }
 
         // Only insert if profile doesn't exist
-        if (!existingProfile && !checkError) {
-          const { error: profileError } = await supabase
+        if (!existingProfile) {
+          const { data: insertedProfile, error: profileError } = await supabase
             .from("profiles")
             .insert({
               id: data.user.id,
@@ -71,14 +78,20 @@ export async function signupAction(email: string, password: string, fullName: st
               full_name: fullName,
               role: "ENTRY_MANAGER",
               is_active: true,
-            });
+            })
+            .select()
+            .single();
 
           if (profileError) {
             console.error("Profile creation error:", profileError);
+          } else {
+            console.log("Profile created successfully:", insertedProfile);
           }
+        } else {
+          console.log("Profile already exists");
         }
       } catch (err) {
-        console.error("Error creating profile:", err);
+        console.error("Error in profile creation:", err);
       }
     }
 

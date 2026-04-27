@@ -15,26 +15,42 @@ export async function loginAction(email: string, password: string) {
     return { error: "Supabase not configured" };
   }
 
-  const cookieStore = await cookies();
+  try {
+    const cookieStore = await cookies();
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return cookieStore.getAll();
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        },
       },
-      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-        cookiesToSet.forEach(({ name, value, options }) =>
-          cookieStore.set(name, value, options)
-        );
-      },
-    },
-  });
+    });
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-  if (error) {
-    return { error: "Invalid email or password" };
+    if (error) {
+      console.error("Login error:", error);
+      if (error.message.includes("Invalid login credentials")) {
+        return { error: "Invalid email or password" };
+      }
+      if (error.message.includes("Email not confirmed")) {
+        return { error: "Please verify your email before logging in" };
+      }
+      return { error: error.message || "Login failed" };
+    }
+
+    if (!data.session) {
+      return { error: "Login failed - no session created" };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("Login action error:", err);
+    return { error: err instanceof Error ? err.message : "Login failed" };
   }
-
-  return { success: true };
 }

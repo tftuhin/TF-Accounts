@@ -17,13 +17,22 @@ export function LoginForm() {
     e.preventDefault();
     setError("");
 
+    if (!email || !password) {
+      setError("Email and password are required");
+      return;
+    }
+
     startTransition(async () => {
-      const result = await loginAction(email, password);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        router.push("/dashboard");
-        router.refresh();
+      try {
+        const result = await loginAction(email, password);
+        if (result.error) {
+          setError(result.error);
+        } else {
+          router.push("/dashboard");
+          router.refresh();
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Login failed");
       }
     });
   }
