@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+import { TxnType } from "@prisma/client";
 import { z } from "zod";
 import { calcDepreciation } from "@/lib/asset-depreciation";
 import { ensureBasicAccounts } from "@/lib/accounts";
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
             // Debit Fixed Assets account
             {
               accountId: accounts.fixedAssets.id,
-              entryType: "DEBIT",
+              entryType: TxnType.DEBIT,
               amount: purchaseCost,
               currency,
               entityId: validated.entityId,
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
             // Credit Bank account
             {
               accountId: accounts.cash.id,
-              entryType: "CREDIT",
+              entryType: TxnType.CREDIT,
               amount: purchaseCost,
               currency,
               entityId: validated.entityId,
@@ -241,7 +242,7 @@ export async function PATCH(req: NextRequest) {
             // Debit Cash account (proceeds received)
             {
               accountId: cashAccount.id,
-              entryType: "DEBIT",
+              entryType: TxnType.DEBIT,
               amount: disposalValue,
               currency: asset.currency,
               entityId: asset.entityId,
@@ -250,7 +251,7 @@ export async function PATCH(req: NextRequest) {
             // Credit Fixed Assets account (remove from books)
             {
               accountId: accounts.fixedAssets.id,
-              entryType: "CREDIT",
+              entryType: TxnType.CREDIT,
               amount: purchaseCost,
               currency: asset.currency,
               entityId: asset.entityId,
@@ -261,8 +262,8 @@ export async function PATCH(req: NextRequest) {
               ? []
               : [
                   {
-                    accountId: accounts.income.id, // Use income for gains, could use separate account for losses
-                    entryType: gain.isPositive() ? "CREDIT" : "DEBIT",
+                    accountId: accounts.income.id,
+                    entryType: gain.isPositive() ? TxnType.CREDIT : TxnType.DEBIT,
                     amount: gain.abs(),
                     currency: asset.currency,
                     entityId: asset.entityId,

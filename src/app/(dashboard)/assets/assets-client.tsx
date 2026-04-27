@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, Package, Plus, Trash2 } from "lucide-react";
 import { calcDepreciation, generateDepreciationSchedule } from "@/lib/asset-depreciation";
 
@@ -9,6 +9,13 @@ interface Entity {
   name: string;
   color: string;
   slug: string;
+}
+
+interface BankAccount {
+  id: string;
+  accountName: string;
+  accountType: string;
+  currency: string;
 }
 
 interface Asset {
@@ -51,6 +58,27 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
   const [showForm, setShowForm] = useState(false);
   const [expandedAssetId, setExpandedAssetId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+
+  useEffect(() => {
+    // Fetch bank accounts for disposal selection
+    const fetchAccounts = async () => {
+      try {
+        const entityId = selectedEntity === "all" ? entities[0]?.id : selectedEntity;
+        if (!entityId) return;
+
+        const res = await fetch(`/api/bank-accounts?entityId=${entityId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setBankAccounts(data.data || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch bank accounts:", err);
+      }
+    };
+
+    fetchAccounts();
+  }, [selectedEntity, entities]);
 
   const [formData, setFormData] = useState({
     entityId: "",
@@ -157,7 +185,7 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
     const disposalDate = prompt("Disposal date (YYYY-MM-DD):");
     if (!disposalDate) return;
 
-    const disposalValueStr = prompt("Disposal value (amount you got from selling):");
+    const disposalValueStr = prompt("Disposal value (amount you received):");
     if (!disposalValueStr) return;
 
     const disposalValue = parseFloat(disposalValueStr);
@@ -166,12 +194,35 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
       return;
     }
 
+    // Ask which account receives the proceeds
+    let accountType = "bank";
+    if (bankAccounts.length > 0) {
+      const accountOptions = bankAccounts
+        .map((acc) => `${acc.accountName} (${acc.accountType})`)
+        .join("\n");
+      const selected = prompt(
+        `Which account receives the proceeds?\n\n${accountOptions}\n\nOr type account number if multiple:`,
+        bankAccounts[0]?.id || ""
+      );
+      if (!selected) return;
+      // Check if it's a petty cash account
+      const selectedAccount = bankAccounts.find((a) => a.id === selected || a.accountName.includes(selected));
+      if (selectedAccount?.accountType === "PETTY_CASH") {
+        accountType = "petty-cash";
+      }
+    } else {
+      accountType = prompt(
+        "Is this going to Bank or Petty Cash?\n(type 'bank' or 'petty-cash')",
+        "bank"
+      ) || "bank";
+    }
+
     const gain = disposalValue - asset.purchaseCost;
     const message = gain >= 0
       ? `Selling for ${disposalValue.toFixed(2)} - Gain: ${gain.toFixed(2)}`
       : `Selling for ${disposalValue.toFixed(2)} - Loss: ${Math.abs(gain).toFixed(2)}`;
 
-    if (!confirm(`Dispose asset?\n${message}`)) return;
+    if (!confirm(`Dispose asset?\n${message}\n\nProceeds → ${accountType === "petty-cash" ? "Petty Cash" : "Bank"}`)) return;
 
     try {
       const res = await fetch("/api/assets", {
@@ -181,7 +232,7 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
           id,
           disposalDate: new Date(disposalDate).toISOString(),
           disposalValue,
-          // cashAccountId can be specified if needed, defaults to main cash account
+          accountType, // Pass the account type
         }),
       });
 
@@ -196,7 +247,9 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
           ? { ...a, status: "DISPOSED", disposalDate, disposalValue }
           : a
       ));
-      alert(`Asset disposed!\n${result.data.gain >= 0 ? "Gain" : "Loss"}: ${result.data.gain.toFixed(2)}`);
+      alert(
+        `Asset disposed!\n${result.data.gain >= 0 ? "Gain" : "Loss"}: ${result.data.gain.toFixed(2)}\nProceeds → ${accountType === "petty-cash" ? "Petty Cash" : "Bank"}`
+      );
     } catch (err) {
       console.error(err);
       alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
