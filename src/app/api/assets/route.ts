@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { Decimal, TxnStatus } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
+import { TxnStatus } from "@prisma/client";
 import { z } from "zod";
 import { calcDepreciation } from "@/lib/asset-depreciation";
 
