@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { supabaseServer } from "./supabase-server";
 
@@ -10,6 +11,22 @@ export interface SessionUser {
   fullName: string;
   role: UserRole;
 }
+
+// Cached for 5 minutes — avoids a Supabase DB round-trip on every page navigation.
+// Tag "user-profiles" is revalidated by /api/users PATCH when a role changes.
+const fetchProfile = unstable_cache(
+  async (userId: string) => {
+    if (!supabaseServer) return null;
+    const { data } = await supabaseServer
+      .from("profiles")
+      .select("full_name, role")
+      .eq("id", userId)
+      .single();
+    return data as { full_name: string; role: UserRole } | null;
+  },
+  ["user-profile"],
+  { revalidate: 300, tags: ["user-profiles"] },
+);
 
 export const getSession = cache(async function getSessionImpl(): Promise<SessionUser | null> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -42,11 +59,7 @@ export const getSession = cache(async function getSessionImpl(): Promise<Session
 
   if (!session?.user) return null;
 
-  const { data: profile } = await supabaseServer
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", session.user.id)
-    .single();
+  const profile = await fetchProfile(session.user.id);
 
   // If profile doesn't exist, create one automatically
   if (!profile) {

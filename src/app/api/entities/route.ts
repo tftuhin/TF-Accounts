@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -54,6 +55,7 @@ export async function POST(req: NextRequest) {
 
     await prisma.ownershipRegistry.create({ data: ownershipData });
 
+    revalidateTag("entities");
     return NextResponse.json({ success: true, data: { id: entity.id, name: entity.name, slug: entity.slug } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";
@@ -78,6 +80,7 @@ export async function PATCH(req: NextRequest) {
         ...(type ? { type } : {}),
       },
     });
+    revalidateTag("entities");
     return NextResponse.json({ success: true, data: { id: entity.id } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";

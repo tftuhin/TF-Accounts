@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -30,6 +31,7 @@ export async function PATCH(req: NextRequest) {
 
     if (error) throw error;
 
+    revalidateTag("user-profiles");
     return NextResponse.json({ success: true, data: { userId, role } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";
