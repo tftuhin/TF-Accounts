@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureBasicAccounts } from "@/lib/accounts";
 import { Decimal } from "@prisma/client/runtime/library";
 import { TxnType } from "@prisma/client";
 import { z } from "zod";
@@ -46,6 +47,9 @@ export async function POST(req: NextRequest) {
     // Use the entity from the "from" account
     const entityId = fromAccount.entityId;
 
+    // Ensure basic accounts exist
+    const accounts = await ensureBasicAccounts(entityId);
+
     // Create journal entry for the transfer
     const journalEntry = await prisma.journalEntry.create({
       data: {
@@ -61,12 +65,7 @@ export async function POST(req: NextRequest) {
           create: [
             // Credit source account (money out)
             {
-              accountId: (
-                await prisma.chartOfAccounts.findFirst({
-                  where: { entityId, accountCode: "1000" },
-                  select: { id: true },
-                })
-              )!.id,
+              accountId: accounts.cash.id,
               entryType: TxnType.CREDIT,
               amount: new Decimal(validated.amountFrom.toString()),
               currency: validated.currencyFrom,
@@ -75,12 +74,7 @@ export async function POST(req: NextRequest) {
             },
             // Debit destination account (money in)
             {
-              accountId: (
-                await prisma.chartOfAccounts.findFirst({
-                  where: { entityId, accountCode: "1000" },
-                  select: { id: true },
-                })
-              )!.id,
+              accountId: accounts.cash.id,
               entryType: TxnType.DEBIT,
               amount: new Decimal(validated.amountTo.toString()),
               currency: validated.currencyTo,
