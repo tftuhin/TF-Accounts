@@ -43,9 +43,9 @@ export async function POST(request: Request) {
   }
 
   const pct = Number(ownershipPct);
-  if (pct < 1 || pct > 99) {
+  if (pct < 1 || pct > 100) {
     return NextResponse.json(
-      { error: "Partner ownership must be 1-99% (Teamosis keeps at least 1%)" },
+      { error: "Ownership must be 1-100%" },
       { status: 400 }
     );
   }
@@ -53,6 +53,49 @@ export async function POST(request: Request) {
   const fromDate = new Date(effectiveFrom);
 
   try {
+    // Get current active owners (excluding Teamosis default record)
+    const activeOwners = await prisma.ownershipRegistry.findMany({
+      where: {
+        entityId,
+        effectiveTo: null,
+        ownerName: { not: "Teamosis" },
+      },
+    });
+
+    // Single owner (100%) is only allowed if:
+    // 1. No other owners exist, OR
+    // 2. This is the first owner being added
+    if (pct === 100 && activeOwners.length > 0) {
+      return NextResponse.json(
+        { error: "Single 100% owner not allowed with existing partners. Use 1-99% and Teamosis keeps the rest." },
+        { status: 400 }
+      );
+    }
+
+    // Multi-owner partnerships: each partner must be 1-99%
+    if (pct === 100 && activeOwners.length === 0) {
+      // Single owner case - just create the owner record, Teamosis share becomes 0
+      const newOwner = await prisma.ownershipRegistry.create({
+        data: {
+          entityId,
+          ownerName,
+          ownershipPct: new Decimal(100),
+          effectiveFrom: fromDate,
+          notes,
+        },
+      });
+
+      return NextResponse.json({ success: true, data: newOwner }, { status: 201 });
+    }
+
+    // Partnership case (1-99%)
+    if (pct < 1 || pct > 99) {
+      return NextResponse.json(
+        { error: "Partner ownership must be 1-99% (Teamosis keeps the rest)" },
+        { status: 400 }
+      );
+    }
+
     // Get current active Teamosis record
     const currentTeamosis = await getActiveTeamosisRecord(entityId);
     if (!currentTeamosis) {
