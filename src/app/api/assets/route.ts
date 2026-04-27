@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
-import { TxnStatus } from "@prisma/client";
 import { z } from "zod";
 import { calcDepreciation } from "@/lib/asset-depreciation";
 
@@ -130,36 +129,6 @@ export async function POST(req: NextRequest) {
         usefulLifeYears: validated.usefulLifeYears,
         salvageValue: new Decimal((validated.salvageValue || 0).toString()),
         createdById: session.id,
-        journalEntry: assetAccount && bankAccount ? {
-          create: {
-            entityId: validated.entityId,
-            description: `Fixed Asset Purchase: ${validated.name}`,
-            date: purchaseDate,
-            status: TxnStatus.FINALIZED,
-            createdById: session.id,
-            createdByRole: session.role as any,
-            lines: {
-              create: [
-                {
-                  entityId: validated.entityId,
-                  accountId: assetAccount.id,
-                  entryType: "DEBIT",
-                  amount: purchaseCost,
-                  currency,
-                  memo: `Purchase of ${validated.name}`,
-                },
-                {
-                  entityId: validated.entityId,
-                  accountId: bankAccount.id,
-                  entryType: "CREDIT",
-                  amount: purchaseCost,
-                  currency,
-                  memo: `Payment for ${validated.name}`,
-                },
-              ],
-            },
-          },
-        } : undefined,
       },
     });
 
@@ -209,99 +178,12 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const validated = disposalSchema.parse(body);
 
-    const asset = await prisma.fixedAsset.findUnique({
-      where: { id: validated.id },
-      select: { entityId: true, name: true, purchaseCost: true, currency: true },
-    });
-
-    if (!asset) {
-      return NextResponse.json({ error: "Asset not found" }, { status: 404 });
-    }
-
-    const disposalDate = new Date(validated.disposalDate);
-    const disposalValue = validated.disposalValue ? new Decimal(validated.disposalValue.toString()) : asset.purchaseCost;
-    const gain = disposalValue.minus(asset.purchaseCost);
-
-    // Find accounts for disposal journal entry
-    const assetAccount = await prisma.chartOfAccounts.findFirst({
-      where: {
-        entityId: asset.entityId,
-        accountGroup: "asset",
-        accountName: { contains: "Fixed Asset" },
-      },
-    });
-
-    const bankAccount = await prisma.chartOfAccounts.findFirst({
-      where: {
-        entityId: asset.entityId,
-        accountGroup: "asset",
-        accountName: { contains: asset.currency === "USD" ? "USD" : "BDT" },
-      },
-    });
-
-    // Create disposal journal entry if accounts exist
-    if (assetAccount && bankAccount) {
-      const gainLossAccount = await prisma.chartOfAccounts.findFirst({
-        where: {
-          entityId: asset.entityId,
-          accountName: { contains: "Gain" },
-        },
-      });
-
-      await prisma.journalEntry.create({
-        data: {
-          entityId: asset.entityId,
-          description: `Fixed Asset Disposal: ${asset.name}`,
-          date: disposalDate,
-          status: TxnStatus.FINALIZED,
-          createdById: session.id,
-          createdByRole: session.role as any,
-          lines: {
-            create: [
-              // Credit the fixed asset account (remove from books)
-              {
-                entityId: asset.entityId,
-                accountId: assetAccount.id,
-                entryType: "CREDIT",
-                amount: asset.purchaseCost,
-                currency: asset.currency,
-                memo: `Disposal of ${asset.name}`,
-              },
-              // Debit bank account for cash received
-              {
-                entityId: asset.entityId,
-                accountId: bankAccount.id,
-                entryType: "DEBIT",
-                amount: disposalValue,
-                currency: asset.currency,
-                memo: `Proceeds from sale of ${asset.name}`,
-              },
-              // Gain/loss account if there's a difference
-              ...(gainLossAccount && !gain.isZero()
-                ? [
-                    {
-                      entityId: asset.entityId,
-                      accountId: gainLossAccount.id,
-                      entryType: gain.isPositive() ? "CREDIT" : "DEBIT",
-                      amount: gain.abs(),
-                      currency: asset.currency,
-                      memo: `${gain.isPositive() ? "Gain" : "Loss"} on asset disposal`,
-                    },
-                  ]
-                : []),
-            ],
-          },
-        },
-      });
-    }
-
-    // Update asset with disposal details
     const updatedAsset = await prisma.fixedAsset.update({
       where: { id: validated.id },
       data: {
         status: "DISPOSED",
-        disposalDate,
-        disposalValue,
+        disposalDate: new Date(validated.disposalDate),
+        disposalValue: validated.disposalValue ? new Decimal(validated.disposalValue.toString()) : null,
       },
       include: { entity: { select: { name: true, color: true } } },
     });
