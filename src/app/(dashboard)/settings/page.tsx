@@ -29,15 +29,29 @@ export default async function SettingsPage() {
 
   // Fetch ownership records for each entity
   const ownershipByEntity: Record<string, any[]> = {};
-  for (const entity of entityRows) {
-    const ownership = await prisma.ownershipRegistry.findMany({
-      where: { entityId: entity.id },
-      orderBy: { effectiveFrom: "desc" },
-    });
-    ownershipByEntity[entity.id] = ownership.map((o) => ({
-      ...o,
-      ownershipPct: Number(o.ownershipPct),
-    }));
+  try {
+    for (const entity of entityRows) {
+      const ownership = await prisma.ownershipRegistry.findMany({
+        where: { entityId: entity.id },
+        orderBy: { effectiveFrom: "desc" },
+        select: {
+          id: true,
+          ownerName: true,
+          ownershipPct: true,
+          effectiveFrom: true,
+          effectiveTo: true,
+          notes: true,
+          ownerEntityId: true,
+        },
+      });
+      ownershipByEntity[entity.id] = ownership.map((o) => ({
+        ...o,
+        ownershipPct: Number(o.ownershipPct),
+      }));
+    }
+  } catch (error) {
+    console.error("Error fetching ownership records:", error);
+    // If ownership fetch fails, continue with empty ownership for all entities
   }
 
   const entities = entityRows.map((e) => ({
