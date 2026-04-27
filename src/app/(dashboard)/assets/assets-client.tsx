@@ -280,9 +280,13 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
       }
 
       const result = await res.json();
-      setAccrualMessage(
-        `✓ ${result.message} (${result.entriesCreated} journal entries created)`
-      );
+      if (result.success) {
+        setAccrualMessage(
+          `✓ ${result.message} (${result.entriesCreated} journal entries created)`
+        );
+      } else {
+        setAccrualMessage(`✗ ${result.error}`);
+      }
       setTimeout(() => setAccrualMessage(""), 5000);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Unknown error";

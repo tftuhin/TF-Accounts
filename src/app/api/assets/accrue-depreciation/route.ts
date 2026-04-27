@@ -39,6 +39,32 @@ export async function POST(req: NextRequest) {
     const targetMonth = month || now.getMonth() + 1;
     const targetYear = year || now.getFullYear();
 
+    // Check if depreciation already exists for this month
+    const monthStart = new Date(targetYear, targetMonth - 1, 1);
+    const monthEnd = new Date(targetYear, targetMonth, 0);
+
+    const existingDepreciation = await prisma.journalEntry.findFirst({
+      where: {
+        category: "Depreciation",
+        date: {
+          gte: monthStart,
+          lte: monthEnd,
+        },
+        ...(entityId && { entityId }),
+      },
+    });
+
+    if (existingDepreciation) {
+      return NextResponse.json({
+        success: false,
+        error: `Depreciation already accrued for ${monthStart.toLocaleString("en-US", {
+          month: "long",
+          year: "numeric",
+        })}`,
+        existingEntryId: existingDepreciation.id,
+      }, { status: 400 });
+    }
+
     // Find all ACTIVE fixed assets
     const assets = await prisma.fixedAsset.findMany({
       where: {
