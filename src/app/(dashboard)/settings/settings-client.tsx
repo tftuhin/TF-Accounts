@@ -276,6 +276,39 @@ export function SettingsClient({
     }
   }
 
+  // ── Edit user role ──────────────────────────────────────────
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editingMemberRole, setEditingMemberRole] = useState<string>("");
+  const [savingMemberRole, setSavingMemberRole] = useState(false);
+
+  function startEditMemberRole(memberId: string, currentRole: string) {
+    setEditingMemberId(memberId);
+    setEditingMemberRole(currentRole);
+  }
+
+  async function handleUpdateMemberRole(memberId: string) {
+    setSavingMemberRole(true);
+    try {
+      const res = await fetch("/api/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: memberId, role: editingMemberRole }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      setTeamMembers((prev) =>
+        prev.map((m) => m.id === memberId ? { ...m, role: editingMemberRole } : m)
+      );
+      toast.success("Role updated");
+      setEditingMemberId(null);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update role");
+    } finally {
+      setSavingMemberRole(false);
+    }
+  }
+
   const ROLE_LABELS: Record<string, string> = {
     ADMIN: "Admin",
     ACCOUNTS_MANAGER: "Accounts Manager",
@@ -589,9 +622,45 @@ export function SettingsClient({
                   <div className="text-sm text-ink-white">{m.fullName}</div>
                   <div className="text-2xs text-ink-faint">{m.email}</div>
                 </div>
-                <span className={`badge text-2xs ${m.role === "ADMIN" ? "bg-accent-red/10 text-accent-red" : m.role === "ACCOUNTS_MANAGER" ? "bg-accent-blue/10 text-accent-blue" : "bg-surface-4 text-ink-faint"}`}>
-                  {ROLE_LABELS[m.role] || m.role}
-                </span>
+                {editingMemberId === m.id ? (
+                  <div className="flex items-center gap-1.5">
+                    <select
+                      value={editingMemberRole}
+                      onChange={(e) => setEditingMemberRole(e.target.value)}
+                      className="text-2xs px-2 py-1 bg-surface-3 border border-surface-border rounded"
+                    >
+                      <option value="ENTRY_MANAGER">Entry Manager</option>
+                      <option value="ACCOUNTS_MANAGER">Accounts Manager</option>
+                      <option value="ADMIN">Admin</option>
+                    </select>
+                    <button
+                      onClick={() => handleUpdateMemberRole(m.id)}
+                      disabled={savingMemberRole}
+                      className="p-1 text-accent-green hover:bg-accent-green/10 rounded transition"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setEditingMemberId(null)}
+                      disabled={savingMemberRole}
+                      className="p-1 text-accent-red hover:bg-accent-red/10 rounded transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className={`badge text-2xs ${m.role === "ADMIN" ? "bg-accent-red/10 text-accent-red" : m.role === "ACCOUNTS_MANAGER" ? "bg-accent-blue/10 text-accent-blue" : "bg-surface-4 text-ink-faint"}`}>
+                      {ROLE_LABELS[m.role] || m.role}
+                    </span>
+                    <button
+                      onClick={() => startEditMemberRole(m.id, m.role)}
+                      className="p-1 text-ink-faint hover:text-accent-blue hover:bg-accent-blue/10 rounded transition"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
