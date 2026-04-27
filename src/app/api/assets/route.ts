@@ -86,6 +86,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = createAssetSchema.parse(body);
 
+    // Verify entity exists
+    const entity = await prisma.entity.findUnique({
+      where: { id: validated.entityId },
+      select: { id: true, name: true, color: true },
+    });
+
+    if (!entity) {
+      return NextResponse.json({ error: "Entity not found" }, { status: 404 });
+    }
+
     const asset = await prisma.fixedAsset.create({
       data: {
         entityId: validated.entityId,
@@ -99,7 +109,6 @@ export async function POST(req: NextRequest) {
         salvageValue: new Decimal((validated.salvageValue || 0).toString()),
         createdById: session.id,
       },
-      include: { entity: { select: { name: true, color: true } } },
     });
 
     const depreciation = calcDepreciation(
@@ -115,16 +124,25 @@ export async function POST(req: NextRequest) {
         data: {
           id: asset.id,
           entityId: asset.entityId,
-          entityName: asset.entity.name,
+          entityName: entity.name,
           name: asset.name,
+          category: asset.category,
+          purchaseDate: asset.purchaseDate.toISOString().split("T")[0],
+          purchaseCost: Number(asset.purchaseCost),
+          currency: asset.currency,
+          usefulLifeYears: asset.usefulLifeYears,
+          salvageValue: Number(asset.salvageValue),
+          status: asset.status,
           ...depreciation,
         },
       },
       { status: 201 }
     );
   } catch (err: unknown) {
+    console.error("Asset creation error:", err);
     if (err instanceof z.ZodError) {
-      return NextResponse.json({ error: "Validation error", details: err.errors }, { status: 400 });
+      const fieldErrors = err.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ");
+      return NextResponse.json({ error: `Validation error: ${fieldErrors}` }, { status: 400 });
     }
     const msg = err instanceof Error ? err.message : "Internal error";
     return NextResponse.json({ error: msg }, { status: 500 });

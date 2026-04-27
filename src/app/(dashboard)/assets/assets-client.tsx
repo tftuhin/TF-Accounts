@@ -105,8 +105,14 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to create asset");
-      const { data: newAsset } = await res.json();
+      const responseData = await res.json();
+
+      if (!res.ok) {
+        const errorMsg = responseData.error?.message || responseData.error || "Failed to create asset";
+        throw new Error(errorMsg);
+      }
+
+      const { data: newAsset } = responseData;
 
       const entity = entities.find((e) => e.id === formData.entityId);
       setAssets([
@@ -134,9 +140,11 @@ export function AssetsClient({ entities, initialAssets, isAdmin }: AssetsClientP
         salvageValue: "0",
       });
       setShowForm(false);
+      alert("Asset created successfully!");
     } catch (err) {
-      console.error(err);
-      alert("Error creating asset");
+      const errorMessage = err instanceof Error ? err.message : "Error creating asset";
+      console.error("Asset creation error:", errorMessage);
+      alert(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
