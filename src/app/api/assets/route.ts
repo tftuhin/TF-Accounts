@@ -219,9 +219,21 @@ export async function PATCH(req: NextRequest) {
 
     // Get accounts
     const accounts = await ensureBasicAccounts(asset.entityId);
-    const cashAccount = validated.cashAccountId
-      ? await prisma.chartOfAccounts.findUnique({ where: { id: validated.cashAccountId } })
-      : accounts.cash;
+
+    // If a specific bank account was selected, get its details for the memo
+    let bankAccountName = "Cash";
+    if (validated.cashAccountId) {
+      const selectedBankAccount = await prisma.bankAccount.findUnique({
+        where: { id: validated.cashAccountId },
+        select: { accountName: true },
+      });
+      if (selectedBankAccount) {
+        bankAccountName = selectedBankAccount.accountName;
+      }
+    }
+
+    // Always use the standard Cash account from ChartOfAccounts for the journal entry
+    const cashAccount = accounts.cash;
 
     if (!cashAccount) {
       return NextResponse.json({ error: "Cash account not found" }, { status: 404 });
@@ -246,7 +258,7 @@ export async function PATCH(req: NextRequest) {
               amount: disposalValue,
               currency: asset.currency,
               entityId: asset.entityId,
-              memo: `Proceeds from sale: ${asset.name}`,
+              memo: `Proceeds from sale (${bankAccountName}): ${asset.name}`,
             },
             // Credit Fixed Assets account (remove from books)
             {
