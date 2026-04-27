@@ -274,7 +274,7 @@ export async function PATCH(req: NextRequest) {
               ? []
               : [
                   {
-                    accountId: accounts.income.id,
+                    accountId: gain.isPositive() ? accounts.gainOnDisposal.id : accounts.lossOnDisposal.id,
                     entryType: gain.isPositive() ? TxnType.CREDIT : TxnType.DEBIT,
                     amount: gain.abs(),
                     currency: asset.currency,

@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ensureBasicAccounts } from "@/lib/accounts";
 import { Decimal } from "@prisma/client/runtime/library";
-import { TxnType } from "@prisma/client";
 import { z } from "zod";
 
 const CreateFundTransferSchema = z.object({
@@ -47,45 +45,6 @@ export async function POST(req: NextRequest) {
     // Use the entity from the "from" account
     const entityId = fromAccount.entityId;
 
-    // Ensure basic accounts exist
-    const accounts = await ensureBasicAccounts(entityId);
-
-    // Create journal entry for the transfer
-    const journalEntry = await prisma.journalEntry.create({
-      data: {
-        entityId,
-        date: new Date(validated.date),
-        description: `Fund Transfer: ${validated.currencyFrom} → ${validated.currencyTo}`,
-        status: "FINALIZED",
-        category: "Fund Transfer",
-        reference: validated.reference || null,
-        createdById: session.id,
-        createdByRole: session.role,
-        lines: {
-          create: [
-            // Credit source account (money out)
-            {
-              accountId: accounts.cash.id,
-              entryType: TxnType.CREDIT,
-              amount: new Decimal(validated.amountFrom.toString()),
-              currency: validated.currencyFrom,
-              entityId,
-              memo: `Transfer out: ${validated.reference || ""}`,
-            },
-            // Debit destination account (money in)
-            {
-              accountId: accounts.cash.id,
-              entryType: TxnType.DEBIT,
-              amount: new Decimal(validated.amountTo.toString()),
-              currency: validated.currencyTo,
-              entityId,
-              memo: `Transfer in: ${validated.reference || ""}`,
-            },
-          ],
-        },
-      },
-    });
-
     // Create fund transfer record
     const fundTransfer = await prisma.fundTransfer.create({
       data: {
@@ -99,7 +58,6 @@ export async function POST(req: NextRequest) {
         exchangeRate: validated.exchangeRate ? new Decimal(validated.exchangeRate.toString()) : null,
         date: new Date(validated.date),
         reference: validated.reference || null,
-        journalEntryId: journalEntry.id,
         note: validated.note || null,
         createdBy: session.id,
       },
@@ -109,7 +67,6 @@ export async function POST(req: NextRequest) {
       success: true,
       data: {
         id: fundTransfer.id,
-        journalEntryId: journalEntry.id,
       },
     });
   } catch (err: unknown) {

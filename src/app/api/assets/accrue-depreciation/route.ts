@@ -98,28 +98,8 @@ export async function POST(req: NextRequest) {
     });
 
     for (const [entityId, entityAssets] of entitiesByAssets) {
-      // Ensure basic accounts exist
+      // Ensure basic accounts exist (includes depreciation expense and accumulated depreciation)
       const accounts = await ensureBasicAccounts(entityId);
-
-      // Ensure depreciation expense account exists
-      let depreciationExpenseAccount = await prisma.chartOfAccounts.findFirst({
-        where: {
-          entityId,
-          accountCode: "5100",
-        },
-      });
-
-      if (!depreciationExpenseAccount) {
-        depreciationExpenseAccount = await prisma.chartOfAccounts.create({
-          data: {
-            entityId,
-            accountCode: "5100",
-            accountName: "Depreciation Expense",
-            accountGroup: "expense",
-            isActive: true,
-          },
-        });
-      }
 
       // Calculate total depreciation for the month
       let totalMonthlyDep = new Decimal(0);
@@ -181,16 +161,16 @@ export async function POST(req: NextRequest) {
             create: [
               // Debit Depreciation Expense
               {
-                accountId: depreciationExpenseAccount.id,
+                accountId: accounts.depreciationExpense.id,
                 entryType: TxnType.DEBIT,
                 amount: totalMonthlyDep,
                 currency: "BDT",
                 entityId,
                 memo: `Depreciation accrual for ${entityAssets.length} asset(s)`,
               },
-              // Credit Fixed Assets account
+              // Credit Accumulated Depreciation (contra-asset)
               {
-                accountId: accounts.fixedAssets.id,
+                accountId: accounts.accumulatedDepreciation.id,
                 entryType: TxnType.CREDIT,
                 amount: totalMonthlyDep,
                 currency: "BDT",
