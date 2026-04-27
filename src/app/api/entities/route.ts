@@ -32,15 +32,28 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Auto-create default Teamosis 100% ownership record
-    await prisma.ownershipRegistry.create({
-      data: {
-        entityId: entity.id,
-        ownerName: "Teamosis",
-        ownershipPct: new Decimal(100),
-        effectiveFrom: new Date(),
-      },
-    });
+    // Auto-create default ownership record
+    // If parentId provided, link to parent entity; otherwise just record "Teamosis" as owner
+    const ownershipData: any = {
+      entityId: entity.id,
+      ownershipPct: new Decimal(100),
+      effectiveFrom: new Date(),
+    };
+
+    if (parentId) {
+      // Sub-brand owned by parent entity
+      const parentEntity = await prisma.entity.findUnique({
+        where: { id: parentId },
+        select: { name: true },
+      });
+      ownershipData.ownerName = parentEntity?.name || "Parent Company";
+      ownershipData.ownerEntityId = parentId;
+    } else {
+      // Root entity (standalone or parent company)
+      ownershipData.ownerName = "Teamosis";
+    }
+
+    await prisma.ownershipRegistry.create({ data: ownershipData });
 
     return NextResponse.json({ success: true, data: { id: entity.id, name: entity.name, slug: entity.slug } });
   } catch (err: unknown) {
