@@ -143,7 +143,6 @@ model Entity {
   updatedAt DateTime   @updatedAt @map("updated_at")
 
   ownership       OwnershipRegistry[]
-  ownedEntities   OwnershipRegistry[] @relation("EntityOwnership")
   ratioVersions   PfRatioVersion[]
   accounts        ChartOfAccounts[]
   journalEntries  JournalEntry[]
@@ -218,8 +217,6 @@ model OwnershipRegistry {
   entityId        String   @map("entity_id")
   entity          Entity   @relation(fields: [entityId], references: [id], onDelete: Cascade)
   ownerName       String   @map("owner_name")
-  ownerEntityId   String?  @map("owner_entity_id")
-  ownerEntity     Entity?  @relation("EntityOwnership", fields: [ownerEntityId], references: [id])
   ownershipPct    Decimal  @map("ownership_pct") @db.Decimal(5, 2)
   effectiveFrom   DateTime @map("effective_from") @db.Date
   effectiveTo     DateTime? @map("effective_to") @db.Date
@@ -229,7 +226,6 @@ model OwnershipRegistry {
   drawings Drawing[]
 
   @@index([entityId])
-  @@index([ownerEntityId])
   @@map("ownership_registry")
 }
 

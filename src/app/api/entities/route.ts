@@ -47,7 +47,6 @@ export async function POST(req: NextRequest) {
         select: { name: true },
       });
       ownershipData.ownerName = parentEntity?.name || "Parent Company";
-      ownershipData.ownerEntityId = parentId;
     } else {
       // Root entity (standalone or parent company)
       ownershipData.ownerName = "Teamosis";

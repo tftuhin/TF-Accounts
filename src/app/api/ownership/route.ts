@@ -18,14 +18,6 @@ export async function GET(request: Request) {
   const records = await prisma.ownershipRegistry.findMany({
     where: { entityId },
     orderBy: { effectiveFrom: "desc" },
-    select: {
-      id: true,
-      ownerName: true,
-      ownershipPct: true,
-      effectiveFrom: true,
-      effectiveTo: true,
-      notes: true,
-    },
   });
 
   return NextResponse.json({
@@ -99,14 +91,6 @@ export async function POST(request: Request) {
       where: {
         entityId,
         effectiveTo: null,
-      },
-      select: {
-        id: true,
-        ownerName: true,
-        ownershipPct: true,
-        effectiveFrom: true,
-        effectiveTo: true,
-        notes: true,
       },
     });
 

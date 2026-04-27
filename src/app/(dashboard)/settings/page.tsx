@@ -41,7 +41,6 @@ export default async function SettingsPage() {
           effectiveFrom: true,
           effectiveTo: true,
           notes: true,
-          ownerEntityId: true,
         },
       });
       ownershipByEntity[entity.id] = ownership.map((o) => ({
