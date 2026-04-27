@@ -73,7 +73,7 @@ export function PettyCashClient({
   });
 
   const allowedTypes = userRole === "ENTRY_MANAGER" ? ENTRY_MANAGER_TYPES : MANAGER_TYPES;
-  const isExpenseTxn = form.txnType !== "FLOAT_TOPUP";
+  const isExpenseTxn = form.txnType === "CASH_EXPENSE" || form.txnType === "CARD_PAYMENT";
   const subcategories = EXPENSE_CATEGORIES[form.category] || [];
 
   function handleCategoryChange(category: string) {

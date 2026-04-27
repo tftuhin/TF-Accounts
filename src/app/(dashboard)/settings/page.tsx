@@ -15,7 +15,7 @@ export default async function SettingsPage() {
     );
   }
 
-  const [entities, bankAccountRows] = await Promise.all([
+  const [entityRows, bankAccountRows] = await Promise.all([
     prisma.entity.findMany({
       orderBy: { type: "asc" },
       select: { id: true, slug: true, name: true, type: true, color: true },
@@ -26,6 +26,24 @@ export default async function SettingsPage() {
       include: { entity: { select: { name: true, color: true } } },
     }),
   ]);
+
+  // Fetch ownership records for each entity
+  const ownershipByEntity: Record<string, any[]> = {};
+  for (const entity of entityRows) {
+    const ownership = await prisma.ownershipRegistry.findMany({
+      where: { entityId: entity.id },
+      orderBy: { effectiveFrom: "desc" },
+    });
+    ownershipByEntity[entity.id] = ownership.map((o) => ({
+      ...o,
+      ownershipPct: Number(o.ownershipPct),
+    }));
+  }
+
+  const entities = entityRows.map((e) => ({
+    ...e,
+    ownership: ownershipByEntity[e.id] || [],
+  }));
 
   const bankAccounts = bankAccountRows.map((a) => ({
     id: a.id,

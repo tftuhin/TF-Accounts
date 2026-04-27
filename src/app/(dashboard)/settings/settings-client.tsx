@@ -4,7 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Plus, Building2, Calendar, Wallet, CreditCard, Users, Trash2, Pencil, Check, X } from "lucide-react";
 
-interface Entity { id: string; slug: string; name: string; type: string; color: string }
+interface Ownership { id: string; entityId: string; ownerName: string; ownershipPct: number; effectiveFrom: string; effectiveTo: string | null }
+interface Entity { id: string; slug: string; name: string; type: string; color: string; ownership?: Ownership[] }
 interface BankAccount { id: string; entityId: string; entityName: string; entityColor: string; accountName: string; accountType: string; currency: string; bankName: string | null }
 interface TeamMember { id: string; email: string; fullName: string; role: string; isActive: boolean }
 
@@ -92,6 +93,79 @@ export function SettingsClient({
       toast.error(err instanceof Error ? err.message : "Failed to create entity");
     } finally {
       setSavingEntity(false);
+    }
+  }
+
+  // ── Partnership management ──────────────────────────────────
+  const [partnerForm, setPartnerForm] = useState<{ ownerName: string; ownershipPct: string; effectiveFrom: string; notes: string }>({ ownerName: "", ownershipPct: "", effectiveFrom: "", notes: "" });
+  const [savingPartner, setSavingPartner] = useState(false);
+  const [expandedEntity, setExpandedEntity] = useState<string | null>(null);
+
+  async function handleAddPartner(entityId: string) {
+    if (!partnerForm.ownerName || !partnerForm.ownershipPct || !partnerForm.effectiveFrom) {
+      toast.error("Name, %, and date required");
+      return;
+    }
+    setSavingPartner(true);
+    try {
+      const res = await fetch("/api/ownership", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entityId,
+          ownerName: partnerForm.ownerName,
+          ownershipPct: Number(partnerForm.ownershipPct),
+          effectiveFrom: partnerForm.effectiveFrom,
+          notes: partnerForm.notes || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      // Reload ownership data for this entity
+      const ownership = await fetch(`/api/ownership?entityId=${entityId}`)
+        .then((r) => r.json())
+        .then((data) => data.data);
+
+      setEntities((prev) =>
+        prev.map((e) => (e.id === entityId ? { ...e, ownership } : e))
+      );
+      toast.success(`Partner "${partnerForm.ownerName}" added`);
+      setPartnerForm({ ownerName: "", ownershipPct: "", effectiveFrom: "", notes: "" });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to add partner");
+    } finally {
+      setSavingPartner(false);
+    }
+  }
+
+  async function handleRemovePartner(recordId: string, ownerName: string, entityId: string) {
+    const exitDate = prompt(`Remove ${ownerName}? Enter exit date (YYYY-MM-DD):`, new Date().toISOString().split("T")[0]);
+    if (!exitDate) return;
+
+    setSavingPartner(true);
+    try {
+      const res = await fetch("/api/ownership", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: recordId, effectiveTo: exitDate }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      // Reload ownership
+      const ownership = await fetch(`/api/ownership?entityId=${entityId}`)
+        .then((r) => r.json())
+        .then((data) => data.data);
+
+      setEntities((prev) =>
+        prev.map((e) => (e.id === entityId ? { ...e, ownership } : e))
+      );
+      toast.success(`Partner removed (effective ${exitDate})`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove partner");
+    } finally {
+      setSavingPartner(false);
     }
   }
 
@@ -223,11 +297,11 @@ export function SettingsClient({
         </div>
 
         {entities.length > 0 && (
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {entities.map((en) => (
-              <div key={en.id}>
+              <div key={en.id} className="border border-surface-border rounded-lg overflow-hidden">
                 {editingEntityId === en.id ? (
-                  <div className="p-3 rounded-lg bg-surface-3 border border-accent-blue/30 space-y-2">
+                  <div className="p-3 bg-surface-3 border border-accent-blue/30 space-y-2">
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="input-label">Name</label>
@@ -276,15 +350,77 @@ export function SettingsClient({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2 border border-surface-border group">
-                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: en.color }} />
-                    <span className="text-sm text-ink-primary flex-1">{en.name}</span>
-                    <span className="text-2xs text-ink-faint font-mono">{en.slug}</span>
-                    <span className="badge bg-surface-4 text-ink-faint">{en.type === "PARENT" ? "Parent" : "Sub-brand"}</span>
-                    <button onClick={() => startEditEntity(en)} className="opacity-0 group-hover:opacity-100 p-1 rounded text-ink-faint hover:text-accent-blue transition-all">
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-3 px-3 py-2 bg-surface-2 group cursor-pointer hover:bg-surface-3 transition-colors"
+                      onClick={() => setExpandedEntity(expandedEntity === en.id ? null : en.id)}>
+                      <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: en.color }} />
+                      <span className="text-sm text-ink-primary flex-1">{en.name}</span>
+                      <span className="text-2xs text-ink-faint font-mono">{en.slug}</span>
+                      <span className="badge bg-surface-4 text-ink-faint">{en.type === "PARENT" ? "Parent" : "Sub-brand"}</span>
+                      <button onClick={(e) => { e.stopPropagation(); startEditEntity(en); }} className="opacity-0 group-hover:opacity-100 p-1 rounded text-ink-faint hover:text-accent-blue transition-all">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    {expandedEntity === en.id && (
+                      <div className="p-3 space-y-3 border-t border-surface-border bg-surface-1">
+                        {/* Ownership timeline */}
+                        {en.ownership && en.ownership.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-2xs font-semibold text-ink-faint uppercase tracking-wider">Ownership</div>
+                            <div className="space-y-1">
+                              {en.ownership.map((o) => (
+                                <div key={o.id} className="flex items-center justify-between text-2xs px-2 py-1.5 rounded bg-surface-2 border border-surface-border">
+                                  <div className="flex-1">
+                                    <span className="font-semibold text-ink-primary">{o.ownerName}</span>
+                                    <span className="text-ink-faint"> · {o.ownershipPct}%</span>
+                                  </div>
+                                  <div className="text-ink-faint text-right min-w-fit">
+                                    {o.effectiveFrom.split("T")[0]}
+                                    {o.effectiveTo ? ` → ${o.effectiveTo.split("T")[0]}` : " (active)"}
+                                  </div>
+                                  {o.ownerName !== "Teamosis" && !o.effectiveTo && (
+                                    <button
+                                      onClick={() => handleRemovePartner(o.id, o.ownerName, en.id)}
+                                      disabled={savingPartner}
+                                      className="ml-2 p-1 rounded text-ink-faint hover:text-accent-red hover:bg-accent-red/10 transition-colors"
+                                      title="Remove partner">
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Add partner form */}
+                        <div className="space-y-2 pt-2 border-t border-surface-border">
+                          <div className="text-2xs font-semibold text-ink-faint uppercase tracking-wider">Add Partner</div>
+                          <div className="grid grid-cols-4 gap-2">
+                            <input
+                              type="text" placeholder="Name" value={partnerForm.ownerName} className="input text-xs"
+                              onChange={(e) => setPartnerForm((f) => ({ ...f, ownerName: e.target.value }))}
+                            />
+                            <input
+                              type="number" placeholder="%" min="1" max="99" value={partnerForm.ownershipPct} className="input text-xs"
+                              onChange={(e) => setPartnerForm((f) => ({ ...f, ownershipPct: e.target.value }))}
+                            />
+                            <input
+                              type="date" value={partnerForm.effectiveFrom} className="input text-xs"
+                              onChange={(e) => setPartnerForm((f) => ({ ...f, effectiveFrom: e.target.value }))}
+                            />
+                            <button
+                              onClick={() => handleAddPartner(en.id)}
+                              disabled={savingPartner}
+                              className="btn-primary text-xs py-1.5 h-9">
+                              <Plus className="w-3 h-3" /> {savingPartner ? "…" : "Add"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             ))}

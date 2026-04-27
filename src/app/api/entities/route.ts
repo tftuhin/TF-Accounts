@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { Decimal } from "@prisma/client/runtime/library";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -19,6 +20,17 @@ export async function POST(req: NextRequest) {
         parentId: parentId || null,
       },
     });
+
+    // Auto-create default Teamosis 100% ownership record
+    await prisma.ownershipRegistry.create({
+      data: {
+        entityId: entity.id,
+        ownerName: "Teamosis",
+        ownershipPct: new Decimal(100),
+        effectiveFrom: new Date(),
+      },
+    });
+
     return NextResponse.json({ success: true, data: { id: entity.id, name: entity.name, slug: entity.slug } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";
