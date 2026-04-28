@@ -164,7 +164,7 @@ export async function POST() {
             adjustmentNote: "Monthly performance bonus",
             payPeriod: month,
             date: new Date(end.getFullYear(), end.getMonth(), 15),
-            createdBy: adminUser.id,
+            createdById: adminUser.id,
           },
         });
         salaryCount++;
@@ -178,7 +178,7 @@ export async function POST() {
             adjustmentNote: "Salary advance",
             payPeriod: month,
             date: new Date(end.getFullYear(), end.getMonth(), 1),
-            createdBy: adminUser.id,
+            createdById: adminUser.id,
           },
         });
         salaryCount++;
@@ -193,7 +193,7 @@ export async function POST() {
             newSalary: 52000,
             effectiveDate: start,
             reason: "Annual review",
-            createdBy: adminUser.id,
+            createdById: adminUser.id,
           },
         });
         salaryIncrementCount++;
@@ -206,7 +206,7 @@ export async function POST() {
             newSalary: 37000,
             effectiveDate: mid,
             reason: "Promotion",
-            createdBy: adminUser.id,
+            createdById: adminUser.id,
           },
         });
         salaryIncrementCount++;
