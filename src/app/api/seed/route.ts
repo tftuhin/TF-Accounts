@@ -9,21 +9,8 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized. Please login first." }, { status: 401 });
     }
 
-    let adminUser = await prisma.user.findUnique({
-      where: { id: session.id },
-    });
-
-    // If user doesn't exist in database, create it from session
-    if (!adminUser) {
-      adminUser = await prisma.user.create({
-        data: {
-          id: session.id,
-          email: session.email,
-          fullName: session.fullName,
-          role: session.role,
-        },
-      });
-    }
+    // Use session ID directly for createdBy references
+    const userId = session.id;
 
     // Clear existing demo data
     await prisma.journalEntryLine.deleteMany({});
@@ -121,7 +108,7 @@ export async function POST() {
         baseSalary: 50000,
         status: "ACTIVE",
         joinedAt: new Date("2023-01-15"),
-        createdById: adminUser.id,
+        createdById: userId,
       },
     });
 
@@ -133,7 +120,7 @@ export async function POST() {
         baseSalary: 35000,
         status: "ACTIVE",
         joinedAt: new Date("2023-06-01"),
-        createdById: adminUser.id,
+        createdById: userId,
       },
     });
 
@@ -145,7 +132,7 @@ export async function POST() {
         baseSalary: 40000,
         status: "ACTIVE",
         joinedAt: new Date("2022-03-10"),
-        createdById: adminUser.id,
+        createdById: userId,
       },
     });
 
@@ -178,7 +165,7 @@ export async function POST() {
             adjustmentNote: "Monthly performance bonus",
             payPeriod: month,
             date: new Date(end.getFullYear(), end.getMonth(), 15),
-            createdById: adminUser.id,
+            createdById: userId,
           },
         });
         salaryCount++;
@@ -192,7 +179,7 @@ export async function POST() {
             adjustmentNote: "Salary advance",
             payPeriod: month,
             date: new Date(end.getFullYear(), end.getMonth(), 1),
-            createdById: adminUser.id,
+            createdById: userId,
           },
         });
         salaryCount++;
@@ -207,7 +194,7 @@ export async function POST() {
             newSalary: 52000,
             effectiveDate: start,
             reason: "Annual review",
-            createdById: adminUser.id,
+            createdById: userId,
           },
         });
         salaryIncrementCount++;
@@ -220,7 +207,7 @@ export async function POST() {
             newSalary: 37000,
             effectiveDate: mid,
             reason: "Promotion",
-            createdById: adminUser.id,
+            createdById: userId,
           },
         });
         salaryIncrementCount++;
@@ -264,7 +251,7 @@ export async function POST() {
             amount: cat.amount,
             currency: "BDT",
             txnType: "CASH_EXPENSE",
-            createdById: adminUser.id,
+            createdById: userId,
           },
         });
         pettyCashCount++;
@@ -287,7 +274,7 @@ export async function POST() {
             date: new Date(start.getFullYear(), start.getMonth(), 7),
             reference: `FT-${month}-001`,
             note: "Monthly fund transfer",
-            createdBy: adminUser.id,
+            createdBy: userId,
           },
         });
         fundTransferCount++;
@@ -306,7 +293,7 @@ export async function POST() {
             date: new Date(start.getFullYear(), start.getMonth(), 20),
             reference: `FT-${month}-002`,
             note: "Return transfer",
-            createdBy: adminUser.id,
+            createdBy: userId,
           },
         });
         fundTransferCount++;
@@ -321,7 +308,7 @@ export async function POST() {
           totalCredits: 150000,
           totalDebits: 120000,
           currency: "BDT",
-          uploadedById: adminUser.id,
+          uploadedById: userId,
         },
       });
 
@@ -357,7 +344,7 @@ export async function POST() {
           totalCredits: 2500,
           totalDebits: 1800,
           currency: "USD",
-          uploadedById: adminUser.id,
+          uploadedById: userId,
         },
       });
 
@@ -389,8 +376,8 @@ export async function POST() {
             date: new Date(start.getFullYear(), start.getMonth(), 10),
             status: "APPROVED",
             note: "Monthly profit distribution",
-            createdById: adminUser.id,
-            approvedBy: adminUser.id,
+            createdById: userId,
+            approvedBy: userId,
             approvedAt: new Date(),
           },
         });
@@ -406,8 +393,8 @@ export async function POST() {
             date: new Date(start.getFullYear(), start.getMonth(), 25),
             status: "APPROVED",
             note: "Owner compensation",
-            createdById: adminUser.id,
-            approvedBy: adminUser.id,
+            createdById: userId,
+            approvedBy: userId,
             approvedAt: new Date(),
           },
         });
