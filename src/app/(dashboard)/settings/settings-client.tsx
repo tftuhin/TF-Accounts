@@ -823,12 +823,12 @@ export function SettingsClient({
           <Zap className="w-4 h-4 text-accent-amber" />
           <div className="text-sm font-semibold text-ink-white">Demo Data</div>
         </div>
-        <p className="text-sm text-ink-muted">Populate the database with demo entities, employees, expenses, and transactions for testing.</p>
+        <p className="text-sm text-ink-muted">Populate the database with demo entities, employees, and transactions for testing.</p>
         <div className="bg-surface-2 border border-surface-border rounded-lg p-3 text-2xs text-ink-faint space-y-1">
           <div>• 2 Entities (ABC Trading, XYZ Services)</div>
           <div>• 3 Bank Accounts (BDT & USD)</div>
           <div>• 3 Employees (with salary records)</div>
-          <div>• 3 Expenses & Journal Entries</div>
+          <div>• 2 Petty cash entries & Journal Entries</div>
         </div>
         <button
           onClick={handleSeedData}

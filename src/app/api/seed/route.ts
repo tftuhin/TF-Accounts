@@ -20,7 +20,7 @@ export async function POST() {
     await prisma.salary.deleteMany({});
     await prisma.salaryIncrement.deleteMany({});
     await prisma.employee.deleteMany({});
-    await prisma.expense.deleteMany({});
+    await prisma.bankStatementItem.deleteMany({});
     await prisma.bankStatement.deleteMany({});
     await prisma.fundTransfer.deleteMany({});
     await prisma.bankAccount.deleteMany({});
@@ -159,54 +159,8 @@ export async function POST() {
       },
     });
 
-    // Create expenses
+    // Create petty cash period (demo data starts today)
     const today = new Date();
-
-    await prisma.expense.create({
-      data: {
-        entityId: entity1.id,
-        date: new Date(today.getFullYear(), today.getMonth(), 1),
-        description: "Office rent - April",
-        amount: 150000,
-        currency: "BDT",
-        category: "UTILITIES",
-        subcategory: "Rent",
-        expenseType: "BDT_BANK",
-        bankAccountId: bdtAccount1.id,
-        createdById: adminUser.id,
-      },
-    });
-
-    await prisma.expense.create({
-      data: {
-        entityId: entity1.id,
-        date: new Date(today.getFullYear(), today.getMonth(), 5),
-        description: "DigitalOcean cloud services",
-        amount: 20000,
-        usdAmount: 164.5,
-        currency: "USD",
-        category: "UTILITIES",
-        subcategory: "Software & subscriptions",
-        expenseType: "USD_BANK",
-        bankAccountId: usdAccount1.id,
-        createdById: adminUser.id,
-      },
-    });
-
-    await prisma.expense.create({
-      data: {
-        entityId: entity1.id,
-        date: new Date(today.getFullYear(), today.getMonth(), 10),
-        description: "Office supplies - stationery",
-        amount: 8500,
-        currency: "BDT",
-        category: "OFFICE_SUPPLIES",
-        subcategory: "Stationery",
-        expenseType: "BDT_BANK",
-        bankAccountId: bdtAccount1.id,
-        createdById: adminUser.id,
-      },
-    });
 
     // Create petty cash period
     const pettyCashPeriod = await prisma.pettyCashPeriod.create({
@@ -303,7 +257,6 @@ export async function POST() {
         entities: 2,
         employees: 3,
         salaries: 2,
-        expenses: 3,
         pettyCashEntries: 2,
         journalEntries: 2,
       },
