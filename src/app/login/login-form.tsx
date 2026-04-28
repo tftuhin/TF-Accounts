@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { loginAction } from "./actions";
 
 export function LoginForm() {
   const router = useRouter();
@@ -25,7 +24,12 @@ export function LoginForm() {
     startTransition(async () => {
       try {
         console.log("Attempting login with:", email);
-        const result = await loginAction(email, password);
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const result = await res.json();
         console.log("Login result:", result);
         if (result.error) {
           setError(result.error);
