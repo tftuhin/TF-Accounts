@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function POST() {
   try {
-    // Get or create demo users
+    // Get admin user for createdBy references
     const adminUser = await prisma.user.findUnique({
       where: { email: "admin@themefisher.com" },
     });
@@ -12,7 +12,7 @@ export async function POST() {
       return NextResponse.json({ error: "Admin user not found. Please login first." }, { status: 400 });
     }
 
-    // Clear existing demo data
+    // Clear existing demo data (order matters for foreign keys)
     await prisma.journalEntryLine.deleteMany({});
     await prisma.journalEntry.deleteMany({});
     await prisma.pettyCashEntry.deleteMany({});
@@ -33,7 +33,6 @@ export async function POST() {
         slug: "abc-trading",
         type: "PARENT",
         color: "#3b82f6",
-        createdById: adminUser.id,
       },
     });
 
@@ -43,7 +42,6 @@ export async function POST() {
         slug: "xyz-services",
         type: "SUB_BRAND",
         color: "#8b5cf6",
-        createdById: adminUser.id,
       },
     });
 
@@ -52,10 +50,9 @@ export async function POST() {
       data: {
         entityId: entity1.id,
         accountName: "Main BDT Account",
-        accountType: "CHECKING",
+        accountType: "LOCAL_BDT",
         currency: "BDT",
         bankName: "Dhaka Bank",
-        createdById: adminUser.id,
       },
     });
 
@@ -63,21 +60,19 @@ export async function POST() {
       data: {
         entityId: entity1.id,
         accountName: "USD Operating Account",
-        accountType: "CHECKING",
+        accountType: "FOREIGN_USD",
         currency: "USD",
         bankName: "Standard Chartered",
-        createdById: adminUser.id,
       },
     });
 
-    const bdtAccount2 = await prisma.bankAccount.create({
+    await prisma.bankAccount.create({
       data: {
         entityId: entity2.id,
         accountName: "Business Account",
-        accountType: "CHECKING",
+        accountType: "LOCAL_BDT",
         currency: "BDT",
         bankName: "Jamuna Bank",
-        createdById: adminUser.id,
       },
     });
 
@@ -119,11 +114,11 @@ export async function POST() {
       },
     });
 
-    // Create salary records for current month
+    // Create salary records
     const april2026 = "2026-04";
     const salaryDate = new Date("2026-04-30");
 
-    const sal1 = await prisma.salary.create({
+    await prisma.salary.create({
       data: {
         employeeId: emp1.id,
         employeeName: emp1.name,
@@ -136,7 +131,7 @@ export async function POST() {
       },
     });
 
-    const sal2 = await prisma.salary.create({
+    await prisma.salary.create({
       data: {
         employeeId: emp2.id,
         employeeName: emp2.name,
@@ -159,16 +154,15 @@ export async function POST() {
       },
     });
 
-    // Create petty cash period (demo data starts today)
-    const today = new Date();
-
     // Create petty cash period
+    const today = new Date();
     const pettyCashPeriod = await prisma.pettyCashPeriod.create({
       data: {
         entityId: entity2.id,
-        month: "2026-04",
-        status: "ACTIVE",
-        createdById: adminUser.id,
+        periodStart: new Date(today.getFullYear(), today.getMonth(), 1),
+        periodEnd: new Date(today.getFullYear(), today.getMonth() + 1, 0),
+        floatAmount: 5000,
+        currency: "BDT",
       },
     });
 
@@ -176,10 +170,12 @@ export async function POST() {
     await prisma.pettyCashEntry.create({
       data: {
         periodId: pettyCashPeriod.id,
+        entityId: entity2.id,
         date: new Date(today.getFullYear(), today.getMonth(), 8),
         description: "Courier charges",
         amount: 450,
-        category: "LOGISTICS",
+        currency: "BDT",
+        txnType: "CASH_EXPENSE",
         createdById: adminUser.id,
       },
     });
@@ -187,66 +183,13 @@ export async function POST() {
     await prisma.pettyCashEntry.create({
       data: {
         periodId: pettyCashPeriod.id,
+        entityId: entity2.id,
         date: new Date(today.getFullYear(), today.getMonth(), 15),
         description: "Tea and refreshments",
         amount: 1200,
-        category: "MEALS",
+        currency: "BDT",
+        txnType: "CASH_EXPENSE",
         createdById: adminUser.id,
-      },
-    });
-
-    // Create journal entries
-    const je1 = await prisma.journalEntry.create({
-      data: {
-        entityId: entity1.id,
-        date: new Date(today.getFullYear(), today.getMonth(), 1),
-        description: "April rent expense",
-        reference: "RENT-2026-04",
-        status: "POSTED",
-        createdById: adminUser.id,
-        lines: {
-          create: [
-            {
-              accountCode: "5100",
-              accountName: "Rent Expense",
-              debit: 150000,
-              createdById: adminUser.id,
-            },
-            {
-              accountCode: "1000",
-              accountName: "Bank Account",
-              credit: 150000,
-              createdById: adminUser.id,
-            },
-          ],
-        },
-      },
-    });
-
-    const je2 = await prisma.journalEntry.create({
-      data: {
-        entityId: entity1.id,
-        date: new Date(today.getFullYear(), today.getMonth(), 20),
-        description: "Employee salaries paid",
-        reference: "SAL-2026-04",
-        status: "POSTED",
-        createdById: adminUser.id,
-        lines: {
-          create: [
-            {
-              accountCode: "5200",
-              accountName: "Salary Expense",
-              debit: 85000,
-              createdById: adminUser.id,
-            },
-            {
-              accountCode: "1000",
-              accountName: "Bank Account",
-              credit: 85000,
-              createdById: adminUser.id,
-            },
-          ],
-        },
       },
     });
 
@@ -255,10 +198,11 @@ export async function POST() {
       message: "Demo data seeded successfully",
       data: {
         entities: 2,
+        bankAccounts: 3,
         employees: 3,
         salaries: 2,
+        salaryIncrements: 1,
         pettyCashEntries: 2,
-        journalEntries: 2,
       },
     });
   } catch (error) {
