@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { signupAction } from "./actions";
+import { signupAction, acceptInviteAction } from "./actions";
 
 export function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -15,40 +16,79 @@ export function SignupForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isInvite, setIsInvite] = useState(false);
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    setIsInvite(!!code);
+  }, [searchParams]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setSuccess("");
 
-    if (!fullName || !email || !password || !confirmPassword) {
-      setError("All fields are required");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await signupAction(email, password, fullName);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setSuccess("Account created successfully! Please check your email to verify your account.");
-        setFullName("");
-        setEmail("");
-        setPassword("");
-        setConfirmPassword("");
-        setTimeout(() => router.push("/login"), 3000);
+    if (isInvite) {
+      // Invite acceptance: only password required
+      if (!password || !confirmPassword) {
+        setError("Password is required");
+        return;
       }
-    });
+      if (password !== confirmPassword) {
+        setError("Passwords do not match");
+        return;
+      }
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters");
+        return;
+      }
+
+      const code = searchParams.get("code");
+      if (!code) {
+        setError("Invalid invitation link");
+        return;
+      }
+
+      startTransition(async () => {
+        const result = await acceptInviteAction(code, password);
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setSuccess("Invitation accepted! Redirecting to dashboard...");
+          setTimeout(() => router.push("/dashboard"), 2000);
+        }
+      });
+    } else {
+      // Regular signup
+      if (!fullName || !email || !password || !confirmPassword) {
+        setError("All fields are required");
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        setError("Passwords do not match");
+        return;
+      }
+
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters");
+        return;
+      }
+
+      startTransition(async () => {
+        const result = await signupAction(email, password, fullName);
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setSuccess("Account created successfully! Please check your email to verify your account.");
+          setFullName("");
+          setEmail("");
+          setPassword("");
+          setConfirmPassword("");
+          setTimeout(() => router.push("/login"), 3000);
+        }
+      });
+    }
   }
 
 
@@ -66,42 +106,58 @@ export function SignupForm() {
             {success}
           </div>
           <div className="text-xs text-ink-faint space-y-2 text-center">
-            <p>Your account is ready!</p>
-            <p>Redirecting to login in 3 seconds...</p>
+            {isInvite ? (
+              <p>Redirecting to dashboard...</p>
+            ) : (
+              <>
+                <p>Your account is ready!</p>
+                <p>Redirecting to login in 3 seconds...</p>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      <div>
-        <label htmlFor="fullName" className="input-label">Full Name</label>
-        <input
-          id="fullName"
-          type="text"
-          value={fullName}
-          onChange={(e) => setFullName(e.target.value)}
-          className="input"
-          placeholder="John Doe"
-          required
-          autoFocus
-          autoComplete="name"
-          disabled={isPending}
-        />
-      </div>
+      {isInvite && (
+        <div className="px-4 py-3 rounded-lg bg-accent-blue/10 border border-accent-blue/20 text-accent-blue text-sm">
+          You've been invited to Teamosis Ledger — set your password to continue
+        </div>
+      )}
 
-      <div>
-        <label htmlFor="email" className="input-label">Email Address</label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="input"
-          placeholder="you@example.com"
-          required
-          autoComplete="email"
-          disabled={isPending}
-        />
-      </div>
+      {!isInvite && (
+        <>
+          <div>
+            <label htmlFor="fullName" className="input-label">Full Name</label>
+            <input
+              id="fullName"
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="input"
+              placeholder="John Doe"
+              required
+              autoFocus
+              autoComplete="name"
+              disabled={isPending}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="email" className="input-label">Email Address</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input"
+              placeholder="you@example.com"
+              required
+              autoComplete="email"
+              disabled={isPending}
+            />
+          </div>
+        </>
+      )}
 
       <div>
         <label htmlFor="password" className="input-label">Password</label>
@@ -156,19 +212,21 @@ export function SignupForm() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            Creating account…
+            {isInvite ? "Accepting invitation…" : "Creating account…"}
           </span>
         ) : (
-          "Create Account"
+          isInvite ? "Set Password" : "Create Account"
         )}
       </button>
 
-      <div className="pt-2 text-center text-sm">
-        <span className="text-ink-muted">Already have an account? </span>
-        <Link href="/login" className="text-accent-blue hover:underline font-medium">
-          Sign in
-        </Link>
-      </div>
+      {!isInvite && (
+        <div className="pt-2 text-center text-sm">
+          <span className="text-ink-muted">Already have an account? </span>
+          <Link href="/login" className="text-accent-blue hover:underline font-medium">
+            Sign in
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

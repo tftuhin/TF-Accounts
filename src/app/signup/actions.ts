@@ -95,3 +95,52 @@ export async function signupAction(email: string, password: string, fullName: st
   }
 }
 
+export async function acceptInviteAction(code: string, password: string) {
+  if (!code || !password) {
+    return { error: "Code and password are required" };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { error: "Supabase not configured" };
+  }
+
+  const cookieStore = await cookies();
+
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        cookiesToSet.forEach(({ name, value, options }) =>
+          cookieStore.set(name, value, options)
+        );
+      },
+    },
+  });
+
+  try {
+    // Exchange the invite code for a session
+    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    if (exchangeError) {
+      console.error("Exchange code error:", exchangeError);
+      return { error: exchangeError.message || "Invalid or expired invitation link" };
+    }
+
+    // Update the user's password
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) {
+      console.error("Update password error:", updateError);
+      return { error: updateError.message || "Failed to set password" };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("Accept invite error:", err);
+    return { error: err instanceof Error ? err.message : "Failed to accept invitation" };
+  }
+}
+

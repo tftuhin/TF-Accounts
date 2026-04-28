@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Building2, Calendar, Wallet, CreditCard, Users, Trash2, Pencil, Check, X } from "lucide-react";
+import { Plus, Building2, Calendar, Wallet, CreditCard, Users, Trash2, Pencil, Check, X, Send } from "lucide-react";
+import md5 from "blueimp-md5";
 
 interface Ownership { id: string; entityId: string; ownerName: string; ownershipPct: number; effectiveFrom: string; effectiveTo: string | null }
 interface Entity { id: string; slug: string; name: string; type: string; color: string; ownership?: Ownership[] }
 interface BankAccount { id: string; entityId: string; entityName: string; entityColor: string; accountName: string; accountType: string; currency: string; bankName: string | null }
-interface TeamMember { id: string; email: string; fullName: string; role: string; isActive: boolean }
+interface TeamMember { id: string; email: string; fullName: string; role: string; isActive: boolean; isPending?: boolean; invitedAt?: string }
 
 const ENTITY_COLORS = [
   "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
@@ -28,6 +29,11 @@ const currentMonth = () => {
   const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
   return { start: `${y}-${m}-01`, end: `${y}-${m}-${lastDay}` };
 };
+
+function gravatarUrl(email: string): string {
+  const hash = md5(email.trim().toLowerCase());
+  return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=64`;
+}
 
 export function SettingsClient({
   entities: initialEntities,
@@ -281,10 +287,51 @@ export function SettingsClient({
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editingMemberRole, setEditingMemberRole] = useState<string>("");
   const [savingMemberRole, setSavingMemberRole] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null);
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
 
   function startEditMemberRole(memberId: string, currentRole: string) {
     setEditingMemberId(memberId);
     setEditingMemberRole(currentRole);
+  }
+
+  async function handleResendInvite(email: string) {
+    setResendingInviteId(email);
+    try {
+      const res = await fetch("/api/users/invite/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      toast.success(`Invitation resent to ${email}`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to resend invite");
+    } finally {
+      setResendingInviteId(null);
+    }
+  }
+
+  async function handleRemoveMember(id: string, email: string) {
+    if (confirmingRemoveId !== id) {
+      setConfirmingRemoveId(id);
+      return;
+    }
+    setRemovingMemberId(id);
+    try {
+      const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setTeamMembers((prev) => prev.filter((m) => m.id !== id));
+      toast.success(`${email} removed from team`);
+      setConfirmingRemoveId(null);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove member");
+    } finally {
+      setRemovingMemberId(null);
+    }
   }
 
   async function handleUpdateMemberRole(memberId: string) {
@@ -613,57 +660,113 @@ export function SettingsClient({
         </div>
 
         {teamMembers.length > 0 && (
-          <div className="space-y-1.5">
-            {teamMembers.map((m) => (
-              <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2 border border-surface-border">
-                <div className="w-7 h-7 rounded-md bg-accent-blue/15 flex items-center justify-center text-2xs font-bold text-accent-blue">
-                  {m.fullName.charAt(0)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-ink-white">{m.fullName}</div>
-                  <div className="text-2xs text-ink-faint">{m.email}</div>
-                </div>
-                {editingMemberId === m.id ? (
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={editingMemberRole}
-                      onChange={(e) => setEditingMemberRole(e.target.value)}
-                      className="text-2xs px-2 py-1 bg-surface-3 border border-surface-border rounded"
-                    >
-                      <option value="ENTRY_MANAGER">Entry Manager</option>
-                      <option value="ACCOUNTS_MANAGER">Accounts Manager</option>
-                      <option value="ADMIN">Admin</option>
-                    </select>
-                    <button
-                      onClick={() => handleUpdateMemberRole(m.id)}
-                      disabled={savingMemberRole}
-                      className="p-1 text-accent-green hover:bg-accent-green/10 rounded transition"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setEditingMemberId(null)}
-                      disabled={savingMemberRole}
-                      className="p-1 text-accent-red hover:bg-accent-red/10 rounded transition"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+          <div className="space-y-4">
+            {/* Active Members */}
+            {teamMembers.filter((m) => !m.isPending).length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-xs font-semibold text-ink-secondary">Active Members</div>
+                {teamMembers.filter((m) => !m.isPending).map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2 border border-surface-border">
+                    <img src={gravatarUrl(m.email)} alt={m.fullName} className="w-7 h-7 rounded-md flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-ink-white">{m.fullName}</div>
+                      <div className="text-2xs text-ink-faint">{m.email}</div>
+                    </div>
+                    {editingMemberId === m.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={editingMemberRole}
+                          onChange={(e) => setEditingMemberRole(e.target.value)}
+                          className="text-2xs px-2 py-1 bg-surface-3 border border-surface-border rounded"
+                        >
+                          <option value="ENTRY_MANAGER">Entry Manager</option>
+                          <option value="ACCOUNTS_MANAGER">Accounts Manager</option>
+                          <option value="ADMIN">Admin</option>
+                        </select>
+                        <button
+                          onClick={() => handleUpdateMemberRole(m.id)}
+                          disabled={savingMemberRole}
+                          className="p-1 text-accent-green hover:bg-accent-green/10 rounded transition"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setEditingMemberId(null)}
+                          disabled={savingMemberRole}
+                          className="p-1 text-accent-red hover:bg-accent-red/10 rounded transition"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className={`badge text-2xs ${m.role === "ADMIN" ? "bg-accent-red/10 text-accent-red" : m.role === "ACCOUNTS_MANAGER" ? "bg-accent-blue/10 text-accent-blue" : "bg-surface-4 text-ink-faint"}`}>
+                          {ROLE_LABELS[m.role] || m.role}
+                        </span>
+                        <button
+                          onClick={() => startEditMemberRole(m.id, m.role)}
+                          className="p-1 text-ink-faint hover:text-accent-blue hover:bg-accent-blue/10 rounded transition"
+                          title="Edit role"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleRemoveMember(m.id, m.email)}
+                          disabled={removingMemberId === m.id}
+                          className={`p-1 rounded transition ${
+                            confirmingRemoveId === m.id
+                              ? "text-accent-red bg-accent-red/10"
+                              : "text-ink-faint hover:text-accent-red hover:bg-accent-red/10"
+                          }`}
+                          title={confirmingRemoveId === m.id ? "Click again to confirm" : "Remove member"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className={`badge text-2xs ${m.role === "ADMIN" ? "bg-accent-red/10 text-accent-red" : m.role === "ACCOUNTS_MANAGER" ? "bg-accent-blue/10 text-accent-blue" : "bg-surface-4 text-ink-faint"}`}>
-                      {ROLE_LABELS[m.role] || m.role}
-                    </span>
-                    <button
-                      onClick={() => startEditMemberRole(m.id, m.role)}
-                      className="p-1 text-ink-faint hover:text-accent-blue hover:bg-accent-blue/10 rounded transition"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
+                ))}
               </div>
-            ))}
+            )}
+
+            {/* Pending Invitations */}
+            {teamMembers.filter((m) => m.isPending).length > 0 && (
+              <div className="space-y-1.5 border-t border-surface-border pt-3">
+                <div className="text-xs font-semibold text-ink-secondary">Pending Invitations</div>
+                {teamMembers.filter((m) => m.isPending).map((m) => (
+                  <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-2 border border-surface-border opacity-75">
+                    <img src={gravatarUrl(m.email)} alt={m.fullName} className="w-7 h-7 rounded-md flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-ink-white">{m.fullName}</div>
+                      <div className="text-2xs text-ink-faint">{m.email}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="badge text-2xs bg-accent-amber/10 text-accent-amber">Pending</span>
+                      <button
+                        onClick={() => handleResendInvite(m.email)}
+                        disabled={resendingInviteId === m.email}
+                        className="p-1 text-ink-faint hover:text-accent-blue hover:bg-accent-blue/10 rounded transition"
+                        title="Resend invitation"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleRemoveMember(m.id, m.email)}
+                        disabled={removingMemberId === m.id}
+                        className={`p-1 rounded transition ${
+                          confirmingRemoveId === m.id
+                            ? "text-accent-red bg-accent-red/10"
+                            : "text-ink-faint hover:text-accent-red hover:bg-accent-red/10"
+                        }`}
+                        title={confirmingRemoveId === m.id ? "Click again to confirm" : "Remove member"}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
