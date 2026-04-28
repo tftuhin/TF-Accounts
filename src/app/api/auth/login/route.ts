@@ -53,15 +53,10 @@ export async function POST(request: NextRequest) {
 
     console.log("Login successful, session created for:", email);
 
-    // Create response with success and ensure cookies are included
-    const response = NextResponse.json({ success: true });
+    // Return response with cookies from supabaseResponse
+    supabaseResponse = NextResponse.json({ success: true }, { headers: supabaseResponse.headers });
 
-    // Copy cookies from supabaseResponse to our response
-    supabaseResponse.cookies.getSetCookie().forEach((cookie) => {
-      response.headers.append("Set-Cookie", cookie);
-    });
-
-    return response;
+    return supabaseResponse;
   } catch (err) {
     console.error("Login API error:", err);
     return NextResponse.json(
