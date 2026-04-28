@@ -89,6 +89,9 @@ export async function signupAction(email: string, password: string, fullName: st
       }
     }
 
+    // Wait a moment for the user to be created in Supabase
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     // Auto-login after signup (skip email confirmation)
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
@@ -97,7 +100,8 @@ export async function signupAction(email: string, password: string, fullName: st
 
     if (signInError) {
       console.error("Auto-login error:", signInError);
-      return { success: true, needsLogin: true };
+      // If auto-login fails, still show success and let user login manually
+      return { success: true };
     }
 
     return { success: true };
