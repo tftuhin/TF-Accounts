@@ -164,7 +164,7 @@ export async function POST() {
             adjustmentNote: "Monthly performance bonus",
             payPeriod: month,
             date: new Date(end.getFullYear(), end.getMonth(), 15),
-            createdById: adminUser.id,
+            createdBy: adminUser.id,
           },
         });
         salaryCount++;
@@ -178,7 +178,7 @@ export async function POST() {
             adjustmentNote: "Salary advance",
             payPeriod: month,
             date: new Date(end.getFullYear(), end.getMonth(), 1),
-            createdById: adminUser.id,
+            createdBy: adminUser.id,
           },
         });
         salaryCount++;
@@ -193,7 +193,7 @@ export async function POST() {
             newSalary: 52000,
             effectiveDate: start,
             reason: "Annual review",
-            createdById: adminUser.id,
+            createdBy: adminUser.id,
           },
         });
         salaryIncrementCount++;
@@ -206,7 +206,7 @@ export async function POST() {
             newSalary: 37000,
             effectiveDate: mid,
             reason: "Promotion",
-            createdById: adminUser.id,
+            createdBy: adminUser.id,
           },
         });
         salaryIncrementCount++;
@@ -267,7 +267,7 @@ export async function POST() {
             date: new Date(start.getFullYear(), start.getMonth(), 7),
             reference: `FT-${month}-001`,
             note: "Monthly fund transfer",
-            createdById: adminUser.id,
+            createdBy: adminUser.id,
           },
         });
         fundTransferCount++;
@@ -286,7 +286,7 @@ export async function POST() {
             date: new Date(start.getFullYear(), start.getMonth(), 20),
             reference: `FT-${month}-002`,
             note: "Return transfer",
-            createdById: adminUser.id,
+            createdBy: adminUser.id,
           },
         });
         fundTransferCount++;
@@ -301,7 +301,7 @@ export async function POST() {
           totalCredits: 150000,
           totalDebits: 120000,
           currency: "BDT",
-          uploadedBy: adminUser.id,
+          uploadedById: adminUser.id,
         },
       });
 
@@ -337,7 +337,7 @@ export async function POST() {
           totalCredits: 2500,
           totalDebits: 1800,
           currency: "USD",
-          uploadedBy: adminUser.id,
+          uploadedById: adminUser.id,
         },
       });
 
