@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   try {
     // Get the entity to check if it's a sub-brand
     const entity = await prisma.entity.findUnique({
-      where: { entityId },
+      where: { id: entityId },
       select: { type: true, parentId: true, parent: { select: { name: true } } },
     });
 
