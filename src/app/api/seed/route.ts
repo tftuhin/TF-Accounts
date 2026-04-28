@@ -31,7 +31,7 @@ export async function POST() {
       data: {
         name: "ABC Trading Ltd",
         slug: "abc-trading",
-        type: "PARTNERSHIP",
+        type: "PARENT",
         color: "#3b82f6",
         createdById: adminUser.id,
       },
@@ -41,7 +41,7 @@ export async function POST() {
       data: {
         name: "XYZ Services",
         slug: "xyz-services",
-        type: "SOLE_PROPRIETOR",
+        type: "SUB_BRAND",
         color: "#8b5cf6",
         createdById: adminUser.id,
       },
