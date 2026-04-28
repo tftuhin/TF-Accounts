@@ -427,3 +427,39 @@ export async function POST() {
     );
   }
 }
+
+export async function DELETE() {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized. Please login first." }, { status: 401 });
+    }
+
+    // Delete all related data in order (respecting foreign key constraints)
+    await prisma.journalEntryLine.deleteMany({});
+    await prisma.journalEntry.deleteMany({});
+    await prisma.pettyCashEntry.deleteMany({});
+    await prisma.pettyCashPeriod.deleteMany({});
+    await prisma.drawing.deleteMany({});
+    await prisma.fundTransfer.deleteMany({});
+    await prisma.bankStatementItem.deleteMany({});
+    await prisma.bankStatement.deleteMany({});
+    await prisma.salary.deleteMany({});
+    await prisma.salaryIncrement.deleteMany({});
+    await prisma.ownershipRegistry.deleteMany({});
+    await prisma.employee.deleteMany({});
+    await prisma.bankAccount.deleteMany({});
+    await prisma.entity.deleteMany({});
+
+    return NextResponse.json({
+      success: true,
+      message: "All seed data deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to delete seed data" },
+      { status: 500 }
+    );
+  }
+}

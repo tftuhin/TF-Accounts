@@ -366,13 +366,13 @@ export function SettingsClient({
     }
     setSeeding(true);
     try {
-      const res = await fetch("/api/seed", { method: "POST" });
+      const res = await fetch("/api/seed", { method: "DELETE" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      toast.success("Demo data seeded successfully!");
+      toast.success("All seed data deleted successfully");
       setConfirmSeed(false);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to seed data");
+      toast.error(err instanceof Error ? err.message : "Failed to delete seed data");
     } finally {
       setSeeding(false);
     }
@@ -817,29 +817,23 @@ export function SettingsClient({
         </form>
       </div>
 
-      {/* ── Seed Demo Data (Admin Only) ────────────────────────── */}
-      <div className="card p-6 space-y-4 border-accent-amber/20 bg-accent-amber/5">
+      {/* ── Clear Seed Data (Admin Only) ────────────────────────── */}
+      <div className="card p-6 space-y-4 border-accent-red/20 bg-accent-red/5">
         <div className="flex items-center gap-2">
-          <Zap className="w-4 h-4 text-accent-amber" />
-          <div className="text-sm font-semibold text-ink-white">Demo Data</div>
+          <Zap className="w-4 h-4 text-accent-red" />
+          <div className="text-sm font-semibold text-ink-white">Seed Data Management</div>
         </div>
-        <p className="text-sm text-ink-muted">Populate the database with demo entities, employees, and transactions for testing.</p>
-        <div className="bg-surface-2 border border-surface-border rounded-lg p-3 text-2xs text-ink-faint space-y-1">
-          <div>• 2 Entities (ABC Trading, XYZ Services)</div>
-          <div>• 3 Bank Accounts (BDT & USD)</div>
-          <div>• 3 Employees (with salary records)</div>
-          <div>• 2 Petty cash entries & Journal Entries</div>
-        </div>
+        <p className="text-sm text-ink-muted">Remove all demo data from the database (entities, employees, transactions).</p>
         <button
           onClick={handleSeedData}
           disabled={seeding}
           className={`w-full text-sm font-medium px-4 py-2 rounded-lg transition ${
             confirmSeed
-              ? "bg-accent-amber/20 border border-accent-amber text-accent-amber hover:bg-accent-amber/30"
+              ? "bg-accent-red/20 border border-accent-red text-accent-red hover:bg-accent-red/30"
               : "btn-secondary"
           }`}
         >
-          {seeding ? "Seeding…" : confirmSeed ? "Click again to confirm — data will be reset" : "Seed Demo Data"}
+          {seeding ? "Deleting…" : confirmSeed ? "Click again to confirm — all seed data will be deleted" : "Delete All Seed Data"}
         </button>
       </div>
     </div>
