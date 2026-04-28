@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Building2, Calendar, Wallet, CreditCard, Users, Trash2, Pencil, Check, X, Send } from "lucide-react";
+import { Plus, Building2, Calendar, Wallet, CreditCard, Users, Trash2, Pencil, Check, X, Send, Zap } from "lucide-react";
 import md5 from "blueimp-md5";
 
 interface Ownership { id: string; entityId: string; ownerName: string; ownershipPct: number; effectiveFrom: string; effectiveTo: string | null }
@@ -47,6 +47,8 @@ export function SettingsClient({
   const [entities, setEntities] = useState(initialEntities);
   const [bankAccounts, setBankAccounts] = useState(initialBankAccounts);
   const [teamMembers, setTeamMembers] = useState(initialTeamMembers);
+  const [seeding, setSeeding] = useState(false);
+  const [confirmSeed, setConfirmSeed] = useState(false);
 
   // ── Entity form ──────────────────────────────────────────────
   const [entityForm, setEntityForm] = useState({ name: "", slug: "", type: "SUB_BRAND", color: ENTITY_COLORS[0] });
@@ -354,6 +356,25 @@ export function SettingsClient({
       toast.error(err instanceof Error ? err.message : "Failed to update role");
     } finally {
       setSavingMemberRole(false);
+    }
+  }
+
+  async function handleSeedData() {
+    if (!confirmSeed) {
+      setConfirmSeed(true);
+      return;
+    }
+    setSeeding(true);
+    try {
+      const res = await fetch("/api/seed", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      toast.success("Demo data seeded successfully!");
+      setConfirmSeed(false);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to seed data");
+    } finally {
+      setSeeding(false);
     }
   }
 
@@ -794,6 +815,32 @@ export function SettingsClient({
             {savingInvite ? "Sending…" : "Send Invite Email"}
           </button>
         </form>
+      </div>
+
+      {/* ── Seed Demo Data (Admin Only) ────────────────────────── */}
+      <div className="card p-6 space-y-4 border-accent-amber/20 bg-accent-amber/5">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-accent-amber" />
+          <div className="text-sm font-semibold text-ink-white">Demo Data</div>
+        </div>
+        <p className="text-sm text-ink-muted">Populate the database with demo entities, employees, expenses, and transactions for testing.</p>
+        <div className="bg-surface-2 border border-surface-border rounded-lg p-3 text-2xs text-ink-faint space-y-1">
+          <div>• 2 Entities (ABC Trading, XYZ Services)</div>
+          <div>• 3 Bank Accounts (BDT & USD)</div>
+          <div>• 3 Employees (with salary records)</div>
+          <div>• 3 Expenses & Journal Entries</div>
+        </div>
+        <button
+          onClick={handleSeedData}
+          disabled={seeding}
+          className={`w-full text-sm font-medium px-4 py-2 rounded-lg transition ${
+            confirmSeed
+              ? "bg-accent-amber/20 border border-accent-amber text-accent-amber hover:bg-accent-amber/30"
+              : "btn-secondary"
+          }`}
+        >
+          {seeding ? "Seeding…" : confirmSeed ? "Click again to confirm — data will be reset" : "Seed Demo Data"}
+        </button>
       </div>
     </div>
   );
