@@ -24,14 +24,18 @@ export function LoginForm() {
 
     startTransition(async () => {
       try {
+        console.log("Attempting login with:", email);
         const result = await loginAction(email, password);
+        console.log("Login result:", result);
         if (result.error) {
           setError(result.error);
         } else {
+          console.log("Login successful, redirecting to dashboard");
+          await new Promise(resolve => setTimeout(resolve, 500));
           router.push("/dashboard");
-          router.refresh();
         }
       } catch (err) {
+        console.error("Login error:", err);
         setError(err instanceof Error ? err.message : "Login failed");
       }
     });

@@ -45,9 +45,11 @@ export async function loginAction(email: string, password: string) {
     }
 
     if (!data.session) {
-      return { error: "Login failed - no session created" };
+      console.error("No session created after login");
+      return { error: "Login failed - unable to create session" };
     }
 
+    console.log("Login successful, session created for:", email);
     return { success: true };
   } catch (err) {
     console.error("Login action error:", err);
