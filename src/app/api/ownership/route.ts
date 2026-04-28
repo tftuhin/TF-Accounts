@@ -105,12 +105,51 @@ export async function POST(request: Request) {
           },
         });
       }
+    } else if (entity.type === "PARENT") {
+      // For PARENT entities with multiple owners, automatically reduce existing owners
+      const currentTotal = activeOwners.reduce((sum, o) => sum + Number(o.ownershipPct), 0);
+
+      if (currentTotal === 100) {
+        // If all existing owners are at 100% collectively and new owner is being added,
+        // proportionally reduce existing owners to make room
+        const closeDate = new Date(fromDate.getTime() - 86400000);
+
+        for (const owner of activeOwners) {
+          // Close existing record
+          await prisma.ownershipRegistry.update({
+            where: { id: owner.id },
+            data: { effectiveTo: closeDate },
+          });
+
+          // Create new record with reduced share proportionally
+          const newOwnerPct = (Number(owner.ownershipPct) / 100) * (100 - pct);
+          await prisma.ownershipRegistry.create({
+            data: {
+              entityId,
+              ownerName: owner.ownerName,
+              ownershipPct: new Decimal(newOwnerPct),
+              effectiveFrom: fromDate,
+              notes: `Reduced from ${owner.ownershipPct}% to accommodate new owner`,
+            },
+          });
+        }
+      } else {
+        // Validate that total ownership doesn't exceed 100%
+        const newTotal = currentTotal + pct;
+        if (newTotal > 100) {
+          return NextResponse.json(
+            {
+              error: `Total ownership would be ${newTotal}%. Current owners total ${currentTotal}%, new owner ${pct}% would exceed 100%.`
+            },
+            { status: 400 }
+          );
+        }
+      }
     } else {
-      // For PARENT entities or if parent doesn't exist, use standard validation
+      // Fallback validation for other cases
       const currentTotal = activeOwners.reduce((sum, o) => sum + Number(o.ownershipPct), 0);
       const newTotal = currentTotal + pct;
 
-      // Validate that total ownership doesn't exceed 100%
       if (newTotal > 100) {
         return NextResponse.json(
           {
