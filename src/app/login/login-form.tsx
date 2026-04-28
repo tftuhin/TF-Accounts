@@ -117,15 +117,15 @@ export function LoginForm() {
         <p className="text-2xs text-ink-faint mb-3 text-center">Demo Accounts</p>
         <div className="grid gap-2">
           {[
-            { email: "admin@teamosis.com", pass: "admin@teamosis2025", role: "Admin" },
-            { email: "accounts@teamosis.com", pass: "manager@2025", role: "Accounts Manager" },
-            { email: "entry@teamosis.com", pass: "entry@2025", role: "Entry Manager" },
+            { email: "admin@themefisher.com", pass: "Admin@123456", role: "Admin" },
+            { email: "manager@themefisher.com", pass: "Manager@123456", role: "Accounts Manager" },
+            { email: "entry@themefisher.com", pass: "Entry@123456", role: "Entry Manager" },
           ].map((demo) => (
             <button
               key={demo.email}
               type="button"
               onClick={() => { setEmail(demo.email); setPassword(demo.pass); }}
-              className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-2 hover:bg-surface-3 
+              className="flex items-center justify-between px-3 py-2 rounded-lg bg-surface-2 hover:bg-surface-3
                          border border-surface-border text-xs transition-colors group"
             >
               <span className="text-ink-secondary group-hover:text-ink-primary">{demo.email}</span>
