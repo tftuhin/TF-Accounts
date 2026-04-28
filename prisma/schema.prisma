@@ -450,8 +450,8 @@ model PettyCashEntry {
   receiptUrl      String?            @map("receipt_url")     // Optional — not mandatory
   journalEntryId  String?            @map("journal_entry_id")
   journalEntry    JournalEntry?      @relation(fields: [journalEntryId], references: [id])
-  createdById     String             @map("created_by")
-  creator         User               @relation(fields: [createdById], references: [id])
+  createdById     String?            @map("created_by")
+  creator         User?              @relation(fields: [createdById], references: [id])
   createdAt       DateTime           @default(now()) @map("created_at")
 
   evidenceFiles EvidenceFile[]
@@ -620,8 +620,8 @@ model Salary {
   date            DateTime  @db.Date
   month           String?
   notes           String?
-  createdById     String    @map("created_by")
-  creator         User      @relation(fields: [createdById], references: [id])
+  createdById     String?   @map("created_by")
+  creator         User?     @relation(fields: [createdById], references: [id])
   createdAt       DateTime  @default(now()) @map("created_at")
 
   @@index([date(sort: Desc)])
@@ -642,8 +642,8 @@ model Employee {
   joinedAt    DateTime?      @db.Date @map("joined_at")
   resignedAt  DateTime?      @db.Date @map("resigned_at")
   notes       String?
-  createdById String         @map("created_by")
-  creator     User           @relation(fields: [createdById], references: [id])
+  createdById String?        @map("created_by")
+  creator     User?          @relation(fields: [createdById], references: [id])
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
 
@@ -662,8 +662,8 @@ model SalaryIncrement {
   newSalary      Decimal  @map("new_salary") @db.Decimal(15, 2)
   effectiveDate  DateTime @db.Date @map("effective_date")
   reason         String?
-  createdById    String   @map("created_by")
-  creator        User     @relation(fields: [createdById], references: [id])
+  createdById    String?  @map("created_by")
+  creator        User?    @relation(fields: [createdById], references: [id])
   createdAt      DateTime @default(now()) @map("created_at")
 
   @@index([employeeId])
