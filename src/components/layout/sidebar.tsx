@@ -6,10 +6,16 @@ import { useAppStore } from "@/lib/store";
 import { canAccess } from "@/lib/rbac";
 import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/types";
+import md5 from "blueimp-md5";
 import {
   LayoutDashboard, Receipt, Wallet, Crown, BarChart3, ArrowLeftRight,
   Upload, Settings, Landmark, ChevronDown, Menu, X, TrendingUp, BookOpen, LogOut, Package,
 } from "lucide-react";
+
+function gravatarUrl(email: string): string {
+  const hash = md5(email.trim().toLowerCase());
+  return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=56`;
+}
 
 interface Entity {
   id: string;
@@ -148,9 +154,11 @@ export function Sidebar({ entities, user }: { entities: Entity[]; user: SessionU
         {/* Footer */}
         <div className="px-4 py-3 border-t border-surface-border">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-md bg-accent-blue/15 flex items-center justify-center text-2xs font-bold text-accent-blue flex-shrink-0">
-              {user.fullName.charAt(0)}
-            </div>
+            <img
+              src={gravatarUrl(user.email)}
+              alt={user.fullName}
+              className="w-7 h-7 rounded-md flex-shrink-0 ring-1 ring-surface-border"
+            />
             <div className="flex-1 min-w-0">
               <div className="text-xs font-medium text-ink-primary truncate">{user.fullName}</div>
               <div className="text-2xs text-ink-faint">{user.role.replace(/_/g, " ")}</div>
