@@ -53,6 +53,16 @@ export async function POST(request: Request) {
   const fromDate = new Date(effectiveFrom);
 
   try {
+    // Get the entity to check if it's a sub-brand
+    const entity = await prisma.entity.findUnique({
+      where: { entityId },
+      select: { type: true, parentId: true, parent: { select: { name: true } } },
+    });
+
+    if (!entity) {
+      return NextResponse.json({ error: "Entity not found" }, { status: 404 });
+    }
+
     // Get current active owners for this entity
     const activeOwners = await prisma.ownershipRegistry.findMany({
       where: {
@@ -61,34 +71,57 @@ export async function POST(request: Request) {
       },
     });
 
-    // Close Teamosis owner if it's the only owner at 100% and we're adding a real owner
-    const teamosisOwner = activeOwners.find(o => o.ownerName === "Teamosis");
-    const otherOwners = activeOwners.filter(o => o.ownerName !== "Teamosis");
+    // For SUB_BRAND entities, automatically reduce parent's share
+    if (entity.type === "SUB_BRAND" && entity.parentId && entity.parent) {
+      const parentOwner = activeOwners.find(o => o.ownerName === entity.parent?.name);
 
-    if (teamosisOwner && otherOwners.length === 0 && Number(teamosisOwner.ownershipPct) === 100) {
-      // Close Teamosis owner one day before the new owner starts
-      const closeDate = new Date(fromDate.getTime() - 86400000);
-      await prisma.ownershipRegistry.update({
-        where: { id: teamosisOwner.id },
-        data: { effectiveTo: closeDate },
-      });
+      if (parentOwner && Number(parentOwner.ownershipPct) === 100) {
+        // Parent is sole owner at 100%, reduce their share by the new partner's percentage
+        const newParentPct = 100 - pct;
+
+        if (newParentPct < 0) {
+          return NextResponse.json(
+            {
+              error: `Cannot add ${pct}% ownership. Parent company is currently 100% owner.`
+            },
+            { status: 400 }
+          );
+        }
+
+        // Close parent's current ownership record
+        const closeDate = new Date(fromDate.getTime() - 86400000);
+        await prisma.ownershipRegistry.update({
+          where: { id: parentOwner.id },
+          data: { effectiveTo: closeDate },
+        });
+
+        // Create new ownership record for parent with reduced share
+        await prisma.ownershipRegistry.create({
+          data: {
+            entityId,
+            ownerName: entity.parent.name,
+            ownershipPct: new Decimal(newParentPct),
+            effectiveFrom: fromDate,
+          },
+        });
+      }
+    } else {
+      // For PARENT entities or if parent doesn't exist, use standard validation
+      const currentTotal = activeOwners.reduce((sum, o) => sum + Number(o.ownershipPct), 0);
+      const newTotal = currentTotal + pct;
+
+      // Validate that total ownership doesn't exceed 100%
+      if (newTotal > 100) {
+        return NextResponse.json(
+          {
+            error: `Total ownership would be ${newTotal}%. Current owners total ${currentTotal}%, new owner ${pct}% would exceed 100%.`
+          },
+          { status: 400 }
+        );
+      }
     }
 
-    // Calculate total ownership if we add this new owner (excluding closed Teamosis)
-    const currentTotal = otherOwners.reduce((sum, o) => sum + Number(o.ownershipPct), 0);
-    const newTotal = currentTotal + pct;
-
-    // Validate that total ownership doesn't exceed 100%
-    if (newTotal > 100) {
-      return NextResponse.json(
-        {
-          error: `Total ownership would be ${newTotal}%. Current owners total ${currentTotal}%, new owner ${pct}% would exceed 100%.`
-        },
-        { status: 400 }
-      );
-    }
-
-    // Simply create the new owner record
+    // Create the new owner record
     const newOwner = await prisma.ownershipRegistry.create({
       data: {
         entityId,

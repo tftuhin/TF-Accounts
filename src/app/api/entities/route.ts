@@ -33,27 +33,30 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Auto-create default ownership record
-    // If parentId provided, link to parent entity; otherwise just record "Teamosis" as owner
-    const ownershipData: any = {
-      entityId: entity.id,
-      ownershipPct: new Decimal(100),
-      effectiveFrom: new Date(),
-    };
+    // Auto-create default ownership record only for SUB_BRAND entities
+    // PARENT entities don't get automatic ownership - owners are added manually
+    if (type === "SUB_BRAND" || parentId) {
+      const ownershipData: any = {
+        entityId: entity.id,
+        ownershipPct: new Decimal(100),
+        effectiveFrom: new Date(),
+      };
 
-    if (parentId) {
-      // Sub-brand owned by parent entity
-      const parentEntity = await prisma.entity.findUnique({
-        where: { id: parentId },
-        select: { name: true },
-      });
-      ownershipData.ownerName = parentEntity?.name || "Parent Company";
-    } else {
-      // Root entity (standalone or parent company)
-      ownershipData.ownerName = "Teamosis";
+      if (parentId) {
+        // Sub-brand owned by parent entity
+        const parentEntity = await prisma.entity.findUnique({
+          where: { id: parentId },
+          select: { name: true },
+        });
+        ownershipData.ownerName = parentEntity?.name || "Parent Company";
+      } else {
+        // This shouldn't happen if type is SUB_BRAND without parentId
+        ownershipData.ownerName = "Teamosis";
+      }
+
+      await prisma.ownershipRegistry.create({ data: ownershipData });
     }
-
-    await prisma.ownershipRegistry.create({ data: ownershipData });
+    // PARENT entities have no auto-ownership; owners must be added manually
 
     revalidateTag("entities");
     return NextResponse.json({ success: true, data: { id: entity.id, name: entity.name, slug: entity.slug } });
