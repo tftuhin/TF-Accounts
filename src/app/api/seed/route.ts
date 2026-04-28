@@ -212,44 +212,50 @@ export async function POST() {
         salaryIncrementCount++;
       }
 
-      // ── PETTY CASH PERIODS & ENTRIES (2 periods, 4 entries per month) ──
+      // ── PETTY CASH PERIODS & ENTRIES (2 of each expense type per month) ──
       const pettyCashPeriod = await prisma.pettyCashPeriod.create({
         data: {
           entityId: entity2.id,
           periodStart: start,
           periodEnd: new Date(start.getFullYear(), start.getMonth() + 1, 0),
-          floatAmount: 5000,
+          floatAmount: 15000,
           currency: "BDT",
         },
       });
 
-      await prisma.pettyCashEntry.create({
-        data: {
-          periodId: pettyCashPeriod.id,
-          entityId: entity2.id,
-          date: new Date(start.getFullYear(), start.getMonth(), 5),
-          description: "Office supplies and stationery",
-          amount: 2450,
-          currency: "BDT",
-          txnType: "CASH_EXPENSE",
-          createdById: adminUser.id,
-        },
-      });
-      pettyCashCount++;
+      // Expense type categories (2 of each)
+      const expenseCategories = [
+        { desc: "Office supplies", amount: 1250 },
+        { desc: "Printer cartridges", amount: 2450 },
+        { desc: "Team lunch", amount: 3200 },
+        { desc: "Office snacks", amount: 1800 },
+        { desc: "Courier charges", amount: 850 },
+        { desc: "Local delivery", amount: 600 },
+        { desc: "Internet bill", amount: 1500 },
+        { desc: "Electricity top-up", amount: 2000 },
+        { desc: "Taxi/transport", amount: 950 },
+        { desc: "Parking and fuel", amount: 1300 },
+        { desc: "Office rent advance", amount: 5000 },
+        { desc: "Maintenance supplies", amount: 2200 },
+      ];
 
-      await prisma.pettyCashEntry.create({
-        data: {
-          periodId: pettyCashPeriod.id,
-          entityId: entity2.id,
-          date: new Date(start.getFullYear(), start.getMonth(), 15),
-          description: "Meals and refreshments",
-          amount: 3200,
-          currency: "BDT",
-          txnType: "CASH_EXPENSE",
-          createdById: adminUser.id,
-        },
-      });
-      pettyCashCount++;
+      let dayOffset = 1;
+      for (const cat of expenseCategories) {
+        await prisma.pettyCashEntry.create({
+          data: {
+            periodId: pettyCashPeriod.id,
+            entityId: entity2.id,
+            date: new Date(start.getFullYear(), start.getMonth(), Math.min(dayOffset, 28)),
+            description: cat.desc,
+            amount: cat.amount,
+            currency: "BDT",
+            txnType: "CASH_EXPENSE",
+            createdById: adminUser.id,
+          },
+        });
+        pettyCashCount++;
+        dayOffset += 2;
+      }
 
       // ── FUND TRANSFERS (2 per month) ──
       if (bdtAccount1 && usdAccount1) {
