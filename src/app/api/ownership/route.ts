@@ -61,8 +61,21 @@ export async function POST(request: Request) {
       },
     });
 
-    // Calculate total ownership if we add this new owner
-    const currentTotal = activeOwners.reduce((sum, o) => sum + Number(o.ownershipPct), 0);
+    // Close Teamosis owner if it's the only owner at 100% and we're adding a real owner
+    const teamosisOwner = activeOwners.find(o => o.ownerName === "Teamosis");
+    const otherOwners = activeOwners.filter(o => o.ownerName !== "Teamosis");
+
+    if (teamosisOwner && otherOwners.length === 0 && Number(teamosisOwner.ownershipPct) === 100) {
+      // Close Teamosis owner one day before the new owner starts
+      const closeDate = new Date(fromDate.getTime() - 86400000);
+      await prisma.ownershipRegistry.update({
+        where: { id: teamosisOwner.id },
+        data: { effectiveTo: closeDate },
+      });
+    }
+
+    // Calculate total ownership if we add this new owner (excluding closed Teamosis)
+    const currentTotal = otherOwners.reduce((sum, o) => sum + Number(o.ownershipPct), 0);
     const newTotal = currentTotal + pct;
 
     // Validate that total ownership doesn't exceed 100%
