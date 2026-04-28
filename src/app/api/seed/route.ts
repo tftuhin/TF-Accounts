@@ -9,12 +9,20 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized. Please login first." }, { status: 401 });
     }
 
-    const adminUser = await prisma.user.findUnique({
+    let adminUser = await prisma.user.findUnique({
       where: { id: session.id },
     });
 
+    // If user doesn't exist in database, create it from session
     if (!adminUser) {
-      return NextResponse.json({ error: "User not found." }, { status: 400 });
+      adminUser = await prisma.user.create({
+        data: {
+          id: session.id,
+          email: session.email,
+          fullName: session.fullName,
+          role: session.role,
+        },
+      });
     }
 
     // Clear existing demo data
