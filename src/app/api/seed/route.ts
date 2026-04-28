@@ -10,7 +10,7 @@ export async function POST() {
     }
 
     const adminUser = await prisma.user.findUnique({
-      where: { id: session.userId },
+      where: { id: session.id },
     });
 
     if (!adminUser) {
