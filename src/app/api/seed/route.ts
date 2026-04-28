@@ -1,14 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 export async function POST() {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized. Please login first." }, { status: 401 });
+    }
+
     const adminUser = await prisma.user.findUnique({
-      where: { email: "admin@themefisher.com" },
+      where: { id: session.userId },
     });
 
     if (!adminUser) {
-      return NextResponse.json({ error: "Admin user not found. Please login first." }, { status: 400 });
+      return NextResponse.json({ error: "User not found." }, { status: 400 });
     }
 
     // Clear existing demo data
