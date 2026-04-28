@@ -6,6 +6,7 @@ export function canAccess(role: UserRole, resource: string): boolean {
     income:         ["ADMIN", "ACCOUNTS_MANAGER"],
     expenses:       ["ADMIN", "ACCOUNTS_MANAGER"],
     petty_cash:     ["ADMIN", "ACCOUNTS_MANAGER", "ENTRY_MANAGER"],
+    salary:         ["ADMIN", "ACCOUNTS_MANAGER"],
     journals:       ["ADMIN", "ACCOUNTS_MANAGER"],
     drawings:       ["ADMIN", "ACCOUNTS_MANAGER"],
     assets:         ["ADMIN", "ACCOUNTS_MANAGER"],

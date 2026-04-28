@@ -31,6 +31,7 @@ const NAV_ITEMS = [
   { id: "income",         href: "/income",         label: "Income",         icon: TrendingUp,       resource: "income" },
   { id: "expenses",       href: "/expenses",       label: "Expenses",       icon: Receipt,          resource: "expenses" },
   { id: "petty-cash",     href: "/petty-cash",     label: "Petty Cash",     icon: Wallet,           resource: "petty_cash" },
+  { id: "salary",         href: "/salary",         label: "Salary",         icon: BarChart3,        resource: "salary" },
   { id: "journals",       href: "/journals",       label: "All Journals",   icon: BookOpen,         resource: "journals" },
   { id: "fund-transfers", href: "/fund-transfers", label: "Fund Transfers", icon: Landmark,         resource: "fund_transfers" },
   { id: "drawings",       href: "/drawings",       label: "Drawings",       icon: Crown,            resource: "drawings" },

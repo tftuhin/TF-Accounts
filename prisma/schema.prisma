@@ -512,6 +512,7 @@ model User {
   bankStatements   BankStatement[]
   interBrandTransfers InterBrandTransfer[]
   auditLogs        AuditLog[]
+  salaries         Salary[]
 
   @@map("users")
 }
@@ -593,4 +594,22 @@ model FixedAsset {
 
   @@index([entityId])
   @@map("fixed_assets")
+}
+
+// ─── SALARY PAYMENTS ────────────────────────────────────────
+
+model Salary {
+  id           String   @id @default(uuid())
+  employeeName String   @map("employee_name")
+  amount       Decimal  @db.Decimal(15, 2)
+  date         DateTime @db.Date
+  month        String?
+  notes        String?
+  createdById  String   @map("created_by")
+  creator      User     @relation(fields: [createdById], references: [id])
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([date(sort: Desc)])
+  @@index([createdById])
+  @@map("salaries")
 }
