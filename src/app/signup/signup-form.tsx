@@ -80,12 +80,12 @@ export function SignupForm() {
         if (result.error) {
           setError(result.error);
         } else {
-          setSuccess("Account created successfully! Please check your email to verify your account.");
+          setSuccess("Account created successfully! Redirecting to dashboard...");
           setFullName("");
           setEmail("");
           setPassword("");
           setConfirmPassword("");
-          setTimeout(() => router.push("/login"), 3000);
+          setTimeout(() => router.push("/dashboard"), 2000);
         }
       });
     }
@@ -109,10 +109,7 @@ export function SignupForm() {
             {isInvite ? (
               <p>Redirecting to dashboard...</p>
             ) : (
-              <>
-                <p>Your account is ready!</p>
-                <p>Redirecting to login in 3 seconds...</p>
-              </>
+              <p>Redirecting to dashboard in 2 seconds...</p>
             )}
           </div>
         </div>

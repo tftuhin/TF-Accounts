@@ -42,6 +42,7 @@ export async function signupAction(email: string, password: string, fullName: st
         data: {
           full_name: fullName,
         },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
       },
     });
 
@@ -86,6 +87,17 @@ export async function signupAction(email: string, password: string, fullName: st
       } catch (err) {
         console.error("Profile creation error:", err);
       }
+    }
+
+    // Auto-login after signup (skip email confirmation)
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      console.error("Auto-login error:", signInError);
+      return { success: true, needsLogin: true };
     }
 
     return { success: true };
