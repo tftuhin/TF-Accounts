@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAppStore } from "@/lib/store";
 import { toast } from "sonner";
-import { Receipt, Wallet, Building2, ExternalLink } from "lucide-react";
+import { Receipt, Wallet, Building2, ExternalLink, Users } from "lucide-react";
 import Link from "next/link";
 import type { UserRole } from "@/types";
 import { EXPENSE_CATEGORIES, CATEGORY_KEYS } from "@/lib/expense-categories";
@@ -95,7 +95,7 @@ export function ExpenseClient({
       </div>
 
       {/* Tab selector */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <Link href="/petty-cash"
           className="flex flex-col items-center gap-2 p-4 rounded-xl border border-surface-border bg-surface-2 hover:border-accent-blue/30 hover:bg-surface-3 transition-all text-center group"
         >
@@ -103,6 +103,17 @@ export function ExpenseClient({
           <div>
             <div className="text-sm font-semibold text-ink-white">Petty Cash</div>
             <div className="text-2xs text-ink-faint mt-0.5">BDT cash expenses</div>
+          </div>
+          <ExternalLink className="w-3 h-3 text-ink-faint" />
+        </Link>
+
+        <Link href="/salary"
+          className="flex flex-col items-center gap-2 p-4 rounded-xl border border-surface-border bg-surface-2 hover:border-accent-blue/30 hover:bg-surface-3 transition-all text-center group"
+        >
+          <Users className="w-5 h-5 text-accent-purple group-hover:text-accent-blue" />
+          <div>
+            <div className="text-sm font-semibold text-ink-white">Salary</div>
+            <div className="text-2xs text-ink-faint mt-0.5">Manage payroll</div>
           </div>
           <ExternalLink className="w-3 h-3 text-ink-faint" />
         </Link>

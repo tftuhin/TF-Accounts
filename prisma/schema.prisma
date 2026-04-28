@@ -98,6 +98,14 @@ enum BankAccountType {
   @@map("bank_account_type")
 }
 
+enum EmployeeStatus {
+  ACTIVE
+  RESIGNED
+  ON_LEAVE
+
+  @@map("employee_status")
+}
+
 enum PettyCashTxnType {
   ATM_WITHDRAWAL
   CARD_PAYMENT
@@ -513,6 +521,8 @@ model User {
   interBrandTransfers InterBrandTransfer[]
   auditLogs        AuditLog[]
   salaries         Salary[]
+  employees        Employee[]
+  salaryIncrements SalaryIncrement[]
 
   @@map("users")
 }
@@ -599,17 +609,64 @@ model FixedAsset {
 // ─── SALARY PAYMENTS ────────────────────────────────────────
 
 model Salary {
-  id           String   @id @default(uuid())
-  employeeName String   @map("employee_name")
-  amount       Decimal  @db.Decimal(15, 2)
-  date         DateTime @db.Date
-  month        String?
-  notes        String?
-  createdById  String   @map("created_by")
-  creator      User     @relation(fields: [createdById], references: [id])
-  createdAt    DateTime @default(now()) @map("created_at")
+  id              String    @id @default(uuid())
+  employeeId      String?   @map("employee_id")
+  employee        Employee? @relation(fields: [employeeId], references: [id])
+  employeeName    String?   @map("employee_name")
+  amount          Decimal   @db.Decimal(15, 2)
+  adjustment      Decimal?  @db.Decimal(15, 2)
+  adjustmentNote  String?   @map("adjustment_note")
+  payPeriod       String?   @map("pay_period")
+  date            DateTime  @db.Date
+  month           String?
+  notes           String?
+  createdById     String    @map("created_by")
+  creator         User      @relation(fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   @@index([date(sort: Desc)])
   @@index([createdById])
+  @@index([employeeId])
   @@map("salaries")
+}
+
+// ─── EMPLOYEES ──────────────────────────────────────────────
+
+model Employee {
+  id          String         @id @default(uuid())
+  name        String
+  designation String?
+  department  String?
+  baseSalary  Decimal        @map("base_salary") @db.Decimal(15, 2)
+  status      EmployeeStatus @default(ACTIVE)
+  joinedAt    DateTime?      @db.Date @map("joined_at")
+  resignedAt  DateTime?      @db.Date @map("resigned_at")
+  notes       String?
+  createdById String         @map("created_by")
+  creator     User           @relation(fields: [createdById], references: [id])
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  salaries   Salary[]
+  increments SalaryIncrement[]
+
+  @@index([status])
+  @@map("employees")
+}
+
+model SalaryIncrement {
+  id             String   @id @default(uuid())
+  employeeId     String   @map("employee_id")
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  previousSalary Decimal  @map("previous_salary") @db.Decimal(15, 2)
+  newSalary      Decimal  @map("new_salary") @db.Decimal(15, 2)
+  effectiveDate  DateTime @db.Date @map("effective_date")
+  reason         String?
+  createdById    String   @map("created_by")
+  creator        User     @relation(fields: [createdById], references: [id])
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([employeeId])
+  @@index([effectiveDate(sort: Desc)])
+  @@map("salary_increments")
 }
