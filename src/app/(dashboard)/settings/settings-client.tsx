@@ -835,37 +835,37 @@ export function SettingsClient({
       {/* ── Delete Team Member Confirmation Modal ──────────────── */}
       {deleteConfirmModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-gradient-to-br from-surface-primary to-surface-secondary rounded-xl shadow-2xl max-w-md w-full p-8 space-y-6 border border-accent-red/40">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8 space-y-6 border border-accent-red/40">
             {/* Header */}
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-accent-red/25 flex items-center justify-center flex-shrink-0 border border-accent-red/50">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 border border-accent-red/50">
                 <Trash2 className="w-6 h-6 text-accent-red" />
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-lg text-ink-white">Remove Team Member?</h3>
-                <p className="text-sm text-ink-secondary mt-2">
+                <h3 className="font-bold text-lg text-gray-900">Remove Team Member?</h3>
+                <p className="text-sm text-gray-600 mt-2">
                   You're about to remove <span className="font-semibold text-accent-red">{deleteConfirmModal.fullName}</span>
                   <br />
-                  <span className="text-xs text-ink-muted">{deleteConfirmModal.email}</span>
+                  <span className="text-xs text-gray-500">{deleteConfirmModal.email}</span>
                 </p>
               </div>
             </div>
 
             {/* Warning Section */}
-            <div className="bg-accent-red/20 border-2 border-accent-red/60 rounded-lg p-4 space-y-3">
+            <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4 space-y-3">
               <p className="font-bold text-accent-red flex items-center gap-2">
                 <span className="text-lg">⚠️</span> This action is permanent
               </p>
               <ul className="space-y-2 text-sm">
-                <li className="flex gap-2 text-ink-white">
+                <li className="flex gap-2 text-gray-700">
                   <span className="text-accent-red font-bold">•</span>
                   <span>They will immediately lose access to all data</span>
                 </li>
-                <li className="flex gap-2 text-ink-white">
+                <li className="flex gap-2 text-gray-700">
                   <span className="text-accent-red font-bold">•</span>
                   <span>All their records will be permanently deleted</span>
                 </li>
-                <li className="flex gap-2 text-ink-white">
+                <li className="flex gap-2 text-gray-700">
                   <span className="text-accent-red font-bold">•</span>
                   <span>This cannot be undone</span>
                 </li>
@@ -877,7 +877,7 @@ export function SettingsClient({
               <button
                 onClick={() => setDeleteConfirmModal(null)}
                 disabled={removingMemberId === deleteConfirmModal.id}
-                className="flex-1 px-4 py-3 rounded-lg bg-surface-secondary border border-surface-border text-ink-primary hover:bg-surface-tertiary transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 rounded-lg bg-gray-100 border border-gray-300 text-gray-900 hover:bg-gray-200 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
