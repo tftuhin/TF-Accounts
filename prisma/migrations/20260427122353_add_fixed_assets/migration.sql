@@ -4,6 +4,9 @@ CREATE TYPE "asset_category" AS ENUM ('COMPUTER_ELECTRONICS', 'FURNITURE_FIXTURE
 -- CreateEnum
 CREATE TYPE "asset_status" AS ENUM ('ACTIVE', 'DISPOSED', 'WRITTEN_OFF');
 
+-- CreateEnum
+CREATE TYPE "currency" AS ENUM ('USD', 'BDT');
+
 -- CreateTable
 CREATE TABLE "fixed_assets" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
@@ -37,7 +40,7 @@ CREATE UNIQUE INDEX "fixed_assets_journal_entry_id_key" ON "fixed_assets"("journ
 ALTER TABLE "fixed_assets" ADD CONSTRAINT "fixed_assets_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entities"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "fixed_assets" ADD CONSTRAINT "fixed_assets_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "profiles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "fixed_assets" ADD CONSTRAINT "fixed_assets_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "fixed_assets" ADD CONSTRAINT "fixed_assets_journal_entry_id_fkey" FOREIGN KEY ("journal_entry_id") REFERENCES "journal_entries"("id") ON DELETE SET NULL ON UPDATE CASCADE;
