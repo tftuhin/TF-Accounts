@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabase-server";
+import { prisma } from "@/lib/prisma";
 
 export async function DELETE(
   req: NextRequest,
@@ -16,21 +17,22 @@ export async function DELETE(
   try {
     const { id } = await context.params;
 
-    // Delete from Supabase auth
+    // Delete from database first (handles cascading deletes via Prisma)
+    await prisma.user.delete({
+      where: { id },
+    });
+
+    // Then delete from Supabase auth
     const { error: authError } = await supabaseServer.auth.admin.deleteUser(id);
-    if (authError) throw new Error(authError.message);
+    if (authError) {
+      console.warn(`Warning: Could not delete user from Supabase auth: ${authError.message}`);
+      // Don't throw - user is already deleted from database
+    }
 
-    // Delete from profiles table
-    const { error: profileError } = await supabaseServer
-      .from("profiles")
-      .delete()
-      .eq("id", id);
-
-    if (profileError) throw new Error(profileError.message);
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: "Team member removed successfully" });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";
+    console.error("Delete user error:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
