@@ -67,23 +67,13 @@ async function main() {
       },
     });
 
-    // Create ownership for sub-brand (parent auto-created)
-    await prisma.ownershipRegistry.create({
-      data: {
-        entityId: entity2.id,
-        ownerName: entity1.name,
-        ownershipPct: 100,
-        effectiveFrom: new Date("2026-01-01"),
-      },
-    });
-
-    // Add owner to parent entity
+    // Create ownership - parent entity owner
     await prisma.ownershipRegistry.create({
       data: {
         entityId: entity1.id,
         ownerName: "Rafiqul Islam",
         ownershipPct: 100,
-        effectiveFrom: new Date("2026-01-01"),
+        effectiveFrom: new Date("2025-05-01"),
       },
     });
 
