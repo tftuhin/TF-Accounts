@@ -22,9 +22,12 @@ export async function POST(req: NextRequest) {
 
     // Create auth user with a temporary password — they'll receive invite email
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tf-accounts.vercel.app";
+    const redirectUrl = `${appUrl}/signup`;
+    console.log(`Sending invite to ${email} with redirect: ${redirectUrl}`);
+
     const { data: authData, error: authError } = await supabaseServer.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName, role },
-      redirectTo: `${appUrl}/signup`,
+      redirectTo: redirectUrl,
     });
 
     if (authError) throw new Error(authError.message);
