@@ -501,16 +501,14 @@ model BankStatementItem {
 }
 
 // ─── USERS & RBAC ───────────────────────────────────────────
+// Maps to Supabase's public.profiles table (auth users)
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  fullName     String   @map("full_name")
-  role         UserRole @default(ENTRY_MANAGER)
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id       String   @id @default(uuid())
+  email    String   @unique
+  fullName String   @map("full_name")
+  role     UserRole @default(ENTRY_MANAGER)
+  isActive Boolean  @default(true) @map("is_active")
 
   entityAccess     UserEntityAccess[]
   journalEntries   JournalEntry[]
@@ -523,8 +521,9 @@ model User {
   salaries         Salary[]
   employees        Employee[]
   salaryIncrements SalaryIncrement[]
+  fixedAssets      FixedAsset[]
 
-  @@map("users")
+  @@map("profiles")
 }
 
 model UserEntityAccess {
@@ -599,6 +598,7 @@ model FixedAsset {
   journalEntryId   String?       @unique @map("journal_entry_id")
   journalEntry     JournalEntry? @relation(fields: [journalEntryId], references: [id])
   createdById      String?       @map("created_by")
+  creator          User?         @relation(fields: [createdById], references: [id])
   createdAt        DateTime      @default(now()) @map("created_at")
   updatedAt        DateTime      @updatedAt @map("updated_at")
 
