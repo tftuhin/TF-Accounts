@@ -200,42 +200,42 @@ INSERT INTO drawings (id, entity_id, ownership_registry_id, source_account, amou
 -- February Salary Entry 1 (Hassan + Bonus)
 INSERT INTO journal_entries (id, entity_id, entry_number, date, description, reference, status, created_by_role, created_at, updated_at) VALUES
   ('je-sal-feb-001', 'ent-parent-001', 1, '2026-02-15', 'Salary payment - Md. Hassan with bonus', 'sal-feb-001', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-sal-feb-001-1', 'je-sal-feb-001', 'coa-4001', 'ent-parent-001', 'DEBIT', 52500, 'BDT', NOW(), NOW()),
   ('jel-sal-feb-001-2', 'je-sal-feb-001', 'coa-2001', 'ent-parent-001', 'CREDIT', 52500, 'BDT', NOW(), NOW());
 
 -- February Salary Entry 2 (Hassan advance)
 INSERT INTO journal_entries (id, entity_id, entry_number, date, description, reference, status, created_by_role, created_at, updated_at) VALUES
   ('je-sal-feb-002', 'ent-parent-001', 2, '2026-02-01', 'Salary advance - Md. Hassan', 'sal-feb-002', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-sal-feb-002-1', 'je-sal-feb-002', 'coa-4001', 'ent-parent-001', 'DEBIT', 25000, 'BDT', NOW(), NOW()),
   ('jel-sal-feb-002-2', 'je-sal-feb-002', 'coa-2001', 'ent-parent-001', 'CREDIT', 25000, 'BDT', NOW(), NOW());
 
 -- February Salary Entry 3 (Ayesha + Bonus)
 INSERT INTO journal_entries (id, entity_id, entry_number, date, description, reference, status, created_by_role, created_at, updated_at) VALUES
   ('je-sal-feb-003', 'ent-parent-001', 3, '2026-02-15', 'Salary payment - Ayesha Khan with bonus', 'sal-feb-003', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-sal-feb-003-1', 'je-sal-feb-003', 'coa-4001', 'ent-parent-001', 'DEBIT', 36750, 'BDT', NOW(), NOW()),
   ('jel-sal-feb-003-2', 'je-sal-feb-003', 'coa-2001', 'ent-parent-001', 'CREDIT', 36750, 'BDT', NOW(), NOW());
 
 -- February Salary Entry 4 (Ayesha advance)
 INSERT INTO journal_entries (id, entity_id, entry_number, date, description, reference, status, created_by_role, created_at, updated_at) VALUES
   ('je-sal-feb-004', 'ent-parent-001', 4, '2026-02-01', 'Salary advance - Ayesha Khan', 'sal-feb-004', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-sal-feb-004-1', 'je-sal-feb-004', 'coa-4001', 'ent-parent-001', 'DEBIT', 17500, 'BDT', NOW(), NOW()),
   ('jel-sal-feb-004-2', 'je-sal-feb-004', 'coa-2001', 'ent-parent-001', 'CREDIT', 17500, 'BDT', NOW(), NOW());
 
 -- February Salary Entry 5 (Rahman + Bonus)
 INSERT INTO journal_entries (id, entity_id, entry_number, date, description, reference, status, created_by_role, created_at, updated_at) VALUES
   ('je-sal-feb-005', 'ent-parent-001', 5, '2026-02-15', 'Salary payment - Rahman Ahmed with bonus', 'sal-feb-005', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-sal-feb-005-1', 'je-sal-feb-005', 'coa-4001', 'ent-parent-001', 'DEBIT', 42000, 'BDT', NOW(), NOW()),
   ('jel-sal-feb-005-2', 'je-sal-feb-005', 'coa-2001', 'ent-parent-001', 'CREDIT', 42000, 'BDT', NOW(), NOW());
 
 -- February Salary Entry 6 (Rahman advance)
 INSERT INTO journal_entries (id, entity_id, entry_number, date, description, reference, status, created_by_role, created_at, updated_at) VALUES
   ('je-sal-feb-006', 'ent-parent-001', 6, '2026-02-01', 'Salary advance - Rahman Ahmed', 'sal-feb-006', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-sal-feb-006-1', 'je-sal-feb-006', 'coa-4001', 'ent-parent-001', 'DEBIT', 20000, 'BDT', NOW(), NOW()),
   ('jel-sal-feb-006-2', 'je-sal-feb-006', 'coa-2001', 'ent-parent-001', 'CREDIT', 20000, 'BDT', NOW(), NOW());
 
@@ -248,7 +248,7 @@ INSERT INTO journal_entries (id, entity_id, entry_number, date, description, ref
   ('je-sal-mar-005', 'ent-parent-001', 11, '2026-03-15', 'Salary payment - Rahman Ahmed with bonus', 'sal-mar-005', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW()),
   ('je-sal-mar-006', 'ent-parent-001', 12, '2026-03-01', 'Salary advance - Rahman Ahmed', 'sal-mar-006', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
 
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-sal-mar-001-1', 'je-sal-mar-001', 'coa-4001', 'ent-parent-001', 'DEBIT', 52500, 'BDT', NOW(), NOW()),
   ('jel-sal-mar-001-2', 'je-sal-mar-001', 'coa-2001', 'ent-parent-001', 'CREDIT', 52500, 'BDT', NOW(), NOW()),
   ('jel-sal-mar-002-1', 'je-sal-mar-002', 'coa-4001', 'ent-parent-001', 'DEBIT', 25000, 'BDT', NOW(), NOW()),
@@ -271,7 +271,7 @@ INSERT INTO journal_entries (id, entity_id, entry_number, date, description, ref
   ('je-sal-apr-005', 'ent-parent-001', 17, '2026-04-15', 'Salary payment - Rahman Ahmed with bonus', 'sal-apr-005', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW()),
   ('je-sal-apr-006', 'ent-parent-001', 18, '2026-04-01', 'Salary advance - Rahman Ahmed', 'sal-apr-006', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
 
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-sal-apr-001-1', 'je-sal-apr-001', 'coa-4001', 'ent-parent-001', 'DEBIT', 52500, 'BDT', NOW(), NOW()),
   ('jel-sal-apr-001-2', 'je-sal-apr-001', 'coa-2001', 'ent-parent-001', 'CREDIT', 52500, 'BDT', NOW(), NOW()),
   ('jel-sal-apr-002-1', 'je-sal-apr-002', 'coa-4001', 'ent-parent-001', 'DEBIT', 25000, 'BDT', NOW(), NOW()),
@@ -302,7 +302,7 @@ INSERT INTO journal_entries (id, entity_id, entry_number, date, description, ref
   ('je-pce-feb-11', 'ent-subbrand-001', 29, '2026-02-21', 'Office rent advance', 'pce-feb-11', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW()),
   ('je-pce-feb-12', 'ent-subbrand-001', 30, '2026-02-23', 'Maintenance supplies', 'pce-feb-12', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
 
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-pce-feb-01-1', 'je-pce-feb-01', 'coa-5006', 'ent-subbrand-001', 'DEBIT', 1250, 'BDT', NOW(), NOW()),
   ('jel-pce-feb-01-2', 'je-pce-feb-01', 'coa-5002', 'ent-subbrand-001', 'CREDIT', 1250, 'BDT', NOW(), NOW()),
   ('jel-pce-feb-02-1', 'je-pce-feb-02', 'coa-5006', 'ent-subbrand-001', 'DEBIT', 2450, 'BDT', NOW(), NOW()),
@@ -343,7 +343,7 @@ INSERT INTO journal_entries (id, entity_id, entry_number, date, description, ref
   ('je-pce-mar-11', 'ent-subbrand-001', 41, '2026-03-21', 'Office rent advance', 'pce-mar-11', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW()),
   ('je-pce-mar-12', 'ent-subbrand-001', 42, '2026-03-23', 'Maintenance supplies', 'pce-mar-12', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
 
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-pce-mar-01-1', 'je-pce-mar-01', 'coa-5006', 'ent-subbrand-001', 'DEBIT', 1250, 'BDT', NOW(), NOW()),
   ('jel-pce-mar-01-2', 'je-pce-mar-01', 'coa-5002', 'ent-subbrand-001', 'CREDIT', 1250, 'BDT', NOW(), NOW()),
   ('jel-pce-mar-02-1', 'je-pce-mar-02', 'coa-5006', 'ent-subbrand-001', 'DEBIT', 2450, 'BDT', NOW(), NOW()),
@@ -384,7 +384,7 @@ INSERT INTO journal_entries (id, entity_id, entry_number, date, description, ref
   ('je-pce-apr-11', 'ent-subbrand-001', 53, '2026-04-21', 'Office rent advance', 'pce-apr-11', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW()),
   ('je-pce-apr-12', 'ent-subbrand-001', 54, '2026-04-23', 'Maintenance supplies', 'pce-apr-12', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
 
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-pce-apr-01-1', 'je-pce-apr-01', 'coa-5006', 'ent-subbrand-001', 'DEBIT', 1250, 'BDT', NOW(), NOW()),
   ('jel-pce-apr-01-2', 'je-pce-apr-01', 'coa-5002', 'ent-subbrand-001', 'CREDIT', 1250, 'BDT', NOW(), NOW()),
   ('jel-pce-apr-02-1', 'je-pce-apr-02', 'coa-5006', 'ent-subbrand-001', 'DEBIT', 2450, 'BDT', NOW(), NOW()),
@@ -420,7 +420,7 @@ INSERT INTO journal_entries (id, entity_id, entry_number, date, description, ref
   ('je-drw-apr-001', 'ent-parent-001', 59, '2026-04-10', 'Owner drawing - profit distribution', 'drw-apr-001', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW()),
   ('je-drw-apr-002', 'ent-parent-001', 60, '2026-04-25', 'Owner drawing - owner compensation', 'drw-apr-002', 'FINALIZED', 'ENTRY_MANAGER', NOW(), NOW());
 
-INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at, updated_at) VALUES
+INSERT INTO journal_entry_lines (id, journal_entry_id, account_id, entity_id, entry_type, amount, currency, created_at) VALUES
   ('jel-drw-feb-001-1', 'je-drw-feb-001', 'coa-3002', 'ent-parent-001', 'DEBIT', 25000, 'BDT', NOW(), NOW()),
   ('jel-drw-feb-001-2', 'je-drw-feb-001', 'coa-1001', 'ent-parent-001', 'CREDIT', 25000, 'BDT', NOW(), NOW()),
   ('jel-drw-feb-002-1', 'je-drw-feb-002', 'coa-3002', 'ent-parent-001', 'DEBIT', 15000, 'BDT', NOW(), NOW()),
