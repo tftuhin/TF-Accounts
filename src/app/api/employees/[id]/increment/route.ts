@@ -36,7 +36,7 @@ export async function POST(
         newSalary: newSalaryNum,
         effectiveDate: new Date(effectiveDate),
         reason: reason || null,
-        createdById: session.id,
+        createdById: session?.id || null,
       },
     });
 

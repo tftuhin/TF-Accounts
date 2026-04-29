@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
         baseSalary: parseFloat(baseSalary),
         joinedAt: joinedAt ? new Date(joinedAt) : null,
         notes: notes || null,
-        createdById: session.id,
+        createdById: session?.id || null,
       },
     });
 
