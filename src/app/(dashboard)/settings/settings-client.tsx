@@ -291,6 +291,7 @@ export function SettingsClient({
   const [savingMemberRole, setSavingMemberRole] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ id: string; email: string; fullName: string } | null>(null);
   const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
 
   function startEditMemberRole(memberId: string, currentRole: string) {
@@ -316,19 +317,21 @@ export function SettingsClient({
     }
   }
 
-  async function handleRemoveMember(id: string, email: string) {
-    if (confirmingRemoveId !== id) {
-      setConfirmingRemoveId(id);
-      return;
-    }
+  function showDeleteConfirmation(id: string, email: string, fullName: string) {
+    setDeleteConfirmModal({ id, email, fullName });
+  }
+
+  async function confirmDeleteMember() {
+    if (!deleteConfirmModal) return;
+    const { id, email } = deleteConfirmModal;
     setRemovingMemberId(id);
     try {
       const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       setTeamMembers((prev) => prev.filter((m) => m.id !== id));
-      toast.success(`${email} removed from team`);
-      setConfirmingRemoveId(null);
+      toast.success(`${email} has been removed from the team`);
+      setDeleteConfirmModal(null);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to remove member");
     } finally {
@@ -732,14 +735,10 @@ export function SettingsClient({
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleRemoveMember(m.id, m.email)}
+                          onClick={() => showDeleteConfirmation(m.id, m.email, m.fullName)}
                           disabled={removingMemberId === m.id}
-                          className={`p-1 rounded transition ${
-                            confirmingRemoveId === m.id
-                              ? "text-accent-red bg-accent-red/10"
-                              : "text-ink-faint hover:text-accent-red hover:bg-accent-red/10"
-                          }`}
-                          title={confirmingRemoveId === m.id ? "Click again to confirm" : "Remove member"}
+                          className="p-1 rounded transition text-ink-faint hover:text-accent-red hover:bg-accent-red/10"
+                          title="Remove member"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -772,14 +771,10 @@ export function SettingsClient({
                         <Send className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleRemoveMember(m.id, m.email)}
+                        onClick={() => showDeleteConfirmation(m.id, m.email, m.fullName)}
                         disabled={removingMemberId === m.id}
-                        className={`p-1 rounded transition ${
-                          confirmingRemoveId === m.id
-                            ? "text-accent-red bg-accent-red/10"
-                            : "text-ink-faint hover:text-accent-red hover:bg-accent-red/10"
-                        }`}
-                        title={confirmingRemoveId === m.id ? "Click again to confirm" : "Remove member"}
+                        className="p-1 rounded transition text-ink-faint hover:text-accent-red hover:bg-accent-red/10"
+                        title="Remove member"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -836,6 +831,51 @@ export function SettingsClient({
           {seeding ? "Deleting…" : confirmSeed ? "Click again to confirm — all seed data will be deleted" : "Delete All Seed Data"}
         </button>
       </div>
+
+      {/* ── Delete Team Member Confirmation Modal ──────────────── */}
+      {deleteConfirmModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface-primary rounded-lg shadow-lg max-w-md w-full p-6 space-y-4 border border-surface-border">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-accent-red/20 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-accent-red" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-ink-white">Remove Team Member?</h3>
+                <p className="text-sm text-ink-muted mt-1">
+                  This action will permanently remove <span className="font-semibold text-ink-white">{deleteConfirmModal.fullName}</span> ({deleteConfirmModal.email}) from your team.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-accent-red/10 border border-accent-red/30 rounded p-3 text-sm text-accent-red space-y-1">
+              <p className="font-medium">⚠️ Warning:</p>
+              <ul className="list-disc list-inside space-y-1 text-xs">
+                <li>They will lose access to all entities and data</li>
+                <li>This action cannot be undone</li>
+                <li>Their records will be deleted from the system</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirmModal(null)}
+                disabled={removingMemberId === deleteConfirmModal.id}
+                className="flex-1 px-4 py-2 rounded-lg border border-surface-border text-ink-secondary hover:bg-surface-secondary transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteMember}
+                disabled={removingMemberId === deleteConfirmModal.id}
+                className="flex-1 px-4 py-2 rounded-lg bg-accent-red text-white hover:bg-accent-red/90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {removingMemberId === deleteConfirmModal.id ? "Removing…" : "Remove Member"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
