@@ -396,7 +396,7 @@ async function main() {
       }
 
       // ── FUND TRANSFERS (2 per month) ──
-      if (bdtAccount1 && usdAccount1) {
+      if (bdtAccount1 && usdAccount1 && userId) {
         // Transfer 1
         await prisma.fundTransfer.create({
           data: {
@@ -411,7 +411,7 @@ async function main() {
             date: new Date(start.getFullYear(), start.getMonth(), 7),
             reference: `FT-${month}-001`,
             note: "Monthly fund transfer",
-            ...(userId && { createdBy: userId }),
+            createdBy: userId,
           },
         });
         fundTransferCount++;
@@ -430,14 +430,14 @@ async function main() {
             date: new Date(start.getFullYear(), start.getMonth(), 20),
             reference: `FT-${month}-002`,
             note: "Return transfer",
-            ...(userId && { createdBy: userId }),
+            createdBy: userId,
           },
         });
         fundTransferCount++;
       }
 
       // ── BANK STATEMENTS (2 per month) ──
-      const statement1 = await prisma.bankStatement.create({
+      const statement1 = userId ? await prisma.bankStatement.create({
         data: {
           entityId: entity1.id,
           statementDate: new Date(start.getFullYear(), start.getMonth(), 10),
@@ -445,13 +445,14 @@ async function main() {
           totalCredits: 150000,
           totalDebits: 120000,
           currency: "BDT",
-          ...(userId && { uploadedById: userId }),
+          uploadedById: userId,
         },
-      });
+      }) : null;
 
-      await prisma.bankStatementItem.create({
-        data: {
-          statementId: statement1.id,
+      if (statement1) {
+        await prisma.bankStatementItem.create({
+          data: {
+            statementId: statement1.id,
           date: new Date(start.getFullYear(), start.getMonth(), 5),
           description: "Deposit from sales",
           amount: 75000,
@@ -461,19 +462,20 @@ async function main() {
       });
       bankStatementCount++;
 
-      await prisma.bankStatementItem.create({
-        data: {
-          statementId: statement1.id,
-          date: new Date(start.getFullYear(), start.getMonth(), 10),
-          description: "Salary payment",
-          amount: 125000,
-          entryType: "CREDIT",
-          status: "UNMATCHED",
-        },
-      });
-      bankStatementCount++;
+        await prisma.bankStatementItem.create({
+          data: {
+            statementId: statement1.id,
+            date: new Date(start.getFullYear(), start.getMonth(), 10),
+            description: "Salary payment",
+            amount: 125000,
+            entryType: "CREDIT",
+            status: "UNMATCHED",
+          },
+        });
+        bankStatementCount++;
+      }
 
-      const statement2 = await prisma.bankStatement.create({
+      const statement2 = userId ? await prisma.bankStatement.create({
         data: {
           entityId: entity1.id,
           statementDate: new Date(start.getFullYear(), start.getMonth(), 25),
@@ -481,13 +483,14 @@ async function main() {
           totalCredits: 2500,
           totalDebits: 1800,
           currency: "USD",
-          ...(userId && { uploadedById: userId }),
+          uploadedById: userId,
         },
-      });
+      }) : null;
 
-      await prisma.bankStatementItem.create({
-        data: {
-          statementId: statement2.id,
+      if (statement2) {
+        await prisma.bankStatementItem.create({
+          data: {
+            statementId: statement2.id,
           date: new Date(start.getFullYear(), start.getMonth(), 15),
           description: "International payment",
           amount: 1500,
@@ -495,14 +498,15 @@ async function main() {
           status: "MATCHED",
         },
       });
-      bankStatementCount++;
+        bankStatementCount++;
+      }
 
       // ── DRAWINGS (2 per month - owner withdrawals) ──
       const ownership = await prisma.ownershipRegistry.findFirst({
         where: { entityId: entity1.id, effectiveTo: null },
       });
 
-      if (ownership) {
+      if (ownership && userId) {
         await prisma.drawing.create({
           data: {
             entityId: entity1.id,
@@ -513,8 +517,8 @@ async function main() {
             date: new Date(start.getFullYear(), start.getMonth(), 10),
             status: "APPROVED",
             note: "Monthly profit distribution",
-            ...(userId && { createdById: userId }),
-            ...(userId && { approvedBy: userId }),
+            createdById: userId,
+            approvedBy: userId,
             approvedAt: new Date(),
           },
         });
@@ -530,8 +534,8 @@ async function main() {
             date: new Date(start.getFullYear(), start.getMonth(), 25),
             status: "APPROVED",
             note: "Owner compensation",
-            ...(userId && { createdById: userId }),
-            ...(userId && { approvedBy: userId }),
+            createdById: userId,
+            approvedBy: userId,
             approvedAt: new Date(),
           },
         });
@@ -622,8 +626,9 @@ async function main() {
           _sum: { amount: true, adjustment: true },
         });
 
-        if ((totalSalary._sum.amount || 0) > 0) {
-          const totalAmount = (totalSalary._sum.amount || 0) + (totalSalary._sum.adjustment || 0);
+        const salaryAmount = Number(totalSalary._sum.amount || 0);
+        if (salaryAmount > 0) {
+          const totalAmount = salaryAmount + Number(totalSalary._sum.adjustment || 0);
           const je = await prisma.journalEntry.create({
             data: {
               entityId: entity1.id,
