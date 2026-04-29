@@ -22,6 +22,7 @@ export async function POST(request: NextRequest) {
   try {
     let supabaseResponse = NextResponse.next({ request });
 
+    console.log("Creating Supabase client...");
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll() {
@@ -37,10 +38,11 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    console.log("Attempting sign in with password...");
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      console.error("Login error:", error);
+      console.error("Supabase auth error:", error);
       if (error.message.includes("Invalid login credentials")) {
         return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
       }
@@ -62,9 +64,10 @@ export async function POST(request: NextRequest) {
 
     return supabaseResponse;
   } catch (err) {
-    console.error("Login API error:", err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("Login API error:", errorMessage, err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Login failed" },
+      { error: `Server error: ${errorMessage}` },
       { status: 500 }
     );
   }
