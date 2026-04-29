@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
         description,
         status: "FINALIZED",
         category: subcategory ? `${category || "Expense"} › ${subcategory}` : (category || "Expense"),
-        createdById: session.id,
+        ...(session.id ? { createdById: session.id } : {}),
         createdByRole: session.role,
         lines: {
           create: [

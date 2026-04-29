@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
         description: `Drawing by ${ownerName} from ${sourceLabel}`,
         status: "FINALIZED",
         category: "Owner Drawing",
-        createdById: session.id,
+        ...(session.id ? { createdById: session.id } : {}),
         createdByRole: session.role,
         lines: {
           create: [
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
         status: data.amount > currentBalance ? "PENDING" : "COMPLETED",
         note: data.note,
         accountBalanceAtDraw: currentBalance,
-        createdById: session.id,
+        ...(session.id ? { createdById: session.id } : {}),
       },
     });
 

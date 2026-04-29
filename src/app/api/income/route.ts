@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
         description,
         status: "FINALIZED",
         category: "Income",
-        createdById: session.id,
+        ...(session.id ? { createdById: session.id } : {}),
         createdByRole: session.role,
         lines: {
           create: [

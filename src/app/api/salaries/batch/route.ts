@@ -40,7 +40,6 @@ export async function POST(req: NextRequest) {
             payPeriod,
             date: salaryDate,
             notes: notes || null,
-            createdById: session.id,
           },
         })
       )

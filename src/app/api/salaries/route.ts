@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         month: month || null,
         payPeriod: payPeriod || null,
         notes: notes || null,
-        createdById: session.id,
+        ...(session.id ? { createdById: session.id } : {}),
       },
     });
 

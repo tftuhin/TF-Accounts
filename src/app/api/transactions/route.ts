@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
         status: "FINALIZED",
         category: data.category,
         receiptUrl: data.receiptUrl || null,
-        createdById: session.id,
+        ...(session.id ? { createdById: session.id } : {}),
         createdByRole: session.role,
         pfRatioVersionId: currentRatio?.id,
         isSplit: data.splitEnabled || false,
