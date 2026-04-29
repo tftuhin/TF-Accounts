@@ -143,6 +143,35 @@ async function main() {
       },
     });
 
+    const coa_revenue = await prisma.chartOfAccounts.create({
+      data: {
+        entityId: entity1.id,
+        accountCode: "4000",
+        accountName: "Service Revenue",
+        accountGroup: "revenue",
+        pfAccount: "INCOME",
+      },
+    });
+
+    const coa_revenue_xyz = await prisma.chartOfAccounts.create({
+      data: {
+        entityId: entity2.id,
+        accountCode: "4000",
+        accountName: "Service Revenue",
+        accountGroup: "revenue",
+        pfAccount: "INCOME",
+      },
+    });
+
+    const coa_bank_xyz = await prisma.chartOfAccounts.create({
+      data: {
+        entityId: entity2.id,
+        accountCode: "1001",
+        accountName: "Jamuna Bank BDT",
+        accountGroup: "asset",
+      },
+    });
+
     // Create bank accounts
     console.log("  Creating bank accounts...");
     const bdtAccount1 = await prisma.bankAccount.create({
@@ -213,9 +242,18 @@ async function main() {
       },
     });
 
-    // Create 3 months of data (Feb, Mar, Apr 2026)
-    console.log("  Creating 3 months of transactions...");
+    // Create 12 months of data (May 2025 - Apr 2026)
+    console.log("  Creating 12 months of transactions...");
     const months = [
+      { month: "2025-05", start: new Date("2025-05-01"), end: new Date("2025-05-31") },
+      { month: "2025-06", start: new Date("2025-06-01"), end: new Date("2025-06-30") },
+      { month: "2025-07", start: new Date("2025-07-01"), end: new Date("2025-07-31") },
+      { month: "2025-08", start: new Date("2025-08-01"), end: new Date("2025-08-31") },
+      { month: "2025-09", start: new Date("2025-09-01"), end: new Date("2025-09-30") },
+      { month: "2025-10", start: new Date("2025-10-01"), end: new Date("2025-10-31") },
+      { month: "2025-11", start: new Date("2025-11-01"), end: new Date("2025-11-30") },
+      { month: "2025-12", start: new Date("2025-12-01"), end: new Date("2025-12-31") },
+      { month: "2026-01", start: new Date("2026-01-01"), end: new Date("2026-01-31") },
       { month: "2026-02", start: new Date("2026-02-01"), end: new Date("2026-02-28") },
       { month: "2026-03", start: new Date("2026-03-01"), end: new Date("2026-03-31") },
       { month: "2026-04", start: new Date("2026-04-01"), end: new Date("2026-04-30") },
@@ -223,6 +261,7 @@ async function main() {
 
     let salaryCount = 0;
     let salaryIncrementCount = 0;
+    let incomeCount = 0;
     let pettyCashCount = 0;
     let fundTransferCount = 0;
     let bankStatementCount = 0;
@@ -264,8 +303,37 @@ async function main() {
         salaryCount++;
       }
 
-      // ── SALARY INCREMENTS (2 per month) ──
-      if (month === "2026-02") {
+      // ── INCOME RECORDS (2 per month - one per entity) ──
+      // ABC Trading income
+      await prisma.salary.create({
+        data: {
+          employeeName: "ABC Trading Ltd",
+          amount: 250000,
+          adjustment: 25000,
+          adjustmentNote: "Service revenue - Project A",
+          payPeriod: month,
+          date: new Date(end.getFullYear(), end.getMonth(), 10),
+          createdById: userId,
+        },
+      });
+      incomeCount++;
+
+      // XYZ Services income
+      await prisma.salary.create({
+        data: {
+          employeeName: "XYZ Services",
+          amount: 150000,
+          adjustment: 10000,
+          adjustmentNote: "Consulting fees - Monthly retainer",
+          payPeriod: month,
+          date: new Date(end.getFullYear(), end.getMonth(), 15),
+          createdById: userId,
+        },
+      });
+      incomeCount++;
+
+      // ── SALARY INCREMENTS (2 per year) ──
+      if (month === "2025-06") {
         await prisma.salaryIncrement.create({
           data: {
             employeeId: emp1.id,
@@ -278,7 +346,7 @@ async function main() {
         });
         salaryIncrementCount++;
       }
-      if (month === "2026-04") {
+      if (month === "2025-12") {
         await prisma.salaryIncrement.create({
           data: {
             employeeId: emp2.id,
@@ -481,6 +549,82 @@ async function main() {
       }
 
       // ── CREATE JOURNAL ENTRIES ──
+      // Income journal entries
+      const abcIncomeTotal = 275000; // 250000 + 25000 adjustment
+      const xyzIncomeTotal = 160000; // 150000 + 10000 adjustment
+
+      // ABC Trading income
+      const je_abc_income = await prisma.journalEntry.create({
+        data: {
+          entityId: entity1.id,
+          date: new Date(end.getFullYear(), end.getMonth(), 10),
+          description: `Service revenue - Project A (${month})`,
+          reference: `INC-ABC-${month}`,
+          status: "FINALIZED",
+          createdByRole: "ENTRY_MANAGER",
+          ...(userId && { createdById: userId }),
+        },
+      });
+
+      await prisma.journalEntryLine.create({
+        data: {
+          journalEntryId: je_abc_income.id,
+          accountId: coa_bank1.id,
+          entityId: entity1.id,
+          entryType: "DEBIT",
+          amount: abcIncomeTotal,
+          currency: "BDT",
+        },
+      });
+
+      await prisma.journalEntryLine.create({
+        data: {
+          journalEntryId: je_abc_income.id,
+          accountId: coa_revenue.id,
+          entityId: entity1.id,
+          entryType: "CREDIT",
+          amount: abcIncomeTotal,
+          currency: "BDT",
+        },
+      });
+      journalCount++;
+
+      // XYZ Services income
+      const je_xyz_income = await prisma.journalEntry.create({
+        data: {
+          entityId: entity2.id,
+          date: new Date(end.getFullYear(), end.getMonth(), 15),
+          description: `Consulting fees - Monthly retainer (${month})`,
+          reference: `INC-XYZ-${month}`,
+          status: "FINALIZED",
+          createdByRole: "ENTRY_MANAGER",
+          ...(userId && { createdById: userId }),
+        },
+      });
+
+      await prisma.journalEntryLine.create({
+        data: {
+          journalEntryId: je_xyz_income.id,
+          accountId: coa_bank_xyz.id,
+          entityId: entity2.id,
+          entryType: "DEBIT",
+          amount: xyzIncomeTotal,
+          currency: "BDT",
+        },
+      });
+
+      await prisma.journalEntryLine.create({
+        data: {
+          journalEntryId: je_xyz_income.id,
+          accountId: coa_revenue_xyz.id,
+          entityId: entity2.id,
+          entryType: "CREDIT",
+          amount: xyzIncomeTotal,
+          currency: "BDT",
+        },
+      });
+      journalCount++;
+
       // Salary expense journal entries
       for (const emp of [emp1, emp2, emp3]) {
         const totalSalary = await prisma.salary.aggregate({
@@ -659,7 +803,8 @@ async function main() {
     console.log("✅ Demo data seeded successfully!");
     console.log(`   Entities: 2`);
     console.log(`   Employees: 3`);
-    console.log(`   Months: 3`);
+    console.log(`   Months: 12`);
+    console.log(`   Income Records: ${incomeCount}`);
     console.log(`   Salaries: ${salaryCount}`);
     console.log(`   Salary Increments: ${salaryIncrementCount}`);
     console.log(`   Petty Cash Entries: ${pettyCashCount}`);
