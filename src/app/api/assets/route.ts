@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
         date: purchaseDate,
         status: "FINALIZED",
         category: `Asset › ${validated.category}`,
-        createdById: session?.id || null,
+        createdById: null,
         createdByRole: session.role,
         lines: {
           create: [
@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
         currency,
         usefulLifeYears: validated.usefulLifeYears,
         salvageValue: new Decimal((validated.salvageValue || 0).toString()),
-        createdById: session?.id || null,
+        createdById: null,
         journalEntryId: journalEntry.id,
       },
     });
@@ -262,7 +262,7 @@ export async function PATCH(req: NextRequest) {
         date: disposalDate,
         status: "FINALIZED",
         category: "Asset Disposal",
-        createdById: session?.id || null,
+        createdById: null,
         createdByRole: session.role,
         lines: {
           create: [
@@ -365,7 +365,7 @@ export async function PATCH(req: NextRequest) {
             currency: asset.currency,
             txnType: "FLOAT_TOPUP",
             journalEntryId: journalEntry.id,
-            createdById: session?.id || null,
+            createdById: null,
           },
         });
       }
