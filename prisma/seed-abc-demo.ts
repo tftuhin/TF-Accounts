@@ -87,6 +87,62 @@ async function main() {
       },
     });
 
+    // Create chart of accounts
+    console.log("  Creating chart of accounts...");
+    const coa_bank1 = await prisma.chartOfAccounts.create({
+      data: {
+        entityId: entity1.id,
+        accountCode: "1001",
+        accountName: "Dhaka Bank BDT",
+        accountGroup: "asset",
+      },
+    });
+
+    const coa_bank2 = await prisma.chartOfAccounts.create({
+      data: {
+        entityId: entity1.id,
+        accountCode: "1002",
+        accountName: "Standard Chartered USD",
+        accountGroup: "asset",
+      },
+    });
+
+    const coa_petty = await prisma.chartOfAccounts.create({
+      data: {
+        entityId: entity2.id,
+        accountCode: "1003",
+        accountName: "Petty Cash",
+        accountGroup: "asset",
+      },
+    });
+
+    const coa_salary = await prisma.chartOfAccounts.create({
+      data: {
+        entityId: entity1.id,
+        accountCode: "4001",
+        accountName: "Salaries & Wages",
+        accountGroup: "expense",
+      },
+    });
+
+    const coa_office_supplies = await prisma.chartOfAccounts.create({
+      data: {
+        entityId: entity2.id,
+        accountCode: "4002",
+        accountName: "Office Supplies",
+        accountGroup: "expense",
+      },
+    });
+
+    const coa_capital = await prisma.chartOfAccounts.create({
+      data: {
+        entityId: entity1.id,
+        accountCode: "3001",
+        accountName: "Owners Capital",
+        accountGroup: "equity",
+      },
+    });
+
     // Create bank accounts
     console.log("  Creating bank accounts...");
     const bdtAccount1 = await prisma.bankAccount.create({
@@ -171,6 +227,7 @@ async function main() {
     let fundTransferCount = 0;
     let bankStatementCount = 0;
     let drawingCount = 0;
+    let journalCount = 0;
 
     for (const { month, start, end } of months) {
       const mid = new Date((start.getTime() + end.getTime()) / 2);
@@ -422,6 +479,181 @@ async function main() {
         });
         drawingCount++;
       }
+
+      // ── CREATE JOURNAL ENTRIES ──
+      // Salary expense journal entries
+      for (const emp of [emp1, emp2, emp3]) {
+        const totalSalary = await prisma.salary.aggregate({
+          where: { employeeId: emp.id, payPeriod: month },
+          _sum: { amount: true, adjustment: true },
+        });
+
+        if ((totalSalary._sum.amount || 0) > 0) {
+          const totalAmount = (totalSalary._sum.amount || 0) + (totalSalary._sum.adjustment || 0);
+          const je = await prisma.journalEntry.create({
+            data: {
+              entityId: entity1.id,
+              date: end,
+              description: `Salary payment - ${emp.name} (${month})`,
+              reference: `SAL-${month}-${emp.id.substring(0, 8)}`,
+              status: "FINALIZED",
+              createdByRole: "ENTRY_MANAGER",
+              ...(userId && { createdById: userId }),
+            },
+          });
+
+          await prisma.journalEntryLine.create({
+            data: {
+              journalEntryId: je.id,
+              accountId: coa_salary.id,
+              entityId: entity1.id,
+              entryType: "DEBIT",
+              amount: totalAmount,
+              currency: "BDT",
+            },
+          });
+
+          await prisma.journalEntryLine.create({
+            data: {
+              journalEntryId: je.id,
+              accountId: coa_bank1.id,
+              entityId: entity1.id,
+              entryType: "CREDIT",
+              amount: totalAmount,
+              currency: "BDT",
+            },
+          });
+          journalCount++;
+        }
+      }
+
+      // Petty cash expense journal entries
+      const pettyCashEntries = await prisma.pettyCashEntry.findMany({
+        where: { entityId: entity2.id, date: { gte: start, lte: end } },
+      });
+
+      const totalPettyCash = pettyCashEntries.reduce((sum, e) => sum + Number(e.amount), 0);
+      if (totalPettyCash > 0) {
+        const je = await prisma.journalEntry.create({
+          data: {
+            entityId: entity2.id,
+            date: end,
+            description: `Petty cash expenses (${month})`,
+            reference: `PC-${month}`,
+            status: "FINALIZED",
+            createdByRole: "ENTRY_MANAGER",
+            ...(userId && { createdById: userId }),
+          },
+        });
+
+        await prisma.journalEntryLine.create({
+          data: {
+            journalEntryId: je.id,
+            accountId: coa_office_supplies.id,
+            entityId: entity2.id,
+            entryType: "DEBIT",
+            amount: totalPettyCash,
+            currency: "BDT",
+          },
+        });
+
+        await prisma.journalEntryLine.create({
+          data: {
+            journalEntryId: je.id,
+            accountId: coa_petty.id,
+            entityId: entity2.id,
+            entryType: "CREDIT",
+            amount: totalPettyCash,
+            currency: "BDT",
+          },
+        });
+        journalCount++;
+      }
+
+      // Fund transfer journal entries
+      const transfers = await prisma.fundTransfer.findMany({
+        where: { entityId: entity1.id, date: { gte: start, lte: end } },
+      });
+
+      for (const transfer of transfers) {
+        const je = await prisma.journalEntry.create({
+          data: {
+            entityId: entity1.id,
+            date: transfer.date,
+            description: `Fund transfer - ${transfer.currencyFrom} to ${transfer.currencyTo}`,
+            reference: transfer.reference || `FT-${month}`,
+            status: "FINALIZED",
+            createdByRole: "ENTRY_MANAGER",
+            ...(userId && { createdById: userId }),
+          },
+        });
+
+        // Debit receiving account
+        await prisma.journalEntryLine.create({
+          data: {
+            journalEntryId: je.id,
+            accountId: coa_bank2.id,
+            entityId: entity1.id,
+            entryType: "DEBIT",
+            amount: transfer.amountTo,
+            currency: transfer.currencyTo as any,
+          },
+        });
+
+        // Credit sending account
+        await prisma.journalEntryLine.create({
+          data: {
+            journalEntryId: je.id,
+            accountId: coa_bank1.id,
+            entityId: entity1.id,
+            entryType: "CREDIT",
+            amount: transfer.amountFrom,
+            currency: transfer.currencyFrom as any,
+          },
+        });
+        journalCount++;
+      }
+
+      // Owner drawing journal entries
+      const drawings = await prisma.drawing.findMany({
+        where: { entityId: entity1.id, date: { gte: start, lte: end } },
+      });
+
+      for (const drawing of drawings) {
+        const je = await prisma.journalEntry.create({
+          data: {
+            entityId: entity1.id,
+            date: drawing.date,
+            description: `Owner drawing - ${drawing.sourceAccount}`,
+            status: "FINALIZED",
+            createdByRole: "ENTRY_MANAGER",
+            ...(userId && { createdById: userId }),
+          },
+        });
+
+        await prisma.journalEntryLine.create({
+          data: {
+            journalEntryId: je.id,
+            accountId: coa_capital.id,
+            entityId: entity1.id,
+            entryType: "DEBIT",
+            amount: drawing.amount,
+            currency: drawing.currency as any,
+          },
+        });
+
+        await prisma.journalEntryLine.create({
+          data: {
+            journalEntryId: je.id,
+            accountId: coa_bank1.id,
+            entityId: entity1.id,
+            entryType: "CREDIT",
+            amount: drawing.amount,
+            currency: drawing.currency as any,
+          },
+        });
+        journalCount++;
+      }
     }
 
     console.log("✅ Demo data seeded successfully!");
@@ -434,6 +666,7 @@ async function main() {
     console.log(`   Fund Transfers: ${fundTransferCount}`);
     console.log(`   Bank Statement Items: ${bankStatementCount}`);
     console.log(`   Owner Drawings: ${drawingCount}`);
+    console.log(`   Journal Entries: ${journalCount}`);
   } catch (error) {
     console.error("❌ Seed error:", error);
     process.exit(1);
