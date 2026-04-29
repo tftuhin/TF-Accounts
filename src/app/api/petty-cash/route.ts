@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
         amount,
         txnType: txnType || "CASH_EXPENSE",
         receiptUrl: receiptUrl || null,
+        createdById: session.id,
       },
     });
 
