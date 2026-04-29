@@ -834,41 +834,57 @@ export function SettingsClient({
 
       {/* ── Delete Team Member Confirmation Modal ──────────────── */}
       {deleteConfirmModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface-primary rounded-lg shadow-lg max-w-md w-full p-6 space-y-4 border border-surface-border">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-accent-red/20 flex items-center justify-center flex-shrink-0">
-                <Trash2 className="w-5 h-5 text-accent-red" />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-surface-primary to-surface-secondary rounded-xl shadow-2xl max-w-md w-full p-8 space-y-6 border border-accent-red/40">
+            {/* Header */}
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-accent-red/25 flex items-center justify-center flex-shrink-0 border border-accent-red/50">
+                <Trash2 className="w-6 h-6 text-accent-red" />
               </div>
-              <div>
-                <h3 className="font-semibold text-ink-white">Remove Team Member?</h3>
-                <p className="text-sm text-ink-muted mt-1">
-                  This action will permanently remove <span className="font-semibold text-ink-white">{deleteConfirmModal.fullName}</span> ({deleteConfirmModal.email}) from your team.
+              <div className="flex-1">
+                <h3 className="font-bold text-lg text-ink-white">Remove Team Member?</h3>
+                <p className="text-sm text-ink-secondary mt-2">
+                  You're about to remove <span className="font-semibold text-accent-red">{deleteConfirmModal.fullName}</span>
+                  <br />
+                  <span className="text-xs text-ink-muted">{deleteConfirmModal.email}</span>
                 </p>
               </div>
             </div>
 
-            <div className="bg-accent-red/10 border border-accent-red/30 rounded p-3 text-sm text-accent-red space-y-1">
-              <p className="font-medium">⚠️ Warning:</p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>They will lose access to all entities and data</li>
-                <li>This action cannot be undone</li>
-                <li>Their records will be deleted from the system</li>
+            {/* Warning Section */}
+            <div className="bg-accent-red/20 border-2 border-accent-red/60 rounded-lg p-4 space-y-3">
+              <p className="font-bold text-accent-red flex items-center gap-2">
+                <span className="text-lg">⚠️</span> This action is permanent
+              </p>
+              <ul className="space-y-2 text-sm">
+                <li className="flex gap-2 text-ink-white">
+                  <span className="text-accent-red font-bold">•</span>
+                  <span>They will immediately lose access to all data</span>
+                </li>
+                <li className="flex gap-2 text-ink-white">
+                  <span className="text-accent-red font-bold">•</span>
+                  <span>All their records will be permanently deleted</span>
+                </li>
+                <li className="flex gap-2 text-ink-white">
+                  <span className="text-accent-red font-bold">•</span>
+                  <span>This cannot be undone</span>
+                </li>
               </ul>
             </div>
 
-            <div className="flex gap-3">
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setDeleteConfirmModal(null)}
                 disabled={removingMemberId === deleteConfirmModal.id}
-                className="flex-1 px-4 py-2 rounded-lg border border-surface-border text-ink-secondary hover:bg-surface-secondary transition"
+                className="flex-1 px-4 py-3 rounded-lg bg-surface-secondary border border-surface-border text-ink-primary hover:bg-surface-tertiary transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDeleteMember}
                 disabled={removingMemberId === deleteConfirmModal.id}
-                className="flex-1 px-4 py-2 rounded-lg bg-accent-red text-white hover:bg-accent-red/90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-3 rounded-lg bg-accent-red text-white hover:bg-red-600 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
               >
                 {removingMemberId === deleteConfirmModal.id ? "Removing…" : "Remove Member"}
               </button>
