@@ -92,7 +92,6 @@ export async function POST(req: NextRequest) {
             description: desc,
             status: "FINALIZED",
             category: "Fund Transfer",
-            ...(session.id ? { createdById: session.id } : {}),
             createdByRole: session.role,
             lines: {
               create: [
@@ -128,7 +127,6 @@ export async function POST(req: NextRequest) {
             description: desc,
             status: "FINALIZED",
             category: "Fund Transfer",
-            ...(session.id ? { createdById: session.id } : {}),
             createdByRole: session.role,
             lines: {
               create: [

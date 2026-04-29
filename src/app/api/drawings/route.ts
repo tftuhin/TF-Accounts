@@ -140,7 +140,6 @@ export async function POST(req: NextRequest) {
         status: data.amount > currentBalance ? "PENDING" : "COMPLETED",
         note: data.note,
         accountBalanceAtDraw: currentBalance,
-        ...(session.id ? { createdById: session.id } : {}),
       },
     });
 
