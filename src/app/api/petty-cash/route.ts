@@ -71,7 +71,8 @@ export async function POST(req: NextRequest) {
         amount,
         txnType: txnType || "CASH_EXPENSE",
         receiptUrl: receiptUrl || null,
-        createdById: session.id,
+        // createdById is optional - only set if user exists in database
+        ...(session.id ? { createdById: session.id } : {}),
       },
     });
 
