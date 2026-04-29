@@ -11,12 +11,21 @@ export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  console.log("Supabase URL:", supabaseUrl);
-  console.log("Supabase Key exists:", !!supabaseAnonKey);
+  console.log("=== LOGIN API DEBUG ===");
+  console.log("NEXT_PUBLIC_SUPABASE_URL:", supabaseUrl || "NOT SET");
+  console.log("NEXT_PUBLIC_SUPABASE_ANON_KEY exists:", !!supabaseAnonKey);
+  console.log("All env vars:", Object.keys(process.env).filter(k => k.includes("SUPABASE")));
+  console.log("=======================");
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Missing Supabase configuration");
-    return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+    return NextResponse.json({
+      error: "Supabase not configured",
+      debug: {
+        urlSet: !!supabaseUrl,
+        keySet: !!supabaseAnonKey,
+        message: "Check Vercel environment variables - NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set"
+      }
+    }, { status: 500 });
   }
 
   try {
