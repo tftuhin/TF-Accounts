@@ -6,10 +6,10 @@
 import { PrismaClient } from "@prisma/client";
 import * as dotenv from "dotenv";
 
-dotenv.config();
+dotenv.config({ path: ".env.local" });
 
 const prisma = new PrismaClient({
-  datasources: { db: { url: process.env.DIRECT_URL } },
+  datasources: { db: { url: process.env.DIRECT_URL || process.env.DATABASE_URL } },
 });
 
 // Use the admin user's ID (created by seed.ts)
