@@ -21,9 +21,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
 
     // Create auth user with a temporary password — they'll receive invite email
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tf-accounts.vercel.app";
     const { data: authData, error: authError } = await supabaseServer.auth.admin.inviteUserByEmail(email, {
       data: { full_name: fullName, role },
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/signup`,
+      redirectTo: `${appUrl}/signup`,
     });
 
     if (authError) throw new Error(authError.message);

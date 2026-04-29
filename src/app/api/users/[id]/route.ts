@@ -17,10 +17,21 @@ export async function DELETE(
   try {
     const { id } = await context.params;
 
+    if (!id) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 });
+    }
+
+    console.log(`Attempting to delete user: ${id}`);
+
     // Delete from database first (handles cascading deletes via Prisma)
-    await prisma.user.delete({
+    const deletedUser = await prisma.user.delete({
       where: { id },
+    }).catch((err) => {
+      console.error("Prisma delete error:", err);
+      throw err;
     });
+
+    console.log(`User deleted from database: ${deletedUser.id}`);
 
     // Then delete from Supabase auth
     const { error: authError } = await supabaseServer.auth.admin.deleteUser(id);
@@ -32,7 +43,7 @@ export async function DELETE(
     return NextResponse.json({ success: true, message: "Team member removed successfully" });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";
-    console.error("Delete user error:", msg);
+    console.error("Delete user error:", msg, err);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

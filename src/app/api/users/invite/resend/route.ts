@@ -15,8 +15,9 @@ export async function POST(req: NextRequest) {
     if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
 
     // Resend invite email
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tf-accounts.vercel.app";
     const { error } = await supabaseServer.auth.admin.inviteUserByEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/signup`,
+      redirectTo: `${appUrl}/signup`,
     });
 
     if (error) throw new Error(error.message);
