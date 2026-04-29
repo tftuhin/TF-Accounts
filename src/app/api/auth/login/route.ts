@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
@@ -11,47 +11,19 @@ export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  console.log("=== LOGIN API DEBUG ===");
-  console.log("NEXT_PUBLIC_SUPABASE_URL:", supabaseUrl || "NOT SET");
-  console.log("NEXT_PUBLIC_SUPABASE_ANON_KEY exists:", !!supabaseAnonKey);
-  console.log("All env vars:", Object.keys(process.env).filter(k => k.includes("SUPABASE")));
-  console.log("=======================");
-
   if (!supabaseUrl || !supabaseAnonKey) {
     return NextResponse.json({
       error: "Supabase not configured",
-      debug: {
-        urlSet: !!supabaseUrl,
-        keySet: !!supabaseAnonKey,
-        message: "Check Vercel environment variables - NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set"
-      }
     }, { status: 500 });
   }
 
   try {
-    let supabaseResponse = NextResponse.next({ request });
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    console.log("Creating Supabase client...");
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    });
-
-    console.log("Attempting sign in with password...");
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      console.error("Supabase auth error:", error);
+      console.error("Login error:", error.message);
       if (error.message.includes("Invalid login credentials")) {
         return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
       }
@@ -62,21 +34,21 @@ export async function POST(request: NextRequest) {
     }
 
     if (!data.session) {
-      console.error("No session created after login");
       return NextResponse.json({ error: "Login failed - unable to create session" }, { status: 401 });
     }
 
-    console.log("Login successful, session created for:", email);
+    const response = NextResponse.json({ success: true });
 
-    // Return response with cookies from supabaseResponse
-    supabaseResponse = NextResponse.json({ success: true }, { headers: supabaseResponse.headers });
+    // Set auth cookies
+    response.cookies.set("sb-access-token", data.session.access_token, { httpOnly: true, secure: true, sameSite: "lax" });
+    response.cookies.set("sb-refresh-token", data.session.refresh_token, { httpOnly: true, secure: true, sameSite: "lax" });
 
-    return supabaseResponse;
+    return response;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    console.error("Login API error:", errorMessage, err);
+    console.error("Login API error:", errorMessage);
     return NextResponse.json(
-      { error: `Server error: ${errorMessage}` },
+      { error: errorMessage || "Login failed" },
       { status: 500 }
     );
   }
