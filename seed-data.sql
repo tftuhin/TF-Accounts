@@ -69,8 +69,8 @@ INSERT INTO chart_of_accounts (id, entity_id, account_code, account_name, accoun
 -- ── EMPLOYEES ────────────────────────────────────────────
 
 INSERT INTO employees (id, name, designation, department, base_salary, status, joined_at, resigned_at, created_by, created_at, updated_at) VALUES
-  ('emp-001', 'Md. Hassan', 'Operations Manager', 'Operations', 50000, 'ACTIVE', '2023-01-15', NULL, NULL, NOW()),
-  ('emp-002', 'Ayesha Khan', 'Accountant', 'Finance', 35000, 'ACTIVE', '2023-06-01', NULL, NULL, NOW()),
+  ('emp-001', 'Md. Hassan', 'Operations Manager', 'Operations', 50000, 'ACTIVE', '2023-01-15', NULL, NULL, NOW(), NOW()),
+  ('emp-002', 'Ayesha Khan', 'Accountant', 'Finance', 35000, 'ACTIVE', '2023-06-01', NULL, NULL, NOW(), NOW()),
   ('emp-003', 'Rahman Ahmed', 'Sales Executive', 'Sales', 40000, 'ACTIVE', '2022-03-10', NULL, NULL, NOW(), NOW());
 
 -- ── SALARY RECORDS (3 months × 3 employees × 2 records) ────
@@ -184,11 +184,11 @@ INSERT INTO bank_statement_items (id, statement_id, date, description, amount, e
 -- ── DRAWINGS (6 total - 2 per month) ──────────────────────
 
 INSERT INTO drawings (id, entity_id, ownership_registry_id, source_account, amount, currency, date, status, note, created_by, approved_by, approved_at, created_at) VALUES
-  ('drw-feb-001', 'ent-parent-001', 'own-001', 'PROFIT', 25000, 'BDT', '2026-02-10', 'APPROVED', 'Monthly profit distribution', NULL, NULL, NOW()),
-  ('drw-feb-002', 'ent-parent-001', 'own-001', 'OWNERS_COMP', 15000, 'BDT', '2026-02-25', 'APPROVED', 'Owner compensation', NULL, NULL, NOW()),
-  ('drw-mar-001', 'ent-parent-001', 'own-001', 'PROFIT', 25000, 'BDT', '2026-03-10', 'APPROVED', 'Monthly profit distribution', NULL, NULL, NOW()),
-  ('drw-mar-002', 'ent-parent-001', 'own-001', 'OWNERS_COMP', 15000, 'BDT', '2026-03-25', 'APPROVED', 'Owner compensation', NULL, NULL, NOW()),
-  ('drw-apr-001', 'ent-parent-001', 'own-001', 'PROFIT', 25000, 'BDT', '2026-04-10', 'APPROVED', 'Monthly profit distribution', NULL, NULL, NOW()),
+  ('drw-feb-001', 'ent-parent-001', 'own-001', 'PROFIT', 25000, 'BDT', '2026-02-10', 'APPROVED', 'Monthly profit distribution', NULL, NULL, NOW(), NOW()),
+  ('drw-feb-002', 'ent-parent-001', 'own-001', 'OWNERS_COMP', 15000, 'BDT', '2026-02-25', 'APPROVED', 'Owner compensation', NULL, NULL, NOW(), NOW()),
+  ('drw-mar-001', 'ent-parent-001', 'own-001', 'PROFIT', 25000, 'BDT', '2026-03-10', 'APPROVED', 'Monthly profit distribution', NULL, NULL, NOW(), NOW()),
+  ('drw-mar-002', 'ent-parent-001', 'own-001', 'OWNERS_COMP', 15000, 'BDT', '2026-03-25', 'APPROVED', 'Owner compensation', NULL, NULL, NOW(), NOW()),
+  ('drw-apr-001', 'ent-parent-001', 'own-001', 'PROFIT', 25000, 'BDT', '2026-04-10', 'APPROVED', 'Monthly profit distribution', NULL, NULL, NOW(), NOW()),
   ('drw-apr-002', 'ent-parent-001', 'own-001', 'OWNERS_COMP', 15000, 'BDT', '2026-04-25', 'APPROVED', 'Owner compensation', NULL, NULL, NOW(), NOW());
 
 -- ════════════════════════════════════════════════════════════
