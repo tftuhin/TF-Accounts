@@ -79,7 +79,11 @@ export async function POST(req: NextRequest) {
     revalidateTag("dashboard");
     return NextResponse.json({ success: true, data: { id: entry.id } });
   } catch (err) {
-    console.error("Petty cash error:", err);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error("Petty cash error:", errorMessage, err);
+    return NextResponse.json({
+      error: errorMessage || "Internal error",
+      debug: process.env.NODE_ENV === "development" ? String(err) : undefined
+    }, { status: 500 });
   }
 }
