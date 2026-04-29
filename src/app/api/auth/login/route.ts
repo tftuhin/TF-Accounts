@@ -12,9 +12,7 @@ export async function POST(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.json({
-      error: "Supabase not configured",
-    }, { status: 500 });
+    return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
   }
 
   try {
@@ -37,19 +35,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Login failed - unable to create session" }, { status: 401 });
     }
 
+    console.log("Login successful for:", email);
+
     const response = NextResponse.json({ success: true });
 
-    // Set auth cookies
-    response.cookies.set("sb-access-token", data.session.access_token, { httpOnly: true, secure: true, sameSite: "lax" });
-    response.cookies.set("sb-refresh-token", data.session.refresh_token, { httpOnly: true, secure: true, sameSite: "lax" });
+    // Set Supabase auth cookie in the format getSession() expects
+    // Cookie name: sb-${projectRef}-auth-token
+    const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+    const sessionData = {
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+      expires_in: data.session.expires_in,
+      expires_at: data.session.expires_at,
+      token_type: "bearer",
+      type: "session",
+    };
+
+    response.cookies.set(`sb-${projectRef}-auth-token`, JSON.stringify(sessionData), {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/"
+    });
 
     return response;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     console.error("Login API error:", errorMessage);
-    return NextResponse.json(
-      { error: errorMessage || "Login failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: errorMessage || "Login failed" }, { status: 500 });
   }
 }
