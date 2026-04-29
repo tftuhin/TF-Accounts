@@ -29,14 +29,28 @@ export function LoginForm() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
-        const result = await res.json();
+
+        let result: any;
+        const contentType = res.headers.get("content-type");
+
+        if (contentType && contentType.includes("application/json")) {
+          result = await res.json();
+        } else {
+          const text = await res.text();
+          setError(`Server error: ${res.status} ${res.statusText}`);
+          console.error("Non-JSON response:", text);
+          return;
+        }
+
         console.log("Login result:", result);
         if (result.error) {
           setError(result.error);
-        } else {
+        } else if (result.success) {
           console.log("Login successful, redirecting to dashboard");
           await new Promise(resolve => setTimeout(resolve, 500));
           router.push("/dashboard");
+        } else {
+          setError("Login failed - unexpected response");
         }
       } catch (err) {
         console.error("Login error:", err);
