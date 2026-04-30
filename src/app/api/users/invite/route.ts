@@ -32,23 +32,36 @@ export async function POST(req: NextRequest) {
 
     // Check if invitation already exists
     const existingInvitation = await prisma.invitation.findUnique({ where: { email } });
-    if (existingInvitation && !existingInvitation.acceptedAt) {
-      return NextResponse.json({ error: "Invitation already sent to this email" }, { status: 400 });
-    }
-
-    // Create invitation
+    
+    // Generate token and expiry for new/updated invitation
     const token = generateToken();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    const invitation = await prisma.invitation.create({
-      data: {
-        email,
-        role,
-        token,
-        expiresAt,
-        createdBy: session.id,
-      },
-    });
+    let invitation;
+    if (existingInvitation) {
+      // Update existing invitation (handles both pending and accepted cases)
+      invitation = await prisma.invitation.update({
+        where: { email },
+        data: {
+          role,
+          token,
+          expiresAt,
+          acceptedAt: null, // Reset if previously accepted
+          createdBy: session.id,
+        },
+      });
+    } else {
+      // Create new invitation
+      invitation = await prisma.invitation.create({
+        data: {
+          email,
+          role,
+          token,
+          expiresAt,
+          createdBy: session.id,
+        },
+      });
+    }
 
     // Generate signup link with token
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tf-accounts.vercel.app";
@@ -68,9 +81,10 @@ export async function POST(req: NextRequest) {
         email,
         role,
         message: emailResult.success
-          ? "Invitation sent successfully"
+          ? (existingInvitation ? "Invitation resent successfully" : "Invitation sent successfully")
           : "Invitation created but email failed to send",
         emailSent: emailResult.success,
+        isResend: !!existingInvitation,
       },
     });
   } catch (err: unknown) {
