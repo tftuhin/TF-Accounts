@@ -322,13 +322,23 @@ export function SettingsClient({
   async function confirmDeleteMember() {
     if (!deleteConfirmModal) return;
     const { id, email } = deleteConfirmModal;
+    const member = teamMembers.find((m) => m.id === id);
     setRemovingMemberId(id);
     try {
-      const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
+      let res;
+      if (member?.isPending) {
+        res = await fetch("/api/users/invite", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invitationId: id }),
+        });
+      } else {
+        res = await fetch(`/api/users/${id}`, { method: "DELETE" });
+      }
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       setTeamMembers((prev) => prev.filter((m) => m.id !== id));
-      toast.success(`${email} has been removed from the team`);
+      toast.success(`${email} has been removed`);
       setDeleteConfirmModal(null);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to remove member");
@@ -738,6 +748,11 @@ export function SettingsClient({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-ink-white">{m.fullName}</div>
                       <div className="text-2xs text-ink-faint">{m.email}</div>
+                      {m.expiresAt && (
+                        <div className="text-2xs text-ink-faint mt-0.5">
+                          Expires: {new Date(m.expiresAt).toLocaleDateString()}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="badge text-2xs bg-accent-amber/10 text-accent-amber">Pending</span>

@@ -19,11 +19,10 @@ export function SignupForm() {
   const [isInvite, setIsInvite] = useState(false);
 
   useEffect(() => {
-    const code = searchParams.get("code");
     const token = searchParams.get("token");
     const invitedEmail = searchParams.get("email");
 
-    setIsInvite(!!(code || token));
+    setIsInvite(!!token);
 
     // Auto-fill email for invited users
     if (invitedEmail) {
@@ -51,14 +50,14 @@ export function SignupForm() {
         return;
       }
 
-      const code = searchParams.get("code");
-      if (!code) {
+      const token = searchParams.get("token");
+      if (!token) {
         setError("Invalid invitation link");
         return;
       }
 
       startTransition(async () => {
-        const result = await acceptInviteAction(code, password);
+        const result = await acceptInviteAction(token, password, email);
         if (result.error) {
           setError(result.error);
         } else {

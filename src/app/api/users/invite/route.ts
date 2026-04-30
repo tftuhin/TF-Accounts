@@ -117,3 +117,26 @@ export async function GET() {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN")
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
+  try {
+    const { invitationId } = await req.json();
+
+    if (!invitationId)
+      return NextResponse.json({ error: "invitationId required" }, { status: 400 });
+
+    await prisma.invitation.delete({ where: { id: invitationId } });
+
+    return NextResponse.json({
+      success: true,
+      message: "Invitation removed",
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Internal error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

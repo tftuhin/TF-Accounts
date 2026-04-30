@@ -243,21 +243,43 @@ export const getAllOwnership = unstable_cache(
   { revalidate: 300, tags: ["ownership"] },
 );
 
-// Settings — all user profiles from Supabase (5 min)
+// Settings — all user profiles from Supabase + pending invitations from Prisma (5 min)
 export const getTeamMembers = unstable_cache(
   async () => {
-    if (!supabaseServer) return [];
-    const { data: profiles } = await supabaseServer
-      .from("profiles")
-      .select("id, email, full_name, role, is_active")
-      .order("created_at", { ascending: false });
-    return (profiles ?? []).map((p) => ({
-      id: p.id as string,
-      email: p.email as string,
-      fullName: p.full_name as string,
-      role: p.role as string,
-      isActive: p.is_active as boolean,
-    }));
+    const [profiles, pendingInvitations] = await Promise.all([
+      (async () => {
+        if (!supabaseServer) return [];
+        const { data } = await supabaseServer
+          .from("profiles")
+          .select("id, email, full_name, role, is_active")
+          .order("created_at", { ascending: false });
+        return (data ?? []).map((p) => ({
+          id: p.id as string,
+          email: p.email as string,
+          fullName: p.full_name as string,
+          role: p.role as string,
+          isActive: p.is_active as boolean,
+          isPending: false,
+        }));
+      })(),
+      prisma.invitation.findMany({
+        where: { acceptedAt: null },
+        orderBy: { createdAt: "desc" },
+      }).then((invites) =>
+        invites.map((inv) => ({
+          id: inv.id,
+          email: inv.email,
+          fullName: inv.email.split("@")[0],
+          role: inv.role,
+          isActive: true,
+          isPending: true,
+          invitedAt: inv.createdAt.toISOString(),
+          expiresAt: inv.expiresAt.toISOString(),
+        }))
+      ),
+    ]);
+
+    return [...(profiles ?? []), ...(pendingInvitations ?? [])];
   },
   ["team-members"],
   { revalidate: 300, tags: ["user-profiles"] },

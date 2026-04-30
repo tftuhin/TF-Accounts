@@ -153,9 +153,9 @@ export async function signupAction(email: string, password: string, fullName: st
   }
 }
 
-export async function acceptInviteAction(code: string, password: string) {
-  if (!code || !password) {
-    return { error: "Code and password are required" };
+export async function acceptInviteAction(token: string, password: string, email: string) {
+  if (!token || !password || !email) {
+    return { error: "Token, password, and email are required" };
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -181,18 +181,86 @@ export async function acceptInviteAction(code: string, password: string) {
   });
 
   try {
-    // Exchange the invite code for a session
-    const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-    if (exchangeError) {
-      console.error("Exchange code error:", exchangeError);
-      return { error: exchangeError.message || "Invalid or expired invitation link" };
+    // Validate invitation token
+    const invitation = await prisma.invitation.findUnique({
+      where: { token },
+    });
+
+    if (!invitation) {
+      return { error: "Invalid invitation link" };
     }
 
-    // Update the user's password
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    if (updateError) {
-      console.error("Update password error:", updateError);
-      return { error: updateError.message || "Failed to set password" };
+    // Check if invitation is expired
+    if (invitation.expiresAt < new Date()) {
+      return { error: "Invitation link has expired" };
+    }
+
+    // Check if email matches
+    if (invitation.email.toLowerCase() !== email.toLowerCase()) {
+      return { error: "Invitation email does not match" };
+    }
+
+    // Check if already accepted
+    if (invitation.acceptedAt) {
+      return { error: "This invitation has already been accepted" };
+    }
+
+    // Sign up with Supabase
+    const { data, error: signupError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: email.split("@")[0],
+        },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      },
+    });
+
+    if (signupError) {
+      console.error("Signup auth error:", signupError);
+      return { error: signupError.message || "Failed to sign up" };
+    }
+
+    if (!data.user?.id) {
+      return { error: "Failed to create user account" };
+    }
+
+    // Create or update profile with invitation role
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .upsert({
+        id: data.user.id,
+        email,
+        full_name: email.split("@")[0],
+        role: invitation.role,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (profileError) {
+      console.error("Profile creation error:", profileError);
+    }
+
+    // Mark invitation as accepted
+    await prisma.invitation.update({
+      where: { token },
+      data: { acceptedAt: new Date() },
+    });
+
+    // Wait for user creation
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    // Auto-login
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      console.error("Auto-login error:", signInError);
+      return { success: true };
     }
 
     return { success: true };
