@@ -6,8 +6,8 @@ export async function POST(req: NextRequest) {
   // No auth required as this is a one-time initialization
 
   try {
-    // Try to create the invitations table if it doesn't exist
-    const result = await prisma.$executeRawUnsafe(`
+    // Create the invitations table if it doesn't exist
+    await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS public.invitations (
         id UUID NOT NULL DEFAULT gen_random_uuid(),
         email TEXT NOT NULL UNIQUE,
@@ -18,17 +18,26 @@ export async function POST(req: NextRequest) {
         created_by TEXT NOT NULL,
         created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT invitations_pkey PRIMARY KEY (id)
-      );
-
-      CREATE UNIQUE INDEX IF NOT EXISTS invitations_email_key ON public.invitations(email);
-      CREATE UNIQUE INDEX IF NOT EXISTS invitations_token_key ON public.invitations(token);
-      CREATE INDEX IF NOT EXISTS invitations_email_idx ON public.invitations(email);
-      CREATE INDEX IF NOT EXISTS invitations_token_idx ON public.invitations(token);
+      )
     `);
+
+    // Create indexes
+    await prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS invitations_email_key ON public.invitations(email)`
+    );
+    await prisma.$executeRawUnsafe(
+      `CREATE UNIQUE INDEX IF NOT EXISTS invitations_token_key ON public.invitations(token)`
+    );
+    await prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS invitations_email_idx ON public.invitations(email)`
+    );
+    await prisma.$executeRawUnsafe(
+      `CREATE INDEX IF NOT EXISTS invitations_token_idx ON public.invitations(token)`
+    );
 
     return NextResponse.json({
       success: true,
-      message: "Invitations table created successfully",
+      message: "Invitations table and indexes created successfully",
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";
