@@ -2,8 +2,9 @@
 
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { prisma } from "@/lib/prisma";
 
-export async function signupAction(email: string, password: string, fullName: string) {
+export async function signupAction(email: string, password: string, fullName: string, invitationToken?: string) {
   if (!email || !password || !fullName) {
     return { error: "Email, password, and full name are required" };
   }
@@ -54,6 +55,38 @@ export async function signupAction(email: string, password: string, fullName: st
       return { error: error.message || "Failed to sign up" };
     }
 
+    // Check for invitation and get role
+    let userRole = "ENTRY_MANAGER";
+    if (invitationToken) {
+      try {
+        const invitation = await prisma.invitation.findUnique({
+          where: { token: invitationToken },
+        });
+
+        if (invitation) {
+          // Check if invitation is expired
+          if (invitation.expiresAt < new Date()) {
+            return { error: "Invitation link has expired" };
+          }
+
+          // Check if invitation email matches signup email
+          if (invitation.email.toLowerCase() !== email.toLowerCase()) {
+            return { error: "Invitation email does not match signup email" };
+          }
+
+          userRole = invitation.role;
+
+          // Mark invitation as accepted
+          await prisma.invitation.update({
+            where: { token: invitationToken },
+            data: { acceptedAt: new Date() },
+          });
+        }
+      } catch (err) {
+        console.error("Invitation check error:", err);
+      }
+    }
+
     // Create or update profile in profiles table
     if (data.user?.id) {
       try {
@@ -74,7 +107,7 @@ export async function signupAction(email: string, password: string, fullName: st
               id: data.user.id,
               email,
               full_name: fullName,
-              role: "ENTRY_MANAGER",
+              role: userRole,
               is_active: true,
             })
             .select()
@@ -82,14 +115,6 @@ export async function signupAction(email: string, password: string, fullName: st
 
           if (profileError) {
             console.error("Profile creation error:", profileError);
-            // Profile might already exist from invitation, try to update it
-            const { error: updateError } = await supabase
-              .from("profiles")
-              .update({ full_name: fullName, is_active: true })
-              .eq("id", data.user.id);
-            if (updateError) {
-              console.error("Profile update error:", updateError);
-            }
           }
         } else {
           // Profile already exists, just ensure it's active

@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { supabaseServer } from "@/lib/supabase-server";
+import crypto from "crypto";
+
+function generateToken(): string {
+  return crypto.randomBytes(32).toString("hex");
+}
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session || session.role !== "ADMIN")
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-
-  if (!supabaseServer)
-    return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
 
   try {
     const { email, fullName, role } = await req.json();
@@ -20,30 +23,53 @@ export async function POST(req: NextRequest) {
     if (!validRoles.includes(role))
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
 
-    // Create auth user with a temporary password — they'll receive invite email
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+      return NextResponse.json({ error: "User already exists" }, { status: 400 });
+    }
+
+    // Check if invitation already exists
+    const existingInvitation = await prisma.invitation.findUnique({ where: { email } });
+    if (existingInvitation && !existingInvitation.acceptedAt) {
+      return NextResponse.json({ error: "Invitation already sent to this email" }, { status: 400 });
+    }
+
+    // Create invitation
+    const token = generateToken();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    const invitation = await prisma.invitation.create({
+      data: {
+        email,
+        role,
+        token,
+        expiresAt,
+        createdBy: session.id,
+      },
+    });
+
+    // Generate signup link with token
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tf-accounts.vercel.app";
-    const redirectUrl = `${appUrl}/signup`;
-    console.log(`Sending invite to ${email} with redirect: ${redirectUrl}`);
+    const signupLink = `${appUrl}/signup?token=${token}`;
 
-    const { data: authData, error: authError } = await supabaseServer.auth.admin.inviteUserByEmail(email, {
-      data: { full_name: fullName, role },
-      redirectTo: redirectUrl,
+    // TODO: Send email with signup link
+    // For now, just return the link in the response (in production, send via email service)
+    console.log(`Invitation created for ${email}. Signup link: ${signupLink}`);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: invitation.id,
+        email,
+        role,
+        token, // Return token for now (remove in production when using email service)
+        signupLink, // Return link for testing (remove in production)
+      },
     });
-
-    if (authError) throw new Error(authError.message);
-
-    // Upsert profile
-    await supabaseServer.from("profiles").upsert({
-      id: authData.user.id,
-      email,
-      full_name: fullName,
-      role,
-      is_active: true,
-    });
-
-    return NextResponse.json({ success: true, data: { id: authData.user.id, email } });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";
+    console.error("Invite error:", err);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -53,40 +79,36 @@ export async function GET() {
   if (!session || session.role !== "ADMIN")
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
-  if (!supabaseServer)
-    return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
-
   try {
-    // Get all auth users to determine pending status
-    const { data: authUsers, error: authError } = await supabaseServer.auth.admin.listUsers();
-    if (authError) throw authError;
+    // Get pending invitations
+    const invitations = await prisma.invitation.findMany({
+      where: { acceptedAt: null },
+      orderBy: { createdAt: "desc" },
+    });
 
-    // Get profiles
-    const { data: profiles, error: profileError } = await supabaseServer
-      .from("profiles")
-      .select("id, email, full_name, role, is_active, created_at")
-      .order("created_at", { ascending: false });
-
-    if (profileError) throw profileError;
-
-    // Map profiles with pending status from auth
-    const authUserMap = new Map(authUsers.map((u: any) => [u.email, u]));
+    // Get accepted users (profiles)
+    const profiles = await prisma.user.findMany({
+      orderBy: { email: "asc" },
+    });
 
     return NextResponse.json({
       success: true,
-      data: (profiles || []).map((p) => {
-        const authUser = authUserMap.get(p.email) as any;
-        const isPending = !!authUser?.invited_at && !authUser?.confirmed_at;
-        return {
+      data: {
+        pending: invitations.map((inv) => ({
+          id: inv.id,
+          email: inv.email,
+          role: inv.role,
+          invitedAt: inv.createdAt,
+          expiresAt: inv.expiresAt,
+        })),
+        users: profiles.map((p) => ({
           id: p.id,
           email: p.email,
-          fullName: p.full_name,
+          fullName: p.fullName,
           role: p.role,
-          isActive: p.is_active,
-          isPending,
-          invitedAt: authUser?.invited_at || null,
-        };
-      }),
+          isActive: p.isActive,
+        })),
+      },
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";

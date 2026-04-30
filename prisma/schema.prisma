@@ -538,6 +538,23 @@ model UserEntityAccess {
   @@map("user_entity_access")
 }
 
+// ─── INVITATIONS ────────────────────────────────────────────
+
+model Invitation {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  role      UserRole
+  token     String   @unique @map("token")
+  expiresAt DateTime @map("expires_at")
+  acceptedAt DateTime? @map("accepted_at")
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@index([token])
+  @@map("invitations")
+}
+
 // ─── AUDIT LOG ──────────────────────────────────────────────
 
 model AuditLog {

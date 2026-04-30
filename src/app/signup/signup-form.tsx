@@ -20,7 +20,15 @@ export function SignupForm() {
 
   useEffect(() => {
     const code = searchParams.get("code");
-    setIsInvite(!!code);
+    const token = searchParams.get("token");
+    const invitedEmail = searchParams.get("email");
+
+    setIsInvite(!!(code || token));
+
+    // Auto-fill email for invited users
+    if (invitedEmail) {
+      setEmail(invitedEmail);
+    }
   }, [searchParams]);
 
   function handleSubmit(e: React.FormEvent) {
@@ -59,7 +67,7 @@ export function SignupForm() {
         }
       });
     } else {
-      // Regular signup
+      // Regular signup or invitation signup
       if (!fullName || !email || !password || !confirmPassword) {
         setError("All fields are required");
         return;
@@ -76,7 +84,8 @@ export function SignupForm() {
       }
 
       startTransition(async () => {
-        const result = await signupAction(email, password, fullName);
+        const token = searchParams.get("token");
+        const result = await signupAction(email, password, fullName, token || undefined);
         if (result.error) {
           setError(result.error);
         } else {
@@ -106,55 +115,47 @@ export function SignupForm() {
             {success}
           </div>
           <div className="text-xs text-ink-faint space-y-2 text-center">
-            {isInvite ? (
-              <p>Redirecting to dashboard...</p>
-            ) : (
-              <p>Redirecting to dashboard in 2 seconds...</p>
-            )}
+            <p>Redirecting to dashboard...</p>
           </div>
         </div>
       )}
 
       {isInvite && (
         <div className="px-4 py-3 rounded-lg bg-accent-blue/10 border border-accent-blue/20 text-accent-blue text-sm">
-          You've been invited to Teamosis Ledger — set your password to continue
+          You've been invited to Teamosis Ledger — create your account to get started
         </div>
       )}
 
-      {!isInvite && (
-        <>
-          <div>
-            <label htmlFor="fullName" className="input-label">Full Name</label>
-            <input
-              id="fullName"
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="input"
-              placeholder="John Doe"
-              required
-              autoFocus
-              autoComplete="name"
-              disabled={isPending}
-            />
-          </div>
+      <div>
+        <label htmlFor="fullName" className="input-label">Full Name</label>
+        <input
+          id="fullName"
+          type="text"
+          value={fullName}
+          onChange={(e) => setFullName(e.target.value)}
+          className="input"
+          placeholder="John Doe"
+          required
+          autoFocus={!isInvite}
+          autoComplete="name"
+          disabled={isPending}
+        />
+      </div>
 
-          <div>
-            <label htmlFor="email" className="input-label">Email Address</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input"
-              placeholder="you@example.com"
-              required
-              autoComplete="email"
-              disabled={isPending}
-            />
-          </div>
-        </>
-      )}
+      <div>
+        <label htmlFor="email" className="input-label">Email Address</label>
+        <input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="input"
+          placeholder="you@example.com"
+          required
+          autoComplete="email"
+          disabled={isPending || isInvite}
+        />
+      </div>
 
       <div>
         <label htmlFor="password" className="input-label">Password</label>
@@ -209,10 +210,10 @@ export function SignupForm() {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            {isInvite ? "Accepting invitation…" : "Creating account…"}
+            Creating account…
           </span>
         ) : (
-          isInvite ? "Set Password" : "Create Account"
+          "Create Account"
         )}
       </button>
 
@@ -222,6 +223,12 @@ export function SignupForm() {
           <Link href="/login" className="text-accent-blue hover:underline font-medium">
             Sign in
           </Link>
+        </div>
+      )}
+
+      {isInvite && (
+        <div className="pt-2 text-center text-xs text-ink-faint">
+          Your role has been predefined by your admin
         </div>
       )}
     </div>
