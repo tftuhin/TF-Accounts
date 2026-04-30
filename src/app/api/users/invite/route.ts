@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendInvitationEmail } from "@/lib/email";
@@ -56,6 +57,9 @@ export async function POST(req: NextRequest) {
     // Send invitation email
     console.log(`Sending invitation to ${email}. Signup link: ${signupLink}`);
     const emailResult = await sendInvitationEmail(email, fullName, signupLink, role);
+
+    // Revalidate the team members cache so settings page shows the new invitation
+    revalidateTag("user-profiles");
 
     return NextResponse.json({
       success: true,
@@ -142,6 +146,9 @@ export async function DELETE(req: NextRequest) {
     }
 
     await prisma.invitation.delete({ where: { id: invitationId } });
+
+    // Revalidate the team members cache so settings page shows the update
+    revalidateTag("user-profiles");
 
     return NextResponse.json({
       success: true,
