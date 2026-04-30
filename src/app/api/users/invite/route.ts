@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { supabaseServer } from "@/lib/supabase-server";
+import { sendInvitationEmail } from "@/lib/email";
 import crypto from "crypto";
 
 function generateToken(): string {
@@ -51,11 +51,11 @@ export async function POST(req: NextRequest) {
 
     // Generate signup link with token
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://tf-accounts.vercel.app";
-    const signupLink = `${appUrl}/signup?token=${token}`;
+    const signupLink = `${appUrl}/signup?token=${token}&email=${encodeURIComponent(email)}`;
 
-    // TODO: Send email with signup link
-    // For now, just return the link in the response (in production, send via email service)
-    console.log(`Invitation created for ${email}. Signup link: ${signupLink}`);
+    // Send invitation email
+    console.log(`Sending invitation to ${email}. Signup link: ${signupLink}`);
+    const emailResult = await sendInvitationEmail(email, fullName, signupLink, role);
 
     return NextResponse.json({
       success: true,
@@ -63,8 +63,10 @@ export async function POST(req: NextRequest) {
         id: invitation.id,
         email,
         role,
-        token, // Return token for now (remove in production when using email service)
-        signupLink, // Return link for testing (remove in production)
+        message: emailResult.success
+          ? "Invitation sent successfully"
+          : "Invitation created but email failed to send",
+        emailSent: emailResult.success,
       },
     });
   } catch (err: unknown) {
