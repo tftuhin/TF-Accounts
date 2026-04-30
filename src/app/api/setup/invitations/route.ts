@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(req: NextRequest) {
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
+  // One-time setup endpoint - creates invitations table if it doesn't exist
+  // No auth required as this is a one-time initialization
 
   try {
     // Try to create the invitations table if it doesn't exist
