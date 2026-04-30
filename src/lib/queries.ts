@@ -286,5 +286,5 @@ const getTeamMembersImpl = unstable_cache(
     return [...(profiles ?? []), ...(pendingInvitations ?? [])];
   },
   ["team-members"],
-  { revalidate: 0, tags: ["user-profiles"] },
+  { revalidate: false, tags: ["user-profiles"] },
 );
