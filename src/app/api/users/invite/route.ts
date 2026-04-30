@@ -129,6 +129,18 @@ export async function DELETE(req: NextRequest) {
     if (!invitationId)
       return NextResponse.json({ error: "invitationId required" }, { status: 400 });
 
+    // Check if invitation exists first
+    const invitation = await prisma.invitation.findUnique({
+      where: { id: invitationId },
+    });
+
+    if (!invitation) {
+      return NextResponse.json(
+        { error: "Invitation not found" },
+        { status: 404 }
+      );
+    }
+
     await prisma.invitation.delete({ where: { id: invitationId } });
 
     return NextResponse.json({
@@ -137,6 +149,7 @@ export async function DELETE(req: NextRequest) {
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";
+    console.error("Delete invitation error:", err);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

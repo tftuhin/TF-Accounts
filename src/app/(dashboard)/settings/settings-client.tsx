@@ -336,7 +336,10 @@ export function SettingsClient({
         res = await fetch(`/api/users/${id}`, { method: "DELETE" });
       }
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error);
+      if (!res.ok) {
+        const errorMsg = json.error || `Failed to remove ${email}`;
+        throw new Error(errorMsg);
+      }
       setTeamMembers((prev) => prev.filter((m) => m.id !== id));
       toast.success(`${email} has been removed`);
       setDeleteConfirmModal(null);
