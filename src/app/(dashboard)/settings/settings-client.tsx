@@ -8,7 +8,7 @@ import md5 from "blueimp-md5";
 interface Ownership { id: string; entityId: string; ownerName: string; ownershipPct: number; effectiveFrom: string; effectiveTo: string | null }
 interface Entity { id: string; slug: string; name: string; type: string; color: string; ownership?: Ownership[] }
 interface BankAccount { id: string; entityId: string; entityName: string; entityColor: string; accountName: string; accountType: string; currency: string; bankName: string | null }
-interface TeamMember { id: string; email: string; fullName: string; role: string; isActive: boolean; isPending?: boolean; invitedAt?: string }
+interface TeamMember { id: string; email: string; fullName: string; role: string; isActive: boolean; isPending?: boolean; invitedAt?: string; expiresAt?: string }
 
 const ENTITY_COLORS = [
   "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
