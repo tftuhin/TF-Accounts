@@ -27,7 +27,7 @@ export async function sendInvitationEmail(
       .join(" ");
 
     const result = await resend.emails.send({
-      from: "invitations@teamosis.dev",
+      from: "tuhin.themefisher@gmail.com",
       to: email,
       subject: "You've been invited to Teamosis Ledger",
       html: `
