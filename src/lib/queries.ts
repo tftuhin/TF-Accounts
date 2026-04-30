@@ -243,8 +243,12 @@ export const getAllOwnership = unstable_cache(
   { revalidate: 300, tags: ["ownership"] },
 );
 
-// Settings — all user profiles from Supabase + pending invitations from Prisma (5 min)
-export const getTeamMembers = unstable_cache(
+// Settings — all user profiles from Supabase + pending invitations from Prisma
+export const getTeamMembers = async () => {
+  return getTeamMembersImpl();
+};
+
+const getTeamMembersImpl = unstable_cache(
   async () => {
     const [profiles, pendingInvitations] = await Promise.all([
       (async () => {
@@ -282,5 +286,5 @@ export const getTeamMembers = unstable_cache(
     return [...(profiles ?? []), ...(pendingInvitations ?? [])];
   },
   ["team-members"],
-  { revalidate: 300, tags: ["user-profiles"] },
+  { revalidate: 0, tags: ["user-profiles"] },
 );

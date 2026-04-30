@@ -117,10 +117,10 @@ export async function signupAction(email: string, password: string, fullName: st
             console.error("Profile creation error:", profileError);
           }
         } else {
-          // Profile already exists, just ensure it's active
+          // Profile already exists, update role and ensure it's active
           const { error: updateError } = await supabase
             .from("profiles")
-            .update({ is_active: true })
+            .update({ is_active: true, role: userRole })
             .eq("id", data.user.id);
           if (updateError) {
             console.error("Profile update error:", updateError);
@@ -226,10 +226,10 @@ export async function acceptInviteAction(token: string, password: string, email:
       return { error: "Failed to create user account" };
     }
 
-    // Create or update profile with invitation role
+    // Create profile with invitation role (use insert, not upsert, to avoid overwriting)
     const { error: profileError } = await supabase
       .from("profiles")
-      .upsert({
+      .insert({
         id: data.user.id,
         email,
         full_name: email.split("@")[0],
