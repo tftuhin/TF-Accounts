@@ -48,13 +48,13 @@ export async function signupAction(email: string, password: string, fullName: st
 
     if (error) {
       console.error("Signup auth error:", error);
-      if (error.message.includes("already registered")) {
-        return { error: "Email already registered" };
+      if (error.message.includes("already registered") || error.message.includes("User already exists")) {
+        return { error: "This email was already invited. Please check your email for the invitation link to set your password." };
       }
       return { error: error.message || "Failed to sign up" };
     }
 
-    // Create profile in profiles table immediately
+    // Create or update profile in profiles table
     if (data.user?.id) {
       try {
         const { data: existingProfile, error: checkError } = await supabase
@@ -82,6 +82,23 @@ export async function signupAction(email: string, password: string, fullName: st
 
           if (profileError) {
             console.error("Profile creation error:", profileError);
+            // Profile might already exist from invitation, try to update it
+            const { error: updateError } = await supabase
+              .from("profiles")
+              .update({ full_name: fullName, is_active: true })
+              .eq("id", data.user.id);
+            if (updateError) {
+              console.error("Profile update error:", updateError);
+            }
+          }
+        } else {
+          // Profile already exists, just ensure it's active
+          const { error: updateError } = await supabase
+            .from("profiles")
+            .update({ is_active: true })
+            .eq("id", data.user.id);
+          if (updateError) {
+            console.error("Profile update error:", updateError);
           }
         }
       } catch (err) {
