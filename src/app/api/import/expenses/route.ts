@@ -17,12 +17,18 @@ function parseCSV(content: string): CSVRow[] {
   if (lines.length === 0) return [];
 
   const headerLine = lines[0];
-  const headers = headerLine.split(",").map((h) => h.trim());
+  const headers = headerLine
+    .split(",")
+    .map((h) => h.trim().replace(/^"(.*)"$/, "$1")); // Remove quotes and trim
 
-  // Validate headers
-  const missingColumns = REQUIRED_COLUMNS.filter((col) => !headers.includes(col));
+  // Validate headers (case-insensitive)
+  const headerLower = headers.map((h) => h.toLowerCase());
+  const requiredLower = REQUIRED_COLUMNS.map((c) => c.toLowerCase());
+  const missingColumns = requiredLower.filter((col) => !headerLower.includes(col));
   if (missingColumns.length > 0) {
-    throw new Error(`Missing required columns: ${missingColumns.join(", ")}`);
+    throw new Error(
+      `Missing required columns: ${missingColumns.join(", ")}. Found: ${headers.join(", ")}`
+    );
   }
 
   const rows: CSVRow[] = [];
@@ -30,11 +36,16 @@ function parseCSV(content: string): CSVRow[] {
     const line = lines[i].trim();
     if (!line) continue;
 
-    const values = line.split(",").map((v) => v.trim());
+    const values = line.split(",").map((v) => v.trim().replace(/^"(.*)"$/, "$1")); // Remove quotes
     const row: Partial<CSVRow> = {};
 
     headers.forEach((header, index) => {
-      row[header as keyof CSVRow] = values[index] || "";
+      const normalizedHeader = REQUIRED_COLUMNS.find(
+        (col) => col.toLowerCase() === header.toLowerCase()
+      ) as keyof CSVRow;
+      if (normalizedHeader) {
+        row[normalizedHeader] = values[index] || "";
+      }
     });
 
     rows.push(row as CSVRow);
