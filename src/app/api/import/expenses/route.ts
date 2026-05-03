@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { TxnType } from "@prisma/client";
 
 interface CSVRow {
   Date: string;
@@ -324,7 +325,6 @@ export async function POST(req: NextRequest) {
               createdById: null,
               createdByRole: session.role as "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER",
               importBatch,
-              amount: Math.abs(amount),
             },
           });
         }
@@ -371,13 +371,23 @@ export async function POST(req: NextRequest) {
       console.log(`Creating ${pettyCashEntriesToCreate.length} petty cash entries with journals...`);
       let successCount = 0;
 
-      // Get default OPEX account per entity
-      const expenseAccounts = await prisma.chartOfAccounts.findMany({
-        where: { pfAccount: "OPEX" },
-        select: { id: true, entityId: true },
-      });
+      // Get default OPEX and Petty Cash accounts per entity
+      const [expenseAccounts, pettyCashAccounts] = await Promise.all([
+        prisma.chartOfAccounts.findMany({
+          where: { pfAccount: "OPEX" },
+          select: { id: true, entityId: true },
+        }),
+        prisma.chartOfAccounts.findMany({
+          where: { accountCode: "1200" }, // Petty Cash Float account
+          select: { id: true, entityId: true },
+        }),
+      ]);
+
       const expenseAccountMap = new Map(
         expenseAccounts.map((acc) => [acc.entityId, acc.id])
+      );
+      const pettyCashAccountMap = new Map(
+        pettyCashAccounts.map((acc) => [acc.entityId, acc.id])
       );
 
       // Batch petty cash entries without journals for speed
@@ -385,13 +395,14 @@ export async function POST(req: NextRequest) {
       const pettyCashWithJournal = [];
 
       for (const entryWithJournal of pettyCashEntriesToCreate) {
-        const { journalData, ...pettyCashData } = entryWithJournal as any;
+        const { journalData, amount, ...pettyCashData } = entryWithJournal as any;
         const expenseAccountId = expenseAccountMap.get(pettyCashData.entityId);
+        const pettyCashAccountId = pettyCashAccountMap.get(pettyCashData.entityId);
 
-        if (!expenseAccountId) {
+        if (!expenseAccountId || !pettyCashAccountId) {
           pettyCashWithoutJournal.push(pettyCashData);
         } else {
-          pettyCashWithJournal.push({ journalData, pettyCashData, expenseAccountId });
+          pettyCashWithJournal.push({ journalData, pettyCashData, expenseAccountId, pettyCashAccountId, amount });
         }
       }
 
@@ -413,20 +424,32 @@ export async function POST(req: NextRequest) {
       }
 
       // Create petty cash entries with journals (must be sequential to get IDs)
-      for (const { journalData, pettyCashData, expenseAccountId } of pettyCashWithJournal) {
+      for (const { journalData, pettyCashData, expenseAccountId, pettyCashAccountId, amount } of pettyCashWithJournal) {
         try {
           const journalEntry = await prisma.journalEntry.create({
             data: {
               ...journalData,
               lines: {
-                create: {
-                  accountId: expenseAccountId,
-                  pfAccount: "OPEX",
-                  entryType: "DEBIT",
-                  amount: journalData.amount,
-                  currency: "BDT",
-                  entityId: journalData.entityId,
-                },
+                create: [
+                  // DEBIT: OPEX account
+                  {
+                    accountId: expenseAccountId,
+                    pfAccount: "OPEX",
+                    entryType: TxnType.DEBIT,
+                    amount: amount,
+                    currency: "BDT",
+                    entityId: journalData.entityId,
+                  },
+                  // CREDIT: Petty Cash Float account
+                  {
+                    accountId: pettyCashAccountId,
+                    pfAccount: null,
+                    entryType: TxnType.CREDIT,
+                    amount: amount,
+                    currency: "BDT",
+                    entityId: journalData.entityId,
+                  },
+                ],
               },
             },
           });
