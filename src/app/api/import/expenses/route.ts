@@ -120,6 +120,56 @@ function parseCSV(content: string): CSVRow[] {
   return rows;
 }
 
+function parseJSON(content: string): CSVRow[] {
+  console.log(`[JSON Parse] Parsing JSON content (${content.length} chars)`);
+
+  let data;
+  try {
+    data = JSON.parse(content);
+  } catch (err) {
+    throw new Error(`Invalid JSON format: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Handle both { entries: [...] } and direct array formats
+  const entries = Array.isArray(data) ? data : data.entries || data.data || [];
+
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error("JSON must contain an 'entries' array or be an array of objects");
+  }
+
+  console.log(`[JSON Parse] Found ${entries.length} entries`);
+  console.log(`[JSON Parse] Sample entry: ${JSON.stringify(entries[0])}`);
+
+  // Validate required columns in first entry
+  const firstEntry = entries[0];
+  const requiredLower = REQUIRED_COLUMNS.map((c) => c.toLowerCase());
+  const missingColumns = requiredLower.filter((col) => !Object.keys(firstEntry).some(key => key.toLowerCase() === col));
+
+  if (missingColumns.length > 0) {
+    throw new Error(
+      `Missing required columns: ${missingColumns.join(", ")}. Found: ${Object.keys(firstEntry).join(", ")}`
+    );
+  }
+
+  // Convert entries to CSVRow format
+  const rows: CSVRow[] = entries.map((entry) => {
+    const row: Partial<CSVRow> = {};
+
+    // Map JSON fields to CSVRow (case-insensitive)
+    REQUIRED_COLUMNS.concat("Entity").forEach((col) => {
+      const key = Object.keys(entry).find(k => k.toLowerCase() === col.toLowerCase());
+      if (key) {
+        row[col as keyof CSVRow] = String(entry[key]);
+      }
+    });
+
+    return row as CSVRow;
+  });
+
+  console.log(`[JSON Parse] Converted ${rows.length} entries to CSV format`);
+  return rows;
+}
+
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session || !["ADMIN", "ACCOUNTS_MANAGER"].includes(session.role)) {
@@ -148,9 +198,18 @@ export async function POST(req: NextRequest) {
 
     console.log(`Starting import: ${file.name}, size: ${file.size} bytes`);
     const content = await file.text();
-    console.log(`CSV content read: ${content.length} chars, parsing...`);
-    const rows = parseCSV(content);
-    console.log(`Parsed ${rows.length} rows`);
+
+    // Detect file type and parse accordingly
+    let rows: CSVRow[];
+    if (file.name.endsWith('.json')) {
+      console.log(`JSON file detected, parsing...`);
+      rows = parseJSON(content);
+    } else {
+      console.log(`CSV file detected, parsing... (${content.length} chars)`);
+      rows = parseCSV(content);
+    }
+
+    console.log(`Successfully parsed ${rows.length} rows`);
 
     if (rows.length === 0) {
       return NextResponse.json(

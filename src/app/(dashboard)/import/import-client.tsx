@@ -50,8 +50,8 @@ export function ImportClient({
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      if (!selectedFile.name.endsWith(".csv")) {
-        toast.error("Please select a CSV file");
+      if (!selectedFile.name.endsWith(".csv") && !selectedFile.name.endsWith(".json")) {
+        toast.error("Please select a CSV or JSON file");
         return;
       }
       setFile(selectedFile);
@@ -64,13 +64,13 @@ export function ImportClient({
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile?.name.endsWith(".csv")) {
+    if (droppedFile?.name.endsWith(".csv") || droppedFile?.name.endsWith(".json")) {
       setFile(droppedFile);
       setResult(null);
       setProgress(0);
       setStatus("");
     } else {
-      toast.error("Please drop a CSV file");
+      toast.error("Please drop a CSV or JSON file");
     }
   }
 
