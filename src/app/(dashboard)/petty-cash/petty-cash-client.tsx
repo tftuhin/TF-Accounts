@@ -14,17 +14,8 @@ interface Balances {
   bankBalance:      number;
   handCash:         number;
   currentBalance:   number;
-  prevMonthClosing: number;
   monthlyInput:     number;
-}
-
-interface Period {
-  id:          string;
-  entityId:    string;
-  entityName:  string;
-  periodStart: string;
-  periodEnd:   string;
-  isClosed:    boolean;
+  prevMonthClosing: number;
 }
 
 interface Entry {
@@ -36,10 +27,21 @@ interface Entry {
   hasReceipt:  boolean;
 }
 
-interface PettyCashData {
-  period:   Period;
-  balances: Balances;
-  entries:  Entry[];
+interface ProcessedPeriodData {
+  id:         string;
+  entityId:   string;
+  entityName: string;
+  periodStart: string;
+  periodEnd:   string;
+  isClosed:   boolean;
+  balances: {
+    bankBalance:    number;
+    handCash:       number;
+    currentBalance: number;
+    monthlyInput:   number;
+    prevMonthClosing: number;
+  };
+  entries: Entry[];
 }
 
 const TXN_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string; sign: 1 | -1 }> = {
@@ -54,14 +56,15 @@ const ENTRY_MANAGER_TYPES = ["ATM_WITHDRAWAL", "CARD_PAYMENT", "CASH_EXPENSE"];
 const MANAGER_TYPES       = ["FLOAT_TOPUP", "ATM_WITHDRAWAL", "CARD_PAYMENT", "CASH_EXPENSE"];
 
 export function PettyCashClient({
-  data,
+  allPeriodsData,
   userRole,
 }: {
-  data: PettyCashData | null;
+  allPeriodsData: ProcessedPeriodData[];
   userRole: UserRole;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedPeriodId, setSelectedPeriodId] = useState(allPeriodsData[0]?.id || "");
   const [form, setForm] = useState({
     date:        new Date().toISOString().split("T")[0],
     description: "",
@@ -80,18 +83,19 @@ export function PettyCashClient({
     setForm((f) => ({ ...f, category, subcategory: EXPENSE_CATEGORIES[category]?.[0] || "" }));
   }
 
-  if (!data) {
+  if (!allPeriodsData.length) {
     return (
       <div className="animate-fade-in">
         <h1 className="text-2xl font-display text-ink-white mb-2">Petty Cash</h1>
         <div className="card p-10 text-center text-ink-muted">
-          No active petty cash period. Ask your admin to create one in Settings.
+          No petty cash periods found. Ask your admin to create one in Settings.
         </div>
       </div>
     );
   }
 
-  const { period, balances, entries } = data;
+  const currentPeriod = allPeriodsData.find(p => p.id === selectedPeriodId) || allPeriodsData[0];
+  const { balances, entries } = currentPeriod;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -104,8 +108,8 @@ export function PettyCashClient({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          periodId:    period.id,
-          entityId:    period.entityId,
+          periodId:    currentPeriod.id,
+          entityId:    currentPeriod.entityId,
           date:        form.date,
           description: isExpenseTxn && form.category
             ? `[${form.category} › ${form.subcategory}] ${form.description}`
@@ -141,18 +145,38 @@ export function PettyCashClient({
     </div>
   );
 
+  function handlePeriodChange(periodId: string) {
+    setSelectedPeriodId(periodId);
+    setShowForm(false); // Close form when switching periods
+  }
+
   return (
     <div className="max-w-4xl animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display text-ink-white">Petty Cash</h1>
-          <p className="text-sm text-ink-muted mt-1">
-            {period.periodStart} → {period.periodEnd} · {period.entityName}
-            {period.isClosed && <span className="ml-2 badge bg-surface-4 text-ink-faint">Closed</span>}
-          </p>
+          <div className="flex items-center gap-4 mt-2">
+            {allPeriodsData.length > 1 && (
+              <select
+                value={selectedPeriodId}
+                onChange={(e) => handlePeriodChange(e.target.value)}
+                className="input text-sm"
+              >
+                {allPeriodsData.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.periodStart} → {p.periodEnd} {p.isClosed ? "(Closed)" : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+            <p className="text-sm text-ink-muted">
+              {currentPeriod.periodStart} → {currentPeriod.periodEnd} · {currentPeriod.entityName}
+              {currentPeriod.isClosed && <span className="ml-2 badge bg-surface-4 text-ink-faint">Closed</span>}
+            </p>
+          </div>
         </div>
-        {!period.isClosed && (
+        {!currentPeriod.isClosed && (
           <button onClick={() => setShowForm(!showForm)} className="btn-primary text-xs">
             <Plus className="w-3.5 h-3.5" />
             {userRole === "ENTRY_MANAGER" ? "Record Expense" : "Add Entry"}
@@ -366,7 +390,7 @@ export function PettyCashClient({
             {entries.length === 0 && (
               <tr>
                 <td colSpan={6} className="table-cell text-center text-ink-faint py-8">
-                  No entries yet.{!period.isClosed && " Click Record Expense to start."}
+                  No entries yet.{!currentPeriod.isClosed && " Click Record Expense to start."}
                 </td>
               </tr>
             )}

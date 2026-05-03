@@ -1,5 +1,6 @@
 import { getSession } from "@/lib/auth";
 import { getActiveEntities, getActiveBankAccounts, getAllOwnership, getTeamMembers } from "@/lib/queries";
+import { prisma } from "@/lib/prisma";
 import { SettingsClient } from "./settings-client";
 
 export default async function SettingsPage() {
@@ -12,11 +13,15 @@ export default async function SettingsPage() {
     );
   }
 
-  const [entityRows, bankAccountRows, allOwnershipRows, teamMembers] = await Promise.all([
+  const [entityRows, bankAccountRows, allOwnershipRows, teamMembers, pettyCashPeriodsRows] = await Promise.all([
     getActiveEntities(),
     getActiveBankAccounts(),
     getAllOwnership(),
     getTeamMembers(),
+    prisma.pettyCashPeriod.findMany({
+      orderBy: { periodStart: "desc" },
+      include: { entity: { select: { name: true } } },
+    }),
   ]);
 
   // Group ownership records by entityId (replaces previous N+1 loop)
@@ -49,5 +54,14 @@ export default async function SettingsPage() {
     bankName: a.bankName,
   }));
 
-  return <SettingsClient entities={entities} bankAccounts={bankAccounts} teamMembers={teamMembers} />;
+  const pettyCashPeriods = pettyCashPeriodsRows.map((p) => ({
+    id: p.id,
+    entityId: p.entityId,
+    entityName: p.entity.name,
+    periodStart: p.periodStart.toISOString().split("T")[0],
+    periodEnd: p.periodEnd.toISOString().split("T")[0],
+    isClosed: p.isClosed,
+  }));
+
+  return <SettingsClient entities={entities} bankAccounts={bankAccounts} teamMembers={teamMembers} pettyCashPeriods={pettyCashPeriods} />;
 }

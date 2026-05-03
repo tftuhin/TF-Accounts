@@ -9,6 +9,7 @@ interface Ownership { id: string; entityId: string; ownerName: string; ownership
 interface Entity { id: string; slug: string; name: string; type: string; color: string; ownership?: Ownership[] }
 interface BankAccount { id: string; entityId: string; entityName: string; entityColor: string; accountName: string; accountType: string; currency: string; bankName: string | null }
 interface TeamMember { id: string; email: string; fullName: string; role: string; isActive: boolean; isPending?: boolean; invitedAt?: string; expiresAt?: string }
+interface PettyCashPeriod { id: string; entityId: string; entityName: string; periodStart: string; periodEnd: string; isClosed: boolean }
 
 const ENTITY_COLORS = [
   "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
@@ -39,14 +40,17 @@ export function SettingsClient({
   entities: initialEntities,
   bankAccounts: initialBankAccounts,
   teamMembers: initialTeamMembers,
+  pettyCashPeriods: initialPettyCashPeriods,
 }: {
   entities: Entity[];
   bankAccounts: BankAccount[];
   teamMembers: TeamMember[];
+  pettyCashPeriods: PettyCashPeriod[];
 }) {
   const [entities, setEntities] = useState(initialEntities);
   const [bankAccounts, setBankAccounts] = useState(initialBankAccounts);
   const [teamMembers, setTeamMembers] = useState(initialTeamMembers);
+  const [pettyCashPeriods, setPettyCashPeriods] = useState(initialPettyCashPeriods);
 
   // ── Entity form ──────────────────────────────────────────────
   const [entityForm, setEntityForm] = useState({ name: "", slug: "", type: "SUB_BRAND", color: ENTITY_COLORS[0] });
@@ -193,6 +197,24 @@ export function SettingsClient({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
+
+      const selectedEntity = entities.find(e => e.id === periodForm.entityId);
+      if (selectedEntity) {
+        setPettyCashPeriods((prev) => [
+          {
+            id: json.data.id,
+            entityId: periodForm.entityId,
+            entityName: selectedEntity.name,
+            periodStart: periodForm.periodStart,
+            periodEnd: periodForm.periodEnd,
+            isClosed: false,
+          },
+          ...prev,
+        ]);
+      }
+
+      const defaultDates = currentMonth();
+      setPeriodForm({ entityId: entities[0]?.id || "", periodStart: defaultDates.start, periodEnd: defaultDates.end });
       toast.success("Petty cash period created");
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to create period");
@@ -637,14 +659,38 @@ export function SettingsClient({
       <div className="card p-6 space-y-4">
         <div className="flex items-center gap-2">
           <Wallet className="w-4 h-4 text-accent-green" />
-          <div className="text-sm font-semibold text-ink-white">Petty Cash Period</div>
+          <div className="text-sm font-semibold text-ink-white">Petty Cash Periods</div>
         </div>
-        <p className="text-2xs text-ink-faint -mt-2">Open a monthly period to activate petty cash tracking. Currency is always BDT.</p>
+        <p className="text-2xs text-ink-faint -mt-2">Create monthly periods to activate petty cash tracking. Currency is always BDT.</p>
 
+        {/* Existing periods list */}
+        {pettyCashPeriods.length > 0 && (
+          <div className="space-y-2 border-t border-surface-border pt-4">
+            <div className="text-xs font-semibold text-ink-faint uppercase tracking-wider mb-2">Active Periods</div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {pettyCashPeriods.map((period) => (
+                <div key={period.id} className="flex items-center justify-between p-3 rounded-lg bg-surface-2 border border-surface-border">
+                  <div className="flex-1">
+                    <div className="text-sm text-ink-primary font-medium">{period.entityName}</div>
+                    <div className="text-2xs text-ink-faint mt-0.5">
+                      {period.periodStart} → {period.periodEnd}
+                    </div>
+                  </div>
+                  {period.isClosed && (
+                    <div className="badge bg-surface-3 text-ink-faint text-xs">Closed</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Create new period form */}
         {entities.length === 0 ? (
           <div className="text-sm text-ink-muted text-center py-3">Create an entity first.</div>
         ) : (
-          <form onSubmit={handleCreatePeriod} className="space-y-3">
+          <form onSubmit={handleCreatePeriod} className="space-y-3 border-t border-surface-border pt-4">
+            <div className="text-xs font-semibold text-ink-faint uppercase tracking-wider">Create New Period</div>
             <div>
               <label className="input-label">Entity</label>
               <select value={periodForm.entityId} onChange={(e) => setPeriodForm({ ...periodForm, entityId: e.target.value })} className="input">
@@ -662,7 +708,8 @@ export function SettingsClient({
               </div>
             </div>
             <button type="submit" disabled={savingPeriod} className="btn-primary w-full text-sm">
-              {savingPeriod ? "Creating…" : "Open Petty Cash Period"}
+              <Plus className="w-3.5 h-3.5" />
+              {savingPeriod ? "Creating…" : "Create Period"}
             </button>
           </form>
         )}
