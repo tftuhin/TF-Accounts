@@ -439,7 +439,7 @@ model PettyCashPeriod {
 
 model PettyCashEntry {
   id              String             @id @default(uuid())
-  periodId        String             @map("period_id")  // Keep as required in DB
+  periodId        String             @map("period_id")
   period          PettyCashPeriod    @relation(fields: [periodId], references: [id], onDelete: Cascade)
   entityId        String             @map("entity_id")
   entity          Entity             @relation(fields: [entityId], references: [id])
@@ -453,7 +453,6 @@ model PettyCashEntry {
   journalEntry    JournalEntry?      @relation(fields: [journalEntryId], references: [id])
   createdById     String?            @map("created_by")
   creator         User?              @relation(fields: [createdById], references: [id])
-  importBatch     String?            @map("import_batch")    // Track which import this came from
   createdAt       DateTime           @default(now()) @map("created_at")
 
   evidenceFiles EvidenceFile[]

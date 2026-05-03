@@ -277,7 +277,6 @@ export async function POST(req: NextRequest) {
             amount: Math.abs(amount),
             currency: "BDT",
             createdById: null,
-            importBatch,
           });
         }
       } catch (err: unknown) {
