@@ -191,10 +191,48 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Parse and validate amount
-        const amount = parseFloat(row.Amount);
-        if (isNaN(amount)) {
-          errors.push({ row: rowNumber, error: "Invalid amount" });
+        // Parse and validate amount - handle various formats
+        let amountStr = row.Amount.toString().trim();
+
+        // Remove currency symbols and common formatting
+        amountStr = amountStr
+          .replace(/[^\d.,\-]/g, "") // Remove all non-numeric chars except decimal/thousands separators
+          .trim();
+
+        // Handle both comma and dot as decimal separator
+        // If there's both comma and dot, assume the last one is decimal separator
+        if (amountStr.includes(",") && amountStr.includes(".")) {
+          const lastCommaIndex = amountStr.lastIndexOf(",");
+          const lastDotIndex = amountStr.lastIndexOf(".");
+
+          if (lastDotIndex > lastCommaIndex) {
+            // Dot is decimal, remove commas (1,250.00 format)
+            amountStr = amountStr.replace(/,/g, "");
+          } else {
+            // Comma is decimal, remove dots (1.250,00 format)
+            amountStr = amountStr.replace(/\./g, "").replace(",", ".");
+          }
+        } else if (amountStr.includes(",")) {
+          // Only comma exists - could be decimal or thousands separator
+          const commaCount = (amountStr.match(/,/g) || []).length;
+          if (commaCount === 1) {
+            // Single comma - assume it's decimal separator if 2 digits after it
+            const afterComma = amountStr.split(",")[1];
+            if (afterComma && afterComma.length <= 2) {
+              amountStr = amountStr.replace(",", ".");
+            } else {
+              // Comma is thousands separator
+              amountStr = amountStr.replace(/,/g, "");
+            }
+          } else {
+            // Multiple commas - assume thousands separators
+            amountStr = amountStr.replace(/,/g, "");
+          }
+        }
+
+        const amount = parseFloat(amountStr);
+        if (isNaN(amount) || amount === 0) {
+          errors.push({ row: rowNumber, error: `Invalid amount: "${row.Amount}"` });
           continue;
         }
 
