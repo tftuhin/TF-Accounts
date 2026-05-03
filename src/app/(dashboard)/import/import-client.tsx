@@ -399,6 +399,7 @@ export function ImportClient({
           </div>
           <div className="text-2xs text-ink-faint">
             Required columns: Date, Description, Amount, Category | Optional: Entity
+            Upload as CSV (tab-separated), JSON, or other delimited formats
           </div>
           <input
             type="file"
@@ -412,7 +413,7 @@ export function ImportClient({
         {/* Expected Format */}
         <div className="card p-5">
           <div className="text-sm font-semibold text-ink-white mb-3">
-            CSV Format
+            File Format (CSV or JSON)
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
