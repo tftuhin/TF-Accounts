@@ -255,6 +255,7 @@ export async function POST(req: NextRequest) {
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Unknown error";
+        console.error(`Row ${rowNumber} error:`, err);
         errors.push({ row: rowNumber, error: msg });
       }
     }
@@ -269,6 +270,9 @@ export async function POST(req: NextRequest) {
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Internal error";
     console.error("Import error:", err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json(
+      { error: msg, success: false },
+      { status: 500 }
+    );
   }
 }

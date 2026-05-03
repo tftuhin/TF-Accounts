@@ -111,9 +111,15 @@ export function ImportClient({
       setProgress(50);
       setStatus("Processing records...");
 
-      const json = await res.json();
+      let json;
+      try {
+        json = await res.json();
+      } catch (parseErr) {
+        const text = await res.text();
+        throw new Error(`Invalid response: ${text.substring(0, 200)}`);
+      }
       if (!res.ok) {
-        throw new Error(json.error || "Import failed");
+        throw new Error(json.error || json.message || "Import failed");
       }
 
       setProgress(90);
