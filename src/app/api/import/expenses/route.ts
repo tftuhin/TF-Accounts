@@ -13,15 +13,31 @@ interface CSVRow {
 
 const REQUIRED_COLUMNS = ["Date", "Description", "Amount", "Category"];
 
-function detectDelimiter(line: string): string {
+function detectDelimiter(lines: string[]): string {
   const delimiters = [",", ";", "\t", "|"];
+  const headerLine = lines[0];
+
+  // For each delimiter, check how consistent column counts are
   let bestDelimiter = ",";
-  let maxCount = 0;
+  let bestScore = -1;
 
   for (const delim of delimiters) {
-    const count = line.split(delim).length;
-    if (count > maxCount) {
-      maxCount = count;
+    const counts: number[] = [];
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+      counts.push(lines[i].split(delim).length);
+    }
+
+    // Best delimiter should have consistent column count
+    const avgCount = counts.reduce((a, b) => a + b, 0) / counts.length;
+    const variance = counts.reduce((sum, c) => sum + Math.pow(c - avgCount, 2), 0) / counts.length;
+
+    // Prefer delimiters with:
+    // 1. More columns (4+ is ideal for our format)
+    // 2. Consistent column count (low variance)
+    const score = (avgCount >= 4 ? avgCount : 0) - variance;
+
+    if (score > bestScore) {
+      bestScore = score;
       bestDelimiter = delim;
     }
   }
@@ -40,7 +56,7 @@ function parseCSV(content: string): CSVRow[] {
   const lines = content.trim().split("\n").filter((l) => l.trim());
   if (lines.length === 0) return [];
 
-  const delimiter = detectDelimiter(lines[0]);
+  const delimiter = detectDelimiter(lines);
   const headerLine = lines[0];
   const headers = headerLine.split(delimiter).map(parseValue);
 
