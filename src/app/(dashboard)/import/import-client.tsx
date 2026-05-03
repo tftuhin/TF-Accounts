@@ -21,9 +21,12 @@ interface ImportResult {
 
 export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) {
   const [file, setFile] = useState<File | null>(null);
+  const [dataType, setDataType] = useState<"expense" | "income" | "withdraw">("expense");
   const [source, setSource] = useState<"bank" | "petty-cash">("bank");
   const [bankAccountId, setBankAccountId] = useState<string>("");
   const [importing, setImporting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState<string>("");
   const [result, setResult] = useState<ImportResult | null>(null);
 
   const relevantBankAccounts = bankAccounts.filter(
@@ -39,6 +42,8 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
       }
       setFile(selectedFile);
       setResult(null);
+      setProgress(0);
+      setStatus("");
     }
   }
 
@@ -48,6 +53,8 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
     if (droppedFile?.name.endsWith(".csv")) {
       setFile(droppedFile);
       setResult(null);
+      setProgress(0);
+      setStatus("");
     } else {
       toast.error("Please drop a CSV file");
     }
@@ -66,9 +73,13 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
     }
 
     setImporting(true);
+    setProgress(10);
+    setStatus("Parsing CSV file...");
+
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("dataType", dataType);
       formData.append("source", source);
       if (bankAccountId) {
         formData.append("bankAccountId", bankAccountId);
@@ -79,14 +90,20 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
         body: formData,
       });
 
+      setProgress(50);
+      setStatus("Processing records...");
+
       const json = await res.json();
       if (!res.ok) {
         throw new Error(json.error || "Import failed");
       }
 
+      setProgress(90);
+      setStatus("Finalizing import...");
+
       setResult(json.data);
       if (json.data.created) {
-        toast.success(`Successfully imported ${json.data.created} expenses`);
+        toast.success(`Successfully imported ${json.data.created} records`);
         setFile(null);
       }
       if (json.data.errors?.length) {
@@ -94,12 +111,20 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
           `Import completed with ${json.data.errors.length} errors`
         );
       }
+      setProgress(100);
+      setStatus("Import complete!");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Import failed";
       toast.error(msg);
       setResult(null);
+      setProgress(0);
+      setStatus("");
     } finally {
       setImporting(false);
+      setTimeout(() => {
+        setProgress(0);
+        setStatus("");
+      }, 2000);
     }
   }
 
@@ -108,23 +133,65 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
       <div>
         <h1 className="text-2xl font-display text-ink-white">Bulk CSV Import</h1>
         <p className="text-sm text-ink-muted mt-1">
-          Import expenses from a CSV file
+          Import financial records from a CSV file
         </p>
       </div>
 
       <form onSubmit={handleImport} className="space-y-6">
+        {/* Data Type Selection */}
+        <div className="card p-6 space-y-4">
+          <div className="text-sm font-semibold text-ink-white">
+            Transaction Type *
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { value: "income", label: "Income", color: "rgb(16, 185, 129)" },
+              { value: "expense", label: "Expense", color: "rgb(239, 68, 68)" },
+              { value: "withdraw", label: "Withdrawal", color: "rgb(245, 158, 11)" },
+            ].map((type) => (
+              <label
+                key={type.value}
+                className="flex items-center gap-3 p-3 rounded-lg border border-surface-border hover:border-accent-blue/30 cursor-pointer transition"
+                style={{
+                  borderColor:
+                    dataType === type.value ? type.color : undefined,
+                  backgroundColor:
+                    dataType === type.value
+                      ? `${type.color}15`
+                      : undefined,
+                }}
+              >
+                <input
+                  type="radio"
+                  name="dataType"
+                  value={type.value}
+                  checked={dataType === type.value as any}
+                  onChange={(e) =>
+                    setDataType(e.target.value as "income" | "expense" | "withdraw")
+                  }
+                />
+                <div className="text-sm font-medium text-ink-white">
+                  {type.label}
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
         {/* Source Selection */}
         <div className="card p-6 space-y-4">
           <div className="text-sm font-semibold text-ink-white">
-            Expense Source
+            Data Source
           </div>
           <div className="space-y-3">
-            <label className="flex items-center gap-3 p-3 rounded-lg border border-surface-border hover:border-accent-blue/30 cursor-pointer transition"
+            <label
+              className="flex items-center gap-3 p-3 rounded-lg border border-surface-border hover:border-accent-blue/30 cursor-pointer transition"
               style={{
                 borderColor: source === "bank" ? "rgb(59, 130, 246)" : undefined,
                 backgroundColor:
                   source === "bank" ? "rgba(59, 130, 246, 0.05)" : undefined,
-              }}>
+              }}
+            >
               <input
                 type="radio"
                 name="source"
@@ -140,12 +207,13 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
                   Bank Account
                 </div>
                 <div className="text-2xs text-ink-faint">
-                  Expenses from BDT or USD bank accounts
+                  BDT or USD bank accounts
                 </div>
               </div>
             </label>
 
-            <label className="flex items-center gap-3 p-3 rounded-lg border border-surface-border hover:border-accent-blue/30 cursor-pointer transition"
+            <label
+              className="flex items-center gap-3 p-3 rounded-lg border border-surface-border hover:border-accent-blue/30 cursor-pointer transition"
               style={{
                 borderColor:
                   source === "petty-cash" ? "rgb(59, 130, 246)" : undefined,
@@ -153,7 +221,8 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
                   source === "petty-cash"
                     ? "rgba(59, 130, 246, 0.05)"
                     : undefined,
-              }}>
+              }}
+            >
               <input
                 type="radio"
                 name="source"
@@ -168,7 +237,7 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
                   Petty Cash
                 </div>
                 <div className="text-2xs text-ink-faint">
-                  Expenses from petty cash float
+                  Petty cash float expenses
                 </div>
               </div>
             </label>
@@ -219,7 +288,7 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
         {/* Expected Format */}
         <div className="card p-5">
           <div className="text-sm font-semibold text-ink-white mb-3">
-            Expected Format
+            CSV Format
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -245,13 +314,13 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
               <tbody>
                 <tr className="border-t border-surface-border">
                   <td className="px-3 py-2 font-mono text-ink-secondary">
-                    2025-04-01
+                    2025-05-01
                   </td>
                   <td className="px-3 py-2 text-ink-primary">
                     Office Supplies
                   </td>
                   <td className="px-3 py-2 font-mono text-accent-red">
-                    -250.00
+                    250.00
                   </td>
                   <td className="px-3 py-2 text-ink-secondary">Supplies</td>
                   <td className="px-3 py-2 text-ink-secondary">Themefisher</td>
@@ -260,6 +329,25 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
             </table>
           </div>
         </div>
+
+        {/* Progress Bar */}
+        {importing && (
+          <div className="card p-4 space-y-3 bg-surface-2 border border-accent-blue/20">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium text-ink-white">
+                Importing...
+              </div>
+              <div className="text-2xs text-ink-faint">{progress}%</div>
+            </div>
+            <div className="w-full bg-surface-3 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-accent-blue h-full transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="text-2xs text-ink-faint italic">{status}</div>
+          </div>
+        )}
 
         {/* Import Results */}
         {result && (
@@ -282,7 +370,7 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
                 </div>
                 {result.created ? (
                   <div className="text-sm text-ink-secondary mb-2">
-                    ✓ Successfully imported {result.created} expense
+                    ✓ Successfully imported {result.created} record
                     {result.created !== 1 ? "s" : ""}
                   </div>
                 ) : null}
@@ -292,14 +380,14 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
                       {result.errors.length} error
                       {result.errors.length !== 1 ? "s" : ""}:
                     </div>
-                    <ul className="text-2xs text-ink-secondary space-y-0.5">
-                      {result.errors.slice(0, 5).map((err, i) => (
+                    <ul className="text-2xs text-ink-secondary space-y-0.5 max-h-48 overflow-y-auto">
+                      {result.errors.slice(0, 10).map((err, i) => (
                         <li key={i}>
                           Row {err.row}: {err.error}
                         </li>
                       ))}
-                      {result.errors.length > 5 && (
-                        <li>... and {result.errors.length - 5} more</li>
+                      {result.errors.length > 10 && (
+                        <li>... and {result.errors.length - 10} more</li>
                       )}
                     </ul>
                   </div>
@@ -315,7 +403,7 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
           disabled={!file || importing || (source === "bank" && !bankAccountId)}
           className="btn-primary w-full"
         >
-          {importing ? "Importing..." : "Import Expenses"}
+          {importing ? "Importing..." : "Import Records"}
         </button>
       </form>
     </div>

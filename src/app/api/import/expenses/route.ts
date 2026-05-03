@@ -12,14 +12,36 @@ interface CSVRow {
 
 const REQUIRED_COLUMNS = ["Date", "Description", "Amount", "Category", "Entity"];
 
+function detectDelimiter(line: string): string {
+  const delimiters = [",", ";", "\t", "|"];
+  let bestDelimiter = ",";
+  let maxCount = 0;
+
+  for (const delim of delimiters) {
+    const count = line.split(delim).length;
+    if (count > maxCount) {
+      maxCount = count;
+      bestDelimiter = delim;
+    }
+  }
+
+  return bestDelimiter;
+}
+
+function parseValue(value: string): string {
+  return value
+    .trim()
+    .replace(/^["'](.*)["']$/, "$1") // Remove surrounding quotes
+    .trim();
+}
+
 function parseCSV(content: string): CSVRow[] {
-  const lines = content.trim().split("\n");
+  const lines = content.trim().split("\n").filter((l) => l.trim());
   if (lines.length === 0) return [];
 
+  const delimiter = detectDelimiter(lines[0]);
   const headerLine = lines[0];
-  const headers = headerLine
-    .split(",")
-    .map((h) => h.trim().replace(/^"(.*)"$/, "$1")); // Remove quotes and trim
+  const headers = headerLine.split(delimiter).map(parseValue);
 
   // Validate headers (case-insensitive)
   const headerLower = headers.map((h) => h.toLowerCase());
@@ -36,7 +58,15 @@ function parseCSV(content: string): CSVRow[] {
     const line = lines[i].trim();
     if (!line) continue;
 
-    const values = line.split(",").map((v) => v.trim().replace(/^"(.*)"$/, "$1")); // Remove quotes
+    const values = line.split(delimiter).map(parseValue);
+
+    if (values.length < headers.length) {
+      // Pad with empty strings if not enough columns
+      while (values.length < headers.length) {
+        values.push("");
+      }
+    }
+
     const row: Partial<CSVRow> = {};
 
     headers.forEach((header, index) => {
@@ -63,11 +93,16 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
+    const dataType = formData.get("dataType") as string; // income, expense, withdraw
     const source = formData.get("source") as string;
     const bankAccountId = formData.get("bankAccountId") as string | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+
+    if (!dataType || !["income", "expense", "withdraw"].includes(dataType)) {
+      return NextResponse.json({ error: "Invalid data type" }, { status: 400 });
     }
 
     const content = await file.text();
@@ -90,7 +125,15 @@ export async function POST(req: NextRequest) {
       try {
         // Validate required fields
         if (!row.Date || !row.Description || !row.Amount || !row.Category || !row.Entity) {
-          errors.push({ row: rowNumber, error: "Missing required field" });
+          errors.push({
+            row: rowNumber,
+            error: `Missing field: ${
+              !row.Date ? "Date" :
+              !row.Description ? "Description" :
+              !row.Amount ? "Amount" :
+              !row.Category ? "Category" : "Entity"
+            }`
+          });
           continue;
         }
 
@@ -121,7 +164,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (source === "bank") {
-          // Create journal entry for bank expense
+          // Create journal entry for bank transaction
           if (!bankAccountId) {
             errors.push({ row: rowNumber, error: "Bank account not selected" });
             continue;
@@ -151,7 +194,15 @@ export async function POST(req: NextRequest) {
 
           created++;
         } else if (source === "petty-cash") {
-          // Create petty cash entry
+          // Create petty cash entry (only for expenses)
+          if (dataType !== "expense") {
+            errors.push({
+              row: rowNumber,
+              error: "Petty cash only supports expense transactions",
+            });
+            continue;
+          }
+
           const pettyCashPeriod = await prisma.pettyCashPeriod.findFirst({
             where: {
               entityId: entity.id,
