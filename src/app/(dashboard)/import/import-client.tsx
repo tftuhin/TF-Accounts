@@ -103,11 +103,16 @@ export function ImportClient({
         formData.append("bankAccountId", bankAccountId);
       }
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
       const res = await fetch("/api/import/expenses", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       });
 
+      clearTimeout(timeout);
       setProgress(50);
       setStatus("Processing records...");
 
@@ -138,7 +143,14 @@ export function ImportClient({
       setProgress(100);
       setStatus("Import complete!");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Import failed";
+      let msg = "Import failed";
+      if (err instanceof Error) {
+        if (err.name === "AbortError") {
+          msg = "Import request timed out (2 minutes)";
+        } else {
+          msg = err.message;
+        }
+      }
       toast.error(msg);
       setResult(null);
       setProgress(0);

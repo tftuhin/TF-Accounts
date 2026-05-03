@@ -110,8 +110,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Default entity required" }, { status: 400 });
     }
 
+    console.log(`Starting import: ${file.name}, size: ${file.size} bytes`);
     const content = await file.text();
+    console.log(`CSV content read: ${content.length} chars, parsing...`);
     const rows = parseCSV(content);
+    console.log(`Parsed ${rows.length} rows`);
 
     if (rows.length === 0) {
       return NextResponse.json(
@@ -126,6 +129,10 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const rowNumber = i + 2; // +2 because header is row 1
+      
+      if (i % 100 === 0) {
+        console.log(`Processing row ${i}...`);
+      }
 
       try {
         // Validate required fields (Entity is optional)
