@@ -150,25 +150,8 @@ export async function POST(req: NextRequest) {
     console.log(`Pre-loaded ${allEntities.length} entities, ${allPettyCashPeriods.length} petty cash periods`);
 
     // Prepare batch arrays
-    const journalEntriesToCreate: Array<{
-      entityId: string;
-      date: Date;
-      description: string;
-      status: string;
-      category: string;
-      createdById: null;
-      createdByRole: "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER";
-    }> = [];
-
-    const pettyCashEntriesToCreate: Array<{
-      periodId: string;
-      entityId: string;
-      date: Date;
-      description: string;
-      amount: number;
-      currency: string;
-      createdById: null;
-    }> = [];
+    const journalEntriesToCreate: any[] = [];
+    const pettyCashEntriesToCreate: any[] = [];
 
     // First pass: validate and collect data
     for (let i = 0; i < rows.length; i++) {
@@ -251,7 +234,7 @@ export async function POST(req: NextRequest) {
             entityId,
             date,
             description: row.Description,
-            status: "FINALIZED",
+            status: "FINALIZED" as const,
             category: row.Category,
             createdById: null,
             createdByRole: session.role as "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER",
