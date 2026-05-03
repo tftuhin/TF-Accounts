@@ -164,8 +164,8 @@ function parseJSON(content: string): CSVRow[] {
         key = Object.keys(entry).find(k => k.toLowerCase() === "sub_brand");
       }
 
-      if (key) {
-        row[col as keyof CSVRow] = String(entry[key]);
+      if (key && entry[key] !== null && entry[key] !== undefined && entry[key] !== "null") {
+        row[col as keyof CSVRow] = String(entry[key]).trim();
       }
     });
 
