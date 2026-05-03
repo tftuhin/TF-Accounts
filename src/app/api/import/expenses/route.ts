@@ -157,7 +157,13 @@ function parseJSON(content: string): CSVRow[] {
 
     // Map JSON fields to CSVRow (case-insensitive)
     REQUIRED_COLUMNS.concat("Entity").forEach((col) => {
-      const key = Object.keys(entry).find(k => k.toLowerCase() === col.toLowerCase());
+      let key = Object.keys(entry).find(k => k.toLowerCase() === col.toLowerCase());
+
+      // Accept "sub_brand" as alias for "Entity"
+      if (!key && col.toLowerCase() === "entity") {
+        key = Object.keys(entry).find(k => k.toLowerCase() === "sub_brand");
+      }
+
       if (key) {
         row[col as keyof CSVRow] = String(entry[key]);
       }
