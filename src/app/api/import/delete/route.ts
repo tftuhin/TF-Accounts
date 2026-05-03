@@ -18,25 +18,18 @@ export async function POST(req: NextRequest) {
       where: { importBatch },
     });
 
-    // Delete petty cash entries from this import
-    const pettyCashEntriesDeleted = await prisma.pettyCashEntry.deleteMany({
-      where: { importBatch },
-    });
-
     console.log(
-      `Deleted import batch ${importBatch}: ${journalEntriesDeleted.count} journal entries, ${pettyCashEntriesDeleted.count} petty cash entries`
+      `Deleted import batch ${importBatch}: ${journalEntriesDeleted.count} journal entries`
     );
 
     revalidateTag("dashboard");
     revalidateTag("pf-balances");
-    revalidateTag("petty-cash");
 
     return NextResponse.json({
       success: true,
       data: {
         journalEntriesDeleted: journalEntriesDeleted.count,
-        pettyCashEntriesDeleted: pettyCashEntriesDeleted.count,
-        totalDeleted: journalEntriesDeleted.count + pettyCashEntriesDeleted.count,
+        totalDeleted: journalEntriesDeleted.count,
       },
     });
   } catch (err: unknown) {
