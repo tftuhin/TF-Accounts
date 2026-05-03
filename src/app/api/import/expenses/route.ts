@@ -199,6 +199,11 @@ export async function POST(req: NextRequest) {
           }
 
           // Create journal entry
+          const validRoles = ["ADMIN", "ACCOUNTS_MANAGER", "ENTRY_MANAGER"];
+          if (!validRoles.includes(session.role)) {
+            throw new Error("Invalid user role");
+          }
+          
           await prisma.journalEntry.create({
             data: {
               entityId,
@@ -207,7 +212,7 @@ export async function POST(req: NextRequest) {
               status: "FINALIZED",
               category: row.Category,
               createdById: null,
-              createdByRole: session.role as any,
+              createdByRole: session.role as "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER",
             },
           });
 
