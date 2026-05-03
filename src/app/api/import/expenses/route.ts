@@ -14,16 +14,15 @@ interface CSVRow {
 const REQUIRED_COLUMNS = ["Date", "Description", "Amount", "Category"];
 
 function detectDelimiter(lines: string[]): string {
-  const delimiters = [",", ";", "\t", "|"];
+  const delimiters = ["\t", ",", ";", "|"]; // Tab first since it's most reliable
   const headerLine = lines[0];
 
-  // For each delimiter, check how consistent column counts are
   let bestDelimiter = ",";
   let bestScore = -1;
 
   for (const delim of delimiters) {
     const counts: number[] = [];
-    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    for (let i = 0; i < Math.min(lines.length, 20); i++) {
       counts.push(lines[i].split(delim).length);
     }
 
@@ -31,10 +30,16 @@ function detectDelimiter(lines: string[]): string {
     const avgCount = counts.reduce((a, b) => a + b, 0) / counts.length;
     const variance = counts.reduce((sum, c) => sum + Math.pow(c - avgCount, 2), 0) / counts.length;
 
-    // Prefer delimiters with:
-    // 1. More columns (4+ is ideal for our format)
-    // 2. Consistent column count (low variance)
-    const score = (avgCount >= 4 ? avgCount : 0) - variance;
+    // We expect 4-5 columns (Date, Description, Amount, Category, optional Entity)
+    const expectedColumns = 4;
+    const isValidColumnCount = avgCount >= expectedColumns && avgCount <= 6;
+
+    // Score based on:
+    // 1. Whether it produces expected number of columns (highest priority)
+    // 2. Consistency (low variance)
+    const score = (isValidColumnCount ? avgCount * 1000 : 0) - variance;
+
+    console.log(`Delimiter "${delim === '\t' ? 'TAB' : delim}": avg=${avgCount.toFixed(1)}, variance=${variance.toFixed(2)}, score=${score.toFixed(1)}`);
 
     if (score > bestScore) {
       bestScore = score;
@@ -42,6 +47,7 @@ function detectDelimiter(lines: string[]): string {
     }
   }
 
+  console.log(`Selected delimiter: "${bestDelimiter === '\t' ? 'TAB' : bestDelimiter}"`);
   return bestDelimiter;
 }
 
