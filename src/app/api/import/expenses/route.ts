@@ -281,23 +281,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Second pass: batch insert all records
-    console.log(`Batch creating ${journalEntriesToCreate.length} journal entries and ${pettyCashEntriesToCreate.length} petty cash entries...`);
+    // Second pass: create all records
+    console.log(`Creating ${journalEntriesToCreate.length} journal entries and ${pettyCashEntriesToCreate.length} petty cash entries...`);
 
     if (journalEntriesToCreate.length > 0) {
-      await prisma.journalEntry.createMany({
-        data: journalEntriesToCreate,
-      });
-      created += journalEntriesToCreate.length;
-      console.log(`Created ${journalEntriesToCreate.length} journal entries`);
+      let successCount = 0;
+      for (const entry of journalEntriesToCreate) {
+        try {
+          await prisma.journalEntry.create({ data: entry });
+          successCount++;
+        } catch (err) {
+          console.error("Failed to create journal entry:", entry, err);
+        }
+      }
+      created += successCount;
+      console.log(`Successfully created ${successCount}/${journalEntriesToCreate.length} journal entries`);
     }
 
     if (pettyCashEntriesToCreate.length > 0) {
-      await prisma.pettyCashEntry.createMany({
-        data: pettyCashEntriesToCreate,
-      });
-      created += pettyCashEntriesToCreate.length;
-      console.log(`Created ${pettyCashEntriesToCreate.length} petty cash entries`);
+      let successCount = 0;
+      for (const entry of pettyCashEntriesToCreate) {
+        try {
+          await prisma.pettyCashEntry.create({ data: entry });
+          successCount++;
+        } catch (err) {
+          console.error("Failed to create petty cash entry:", entry, err);
+        }
+      }
+      created += successCount;
+      console.log(`Successfully created ${successCount}/${pettyCashEntriesToCreate.length} petty cash entries`);
     }
 
     return NextResponse.json({
