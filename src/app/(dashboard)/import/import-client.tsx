@@ -403,7 +403,7 @@ export function ImportClient({
           </div>
           <input
             type="file"
-            accept=".csv"
+            accept=".csv,.json"
             className="hidden"
             id="csv-upload"
             onChange={handleFileSelect}
