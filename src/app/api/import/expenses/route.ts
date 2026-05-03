@@ -163,6 +163,28 @@ export async function POST(req: NextRequest) {
       expenseAccounts.map((acc) => [acc.entityId, acc.id])
     );
 
+    // Create missing OPEX accounts for entities
+    console.log("Creating missing OPEX accounts...");
+    for (const entity of allEntities) {
+      if (!expenseAccountMap.has(entity.id)) {
+        try {
+          const account = await prisma.chartOfAccounts.create({
+            data: {
+              entityId: entity.id,
+              accountCode: "5000",
+              accountName: "Operating Expenses",
+              accountGroup: "expense",
+              pfAccount: "OPEX",
+            },
+          });
+          expenseAccountMap.set(entity.id, account.id);
+          console.log(`Created OPEX account for entity ${entity.name}`);
+        } catch (err) {
+          console.error(`Failed to create OPEX account for entity ${entity.id}:`, err);
+        }
+      }
+    }
+
     // Prepare batch arrays
     const journalEntriesToCreate: any[] = [];
     const pettyCashEntriesToCreate: any[] = [];
