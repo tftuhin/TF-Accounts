@@ -168,19 +168,31 @@ export async function POST(req: NextRequest) {
     for (const entity of allEntities) {
       if (!expenseAccountMap.has(entity.id)) {
         try {
-          const account = await prisma.chartOfAccounts.create({
-            data: {
+          // Try to find existing account first
+          const existingAccount = await prisma.chartOfAccounts.findFirst({
+            where: {
               entityId: entity.id,
               accountCode: "5000",
-              accountName: "Operating Expenses",
-              accountGroup: "expense",
-              pfAccount: "OPEX",
             },
           });
-          expenseAccountMap.set(entity.id, account.id);
-          console.log(`Created OPEX account for entity ${entity.name}`);
+
+          if (existingAccount) {
+            expenseAccountMap.set(entity.id, existingAccount.id);
+          } else {
+            const account = await prisma.chartOfAccounts.create({
+              data: {
+                entityId: entity.id,
+                accountCode: "5000",
+                accountName: "Operating Expenses",
+                accountGroup: "expense",
+                pfAccount: "OPEX",
+              },
+            });
+            expenseAccountMap.set(entity.id, account.id);
+            console.log(`Created OPEX account for entity ${entity.name}`);
+          }
         } catch (err) {
-          console.error(`Failed to create OPEX account for entity ${entity.id}:`, err);
+          console.error(`Failed to get/create OPEX account for entity ${entity.id}:`, err);
         }
       }
     }
