@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Upload, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 
 interface Entity {
   id: string;
@@ -21,6 +21,7 @@ interface BankAccount {
 interface ImportResult {
   success: boolean;
   created?: number;
+  importBatch?: string;
   errors?: Array<{ row: number; error: string }>;
 }
 
@@ -40,6 +41,7 @@ export function ImportClient({
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<string>("");
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const relevantBankAccounts = bankAccounts.filter(
     (ba) => ba.accountType !== "PETTY_CASH"
@@ -161,6 +163,44 @@ export function ImportClient({
         setProgress(0);
         setStatus("");
       }, 2000);
+    }
+  }
+
+  async function handleDeleteImport() {
+    if (!result?.importBatch) {
+      toast.error("No import batch to delete");
+      return;
+    }
+
+    const confirmed = confirm(
+      `Delete ${result.created || 0} imported records? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/import/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ importBatch: result.importBatch }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to delete import");
+      }
+
+      toast.success(`Deleted ${json.data.totalDeleted} imported records`);
+      setResult(null);
+      setFile(null);
+    } catch (err: unknown) {
+      let msg = "Failed to delete import";
+      if (err instanceof Error) {
+        msg = err.message;
+      }
+      toast.error(msg);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -480,6 +520,19 @@ export function ImportClient({
                 )}
               </div>
             </div>
+            {result.created && result.importBatch && (
+              <div className="mt-4 pt-4 border-t border-surface-border flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleDeleteImport}
+                  disabled={deleting}
+                  className="flex items-center gap-2 flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-accent-red/10 text-accent-red hover:bg-accent-red/20 transition disabled:opacity-50 disabled:cursor-not-allowed justify-center"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deleting ? "Deleting..." : "Delete This Import"}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
