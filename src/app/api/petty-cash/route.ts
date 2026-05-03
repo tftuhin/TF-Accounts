@@ -87,3 +87,35 @@ export async function POST(req: NextRequest) {
     }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  const session = await getSession();
+  if (!session || session.role !== "ADMIN")
+    return NextResponse.json({ error: "Only admins can delete petty cash entries" }, { status: 403 });
+
+  try {
+    const { entryId } = await req.json();
+    if (!entryId)
+      return NextResponse.json({ error: "entryId required" }, { status: 400 });
+
+    const entry = await prisma.pettyCashEntry.findUnique({
+      where: { id: entryId },
+    });
+
+    if (!entry) {
+      return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+    }
+
+    await prisma.pettyCashEntry.delete({
+      where: { id: entryId },
+    });
+
+    revalidateTag("petty-cash");
+    revalidateTag("dashboard");
+    return NextResponse.json({ success: true, message: "Petty cash entry deleted" });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Internal error";
+    console.error("Delete petty cash entry error:", err);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
