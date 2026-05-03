@@ -126,6 +126,10 @@ export async function POST(req: NextRequest) {
     const errors: Array<{ row: number; error: string }> = [];
     let created = 0;
 
+    // Generate unique import batch ID for tracking
+    const importBatch = `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`Import batch ID: ${importBatch}`);
+
     // Pre-load all entities and petty cash periods to avoid N+1 queries
     console.log("Pre-loading entities and petty cash periods...");
     const [allEntities, allPettyCashPeriods, bankAccount] = await Promise.all([
@@ -238,6 +242,7 @@ export async function POST(req: NextRequest) {
             category: row.Category,
             createdById: null,
             createdByRole: session.role as "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER",
+            importBatch,
           });
         } else if (source === "petty-cash") {
           // Validate petty cash transaction
@@ -272,6 +277,7 @@ export async function POST(req: NextRequest) {
             amount: Math.abs(amount),
             currency: "BDT",
             createdById: null,
+            importBatch,
           });
         }
       } catch (err: unknown) {
@@ -316,6 +322,7 @@ export async function POST(req: NextRequest) {
       success: true,
       data: {
         created,
+        importBatch,
         errors: errors.length > 0 ? errors : undefined,
       },
     });

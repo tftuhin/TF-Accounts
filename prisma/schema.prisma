@@ -309,6 +309,7 @@ model JournalEntry {
   voidedAt          DateTime?    @map("voided_at")
   voidedBy          String?      @map("voided_by")
   voidReason        String?      @map("void_reason")
+  importBatch       String?      @map("import_batch")    // Track which import this came from
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
 
@@ -438,8 +439,8 @@ model PettyCashPeriod {
 
 model PettyCashEntry {
   id              String             @id @default(uuid())
-  periodId        String             @map("period_id")
-  period          PettyCashPeriod    @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  periodId        String?            @map("period_id")  // Now optional: entries matched by date range
+  period          PettyCashPeriod?   @relation(fields: [periodId], references: [id], onDelete: SetNull)
   entityId        String             @map("entity_id")
   entity          Entity             @relation(fields: [entityId], references: [id])
   date            DateTime           @db.Date
@@ -452,6 +453,7 @@ model PettyCashEntry {
   journalEntry    JournalEntry?      @relation(fields: [journalEntryId], references: [id])
   createdById     String?            @map("created_by")
   creator         User?              @relation(fields: [createdById], references: [id])
+  importBatch     String?            @map("import_batch")    // Track which import this came from
   createdAt       DateTime           @default(now()) @map("created_at")
 
   evidenceFiles EvidenceFile[]
