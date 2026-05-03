@@ -495,14 +495,14 @@ export async function POST(req: NextRequest) {
       const pettyCashWithJournal = [];
 
       for (const entryWithJournal of pettyCashEntriesToCreate) {
-        const { journalData, amount, ...pettyCashData } = entryWithJournal as any;
-        const expenseAccountId = expenseAccountMap.get(pettyCashData.entityId);
-        const pettyCashAccountId = pettyCashAccountMap.get(pettyCashData.entityId);
+        const { journalData, ...rest } = entryWithJournal as any;
+        const expenseAccountId = expenseAccountMap.get(rest.entityId);
+        const pettyCashAccountId = pettyCashAccountMap.get(rest.entityId);
 
         if (!expenseAccountId || !pettyCashAccountId) {
-          pettyCashWithoutJournal.push(pettyCashData);
+          pettyCashWithoutJournal.push(rest);
         } else {
-          pettyCashWithJournal.push({ journalData, pettyCashData, expenseAccountId, pettyCashAccountId, amount });
+          pettyCashWithJournal.push({ journalData, pettyCashData: rest, expenseAccountId, pettyCashAccountId });
         }
       }
 
@@ -524,7 +524,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Create petty cash entries with journals (must be sequential to get IDs)
-      for (const { journalData, pettyCashData, expenseAccountId, pettyCashAccountId, amount } of pettyCashWithJournal) {
+      for (const { journalData, pettyCashData, expenseAccountId, pettyCashAccountId } of pettyCashWithJournal) {
         try {
           const journalEntry = await prisma.journalEntry.create({
             data: {
@@ -536,7 +536,7 @@ export async function POST(req: NextRequest) {
                     accountId: expenseAccountId,
                     pfAccount: "OPEX",
                     entryType: TxnType.DEBIT,
-                    amount: amount,
+                    amount: pettyCashData.amount,
                     currency: "BDT",
                     entityId: journalData.entityId,
                   },
@@ -545,7 +545,7 @@ export async function POST(req: NextRequest) {
                     accountId: pettyCashAccountId,
                     pfAccount: null,
                     entryType: TxnType.CREDIT,
-                    amount: amount,
+                    amount: pettyCashData.amount,
                     currency: "BDT",
                     entityId: journalData.entityId,
                   },
