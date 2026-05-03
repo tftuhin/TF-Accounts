@@ -184,6 +184,7 @@ export function SettingsClient({
   const defaultDates = currentMonth();
   const [periodForm, setPeriodForm] = useState({ entityId: entities[0]?.id || "", periodStart: defaultDates.start, periodEnd: defaultDates.end });
   const [savingPeriod, setSavingPeriod] = useState(false);
+  const [deletingPeriodId, setDeletingPeriodId] = useState<string | null>(null);
 
   async function handleCreatePeriod(e: React.FormEvent) {
     e.preventDefault();
@@ -220,6 +221,26 @@ export function SettingsClient({
       toast.error(err instanceof Error ? err.message : "Failed to create period");
     } finally {
       setSavingPeriod(false);
+    }
+  }
+
+  async function handleDeletePeriod(periodId: string) {
+    setDeletingPeriodId(periodId);
+    try {
+      const res = await fetch("/api/petty-cash/periods", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ periodId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+
+      setPettyCashPeriods((prev) => prev.filter(p => p.id !== periodId));
+      toast.success("Petty cash period deleted");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete period");
+    } finally {
+      setDeletingPeriodId(null);
     }
   }
 
@@ -666,7 +687,7 @@ export function SettingsClient({
         {/* Existing periods list */}
         {pettyCashPeriods.length > 0 && (
           <div className="space-y-2 border-t border-surface-border pt-4">
-            <div className="text-xs font-semibold text-ink-faint uppercase tracking-wider mb-2">Active Periods</div>
+            <div className="text-xs font-semibold text-ink-faint uppercase tracking-wider mb-2">Periods ({pettyCashPeriods.length})</div>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {pettyCashPeriods.map((period) => (
                 <div key={period.id} className="flex items-center justify-between p-3 rounded-lg bg-surface-2 border border-surface-border">
@@ -676,9 +697,19 @@ export function SettingsClient({
                       {period.periodStart} → {period.periodEnd}
                     </div>
                   </div>
-                  {period.isClosed && (
-                    <div className="badge bg-surface-3 text-ink-faint text-xs">Closed</div>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {period.isClosed && (
+                      <div className="badge bg-surface-3 text-ink-faint text-xs">Closed</div>
+                    )}
+                    <button
+                      onClick={() => handleDeletePeriod(period.id)}
+                      disabled={deletingPeriodId === period.id}
+                      className="p-1 rounded text-ink-faint hover:text-accent-red hover:bg-accent-red/10 transition-colors disabled:opacity-50"
+                      title="Delete period"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
