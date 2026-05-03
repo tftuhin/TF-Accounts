@@ -68,8 +68,16 @@ function parseCSV(content: string): CSVRow[] {
   if (lines.length === 0) return [];
 
   const delimiter = detectDelimiter(lines);
+  const delimiterName = delimiter === '\t' ? 'TAB' : delimiter;
+
   const headerLine = lines[0];
   const headers = headerLine.split(delimiter).map(parseValue);
+
+  console.log(`[CSV Parse] Using delimiter: ${delimiterName}`);
+  console.log(`[CSV Parse] Header line split into ${headers.length} columns: [${headers.join(" | ")}]`);
+  console.log(`[CSV Parse] Sample data row 1: "${lines[1].substring(0, 100)}..."`);
+  const sampleSplit = lines[1].split(delimiter);
+  console.log(`[CSV Parse] Sample row split into ${sampleSplit.length} parts: [${sampleSplit.slice(0, 5).join(" | ")}]`);
 
   // Validate headers (case-insensitive)
   const headerLower = headers.map((h) => h.toLowerCase());
