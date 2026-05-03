@@ -4,6 +4,11 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Upload, CheckCircle2, AlertCircle } from "lucide-react";
 
+interface Entity {
+  id: string;
+  name: string;
+}
+
 interface BankAccount {
   id: string;
   accountName: string;
@@ -19,11 +24,18 @@ interface ImportResult {
   errors?: Array<{ row: number; error: string }>;
 }
 
-export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) {
+export function ImportClient({
+  entities,
+  bankAccounts,
+}: {
+  entities: Entity[];
+  bankAccounts: BankAccount[];
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [dataType, setDataType] = useState<"expense" | "income" | "withdraw">("expense");
   const [source, setSource] = useState<"bank" | "petty-cash">("bank");
   const [bankAccountId, setBankAccountId] = useState<string>("");
+  const [defaultEntityId, setDefaultEntityId] = useState<string>(entities[0]?.id || "");
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<string>("");
@@ -72,6 +84,11 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
       return;
     }
 
+    if (!defaultEntityId) {
+      toast.error("Please select a default entity");
+      return;
+    }
+
     setImporting(true);
     setProgress(10);
     setStatus("Parsing CSV file...");
@@ -81,6 +98,7 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
       formData.append("file", file);
       formData.append("dataType", dataType);
       formData.append("source", source);
+      formData.append("defaultEntityId", defaultEntityId);
       if (bankAccountId) {
         formData.append("bankAccountId", bankAccountId);
       }
@@ -176,6 +194,28 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
               </label>
             ))}
           </div>
+        </div>
+
+        {/* Default Entity Selection */}
+        <div className="card p-6 space-y-4">
+          <div className="text-sm font-semibold text-ink-white">
+            Default Entity *
+          </div>
+          <p className="text-2xs text-ink-faint mb-3">
+            Used when Entity column is missing or empty in your CSV
+          </p>
+          <select
+            value={defaultEntityId}
+            onChange={(e) => setDefaultEntityId(e.target.value)}
+            className="input"
+          >
+            <option value="">Select default entity...</option>
+            {entities.map((e) => (
+              <option key={e.id} value={e.id}>
+                {e.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Source Selection */}
@@ -274,7 +314,7 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
             {file ? file.name : "Drop CSV file here or click to browse"}
           </div>
           <div className="text-2xs text-ink-faint">
-            Required columns: Date, Description, Amount, Category, Entity
+            Required columns: Date, Description, Amount, Category | Optional: Entity
           </div>
           <input
             type="file"
@@ -306,8 +346,8 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
                   <th className="text-left px-3 py-2 text-ink-secondary">
                     Category
                   </th>
-                  <th className="text-left px-3 py-2 text-ink-secondary">
-                    Entity
+                  <th className="text-left px-3 py-2 text-ink-faint text-opacity-60">
+                    Entity (Optional)
                   </th>
                 </tr>
               </thead>
@@ -323,7 +363,9 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
                     250.00
                   </td>
                   <td className="px-3 py-2 text-ink-secondary">Supplies</td>
-                  <td className="px-3 py-2 text-ink-secondary">Themefisher</td>
+                  <td className="px-3 py-2 text-ink-faint text-opacity-60">
+                    (uses default)
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -400,7 +442,12 @@ export function ImportClient({ bankAccounts }: { bankAccounts: BankAccount[] }) 
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={!file || importing || (source === "bank" && !bankAccountId)}
+          disabled={
+            !file ||
+            importing ||
+            (source === "bank" && !bankAccountId) ||
+            !defaultEntityId
+          }
           className="btn-primary w-full"
         >
           {importing ? "Importing..." : "Import Records"}

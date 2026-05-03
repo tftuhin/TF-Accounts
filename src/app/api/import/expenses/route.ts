@@ -7,10 +7,10 @@ interface CSVRow {
   Description: string;
   Amount: string;
   Category: string;
-  Entity: string;
+  Entity?: string;
 }
 
-const REQUIRED_COLUMNS = ["Date", "Description", "Amount", "Category", "Entity"];
+const REQUIRED_COLUMNS = ["Date", "Description", "Amount", "Category"];
 
 function detectDelimiter(line: string): string {
   const delimiters = [",", ";", "\t", "|"];
@@ -70,7 +70,7 @@ function parseCSV(content: string): CSVRow[] {
     const row: Partial<CSVRow> = {};
 
     headers.forEach((header, index) => {
-      const normalizedHeader = REQUIRED_COLUMNS.find(
+      const normalizedHeader = REQUIRED_COLUMNS.concat("Entity").find(
         (col) => col.toLowerCase() === header.toLowerCase()
       ) as keyof CSVRow;
       if (normalizedHeader) {
@@ -93,8 +93,9 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const dataType = formData.get("dataType") as string; // income, expense, withdraw
+    const dataType = formData.get("dataType") as string;
     const source = formData.get("source") as string;
+    const defaultEntityId = formData.get("defaultEntityId") as string;
     const bankAccountId = formData.get("bankAccountId") as string | null;
 
     if (!file) {
@@ -103,6 +104,10 @@ export async function POST(req: NextRequest) {
 
     if (!dataType || !["income", "expense", "withdraw"].includes(dataType)) {
       return NextResponse.json({ error: "Invalid data type" }, { status: 400 });
+    }
+
+    if (!defaultEntityId) {
+      return NextResponse.json({ error: "Default entity required" }, { status: 400 });
     }
 
     const content = await file.text();
@@ -123,16 +128,19 @@ export async function POST(req: NextRequest) {
       const rowNumber = i + 2; // +2 because header is row 1
 
       try {
-        // Validate required fields
-        if (!row.Date || !row.Description || !row.Amount || !row.Category || !row.Entity) {
+        // Validate required fields (Entity is optional)
+        if (!row.Date || !row.Description || !row.Amount || !row.Category) {
           errors.push({
             row: rowNumber,
             error: `Missing field: ${
-              !row.Date ? "Date" :
-              !row.Description ? "Description" :
-              !row.Amount ? "Amount" :
-              !row.Category ? "Category" : "Entity"
-            }`
+              !row.Date
+                ? "Date"
+                : !row.Description
+                  ? "Description"
+                  : !row.Amount
+                    ? "Amount"
+                    : "Category"
+            }`,
           });
           continue;
         }
@@ -151,16 +159,24 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Find entity
-        const entity = await prisma.entity.findFirst({
-          where: {
-            name: { equals: row.Entity, mode: "insensitive" },
-          },
-        });
+        // Determine entity: use provided Entity or default
+        let entityId = defaultEntityId;
 
-        if (!entity) {
-          errors.push({ row: rowNumber, error: `Entity "${row.Entity}" not found` });
-          continue;
+        if (row.Entity && row.Entity.trim()) {
+          const entity = await prisma.entity.findFirst({
+            where: {
+              name: { equals: row.Entity, mode: "insensitive" },
+            },
+          });
+
+          if (!entity) {
+            errors.push({
+              row: rowNumber,
+              error: `Entity "${row.Entity}" not found`,
+            });
+            continue;
+          }
+          entityId = entity.id;
         }
 
         if (source === "bank") {
@@ -171,18 +187,21 @@ export async function POST(req: NextRequest) {
           }
 
           const bankAccount = await prisma.bankAccount.findFirst({
-            where: { id: bankAccountId, entityId: entity.id },
+            where: { id: bankAccountId, entityId },
           });
 
           if (!bankAccount) {
-            errors.push({ row: rowNumber, error: "Bank account not found for this entity" });
+            errors.push({
+              row: rowNumber,
+              error: "Bank account not found for this entity",
+            });
             continue;
           }
 
           // Create journal entry
           await prisma.journalEntry.create({
             data: {
-              entityId: entity.id,
+              entityId,
               date,
               description: row.Description,
               status: "FINALIZED",
@@ -205,7 +224,7 @@ export async function POST(req: NextRequest) {
 
           const pettyCashPeriod = await prisma.pettyCashPeriod.findFirst({
             where: {
-              entityId: entity.id,
+              entityId,
               periodStart: { lte: date },
               periodEnd: { gte: date },
               isClosed: false,
@@ -223,7 +242,7 @@ export async function POST(req: NextRequest) {
           await prisma.pettyCashEntry.create({
             data: {
               periodId: pettyCashPeriod.id,
-              entityId: entity.id,
+              entityId,
               date,
               description: row.Description,
               amount: Math.abs(amount),
