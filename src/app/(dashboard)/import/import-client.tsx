@@ -79,7 +79,7 @@ export function ImportClient({
       return;
     }
 
-    if (source === "bank" && !bankAccountId) {
+    if ((dataType !== "expense" || source === "bank") && !bankAccountId) {
       toast.error("Please select a bank account");
       return;
     }
@@ -202,9 +202,15 @@ export function ImportClient({
                   name="dataType"
                   value={type.value}
                   checked={dataType === type.value as any}
-                  onChange={(e) =>
-                    setDataType(e.target.value as "income" | "expense" | "withdraw")
-                  }
+                  onChange={(e) => {
+                    const newType = e.target.value as "income" | "expense" | "withdraw";
+                    setDataType(newType);
+                    // For income/withdraw, always use bank source
+                    if (newType !== "expense") {
+                      setSource("bank");
+                      setBankAccountId("");
+                    }
+                  }}
                 />
                 <div className="text-sm font-medium text-ink-white">
                   {type.label}
@@ -236,89 +242,109 @@ export function ImportClient({
           </select>
         </div>
 
-        {/* Source Selection */}
-        <div className="card p-6 space-y-4">
-          <div className="text-sm font-semibold text-ink-white">
-            Data Source
-          </div>
-          <div className="space-y-3">
-            <label
-              className="flex items-center gap-3 p-3 rounded-lg border border-surface-border hover:border-accent-blue/30 cursor-pointer transition"
-              style={{
-                borderColor: source === "bank" ? "rgb(59, 130, 246)" : undefined,
-                backgroundColor:
-                  source === "bank" ? "rgba(59, 130, 246, 0.05)" : undefined,
-              }}
-            >
-              <input
-                type="radio"
-                name="source"
-                value="bank"
-                checked={source === "bank"}
-                onChange={(e) => {
-                  setSource(e.target.value as "bank" | "petty-cash");
-                  setBankAccountId("");
-                }}
-              />
-              <div>
-                <div className="text-sm font-medium text-ink-white">
-                  Bank Account
-                </div>
-                <div className="text-2xs text-ink-faint">
-                  BDT or USD bank accounts
-                </div>
-              </div>
-            </label>
-
-            <label
-              className="flex items-center gap-3 p-3 rounded-lg border border-surface-border hover:border-accent-blue/30 cursor-pointer transition"
-              style={{
-                borderColor:
-                  source === "petty-cash" ? "rgb(59, 130, 246)" : undefined,
-                backgroundColor:
-                  source === "petty-cash"
-                    ? "rgba(59, 130, 246, 0.05)"
-                    : undefined,
-              }}
-            >
-              <input
-                type="radio"
-                name="source"
-                value="petty-cash"
-                checked={source === "petty-cash"}
-                onChange={(e) =>
-                  setSource(e.target.value as "bank" | "petty-cash")
-                }
-              />
-              <div>
-                <div className="text-sm font-medium text-ink-white">
-                  Petty Cash
-                </div>
-                <div className="text-2xs text-ink-faint">
-                  Petty cash float expenses
-                </div>
-              </div>
-            </label>
-          </div>
-
-          {source === "bank" && (
-            <div>
-              <label className="input-label">Select Bank Account *</label>
-              <select
-                value={bankAccountId}
-                onChange={(e) => setBankAccountId(e.target.value)}
-                className="input"
-              >
-                <option value="">Choose an account...</option>
-                {relevantBankAccounts.map((ba) => (
-                  <option key={ba.id} value={ba.id}>
-                    {ba.entityName} - {ba.accountName} ({ba.currency})
-                  </option>
-                ))}
-              </select>
+        {/* Transaction Account Selection */}
+        {dataType === "expense" ? (
+          <div className="card p-6 space-y-4">
+            <div className="text-sm font-semibold text-ink-white">
+              Transaction Account
             </div>
-          )}
-        </div>
+            <div className="space-y-3">
+              <label
+                className="flex items-center gap-3 p-3 rounded-lg border border-surface-border hover:border-accent-blue/30 cursor-pointer transition"
+                style={{
+                  borderColor: source === "bank" ? "rgb(59, 130, 246)" : undefined,
+                  backgroundColor:
+                    source === "bank" ? "rgba(59, 130, 246, 0.05)" : undefined,
+                }}
+              >
+                <input
+                  type="radio"
+                  name="source"
+                  value="bank"
+                  checked={source === "bank"}
+                  onChange={(e) => {
+                    setSource(e.target.value as "bank" | "petty-cash");
+                    setBankAccountId("");
+                  }}
+                />
+                <div>
+                  <div className="text-sm font-medium text-ink-white">
+                    Bank Account
+                  </div>
+                  <div className="text-2xs text-ink-faint">
+                    BDT or USD bank accounts
+                  </div>
+                </div>
+              </label>
+
+              <label
+                className="flex items-center gap-3 p-3 rounded-lg border border-surface-border hover:border-accent-blue/30 cursor-pointer transition"
+                style={{
+                  borderColor:
+                    source === "petty-cash" ? "rgb(59, 130, 246)" : undefined,
+                  backgroundColor:
+                    source === "petty-cash"
+                      ? "rgba(59, 130, 246, 0.05)"
+                      : undefined,
+                }}
+              >
+                <input
+                  type="radio"
+                  name="source"
+                  value="petty-cash"
+                  checked={source === "petty-cash"}
+                  onChange={(e) =>
+                    setSource(e.target.value as "bank" | "petty-cash")
+                  }
+                />
+                <div>
+                  <div className="text-sm font-medium text-ink-white">
+                    Petty Cash
+                  </div>
+                  <div className="text-2xs text-ink-faint">
+                    Petty cash float expenses
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            {source === "bank" && (
+              <div>
+                <label className="input-label">Select Bank Account *</label>
+                <select
+                  value={bankAccountId}
+                  onChange={(e) => setBankAccountId(e.target.value)}
+                  className="input"
+                >
+                  <option value="">Choose an account...</option>
+                  {relevantBankAccounts.map((ba) => (
+                    <option key={ba.id} value={ba.id}>
+                      {ba.entityName} - {ba.accountName} ({ba.currency})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="card p-6 space-y-4">
+            <div className="text-sm font-semibold text-ink-white">
+              Transaction Account *
+            </div>
+            <select
+              value={bankAccountId}
+              onChange={(e) => setBankAccountId(e.target.value)}
+              className="input"
+            >
+              <option value="">Choose a bank account...</option>
+              {relevantBankAccounts.map((ba) => (
+                <option key={ba.id} value={ba.id}>
+                  {ba.entityName} - {ba.accountName} ({ba.currency})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* File Upload */}
         <div
@@ -463,7 +489,7 @@ export function ImportClient({
           disabled={
             !file ||
             importing ||
-            (source === "bank" && !bankAccountId) ||
+            (dataType !== "expense" || source === "bank") && !bankAccountId ||
             !defaultEntityId
           }
           className="btn-primary w-full"
