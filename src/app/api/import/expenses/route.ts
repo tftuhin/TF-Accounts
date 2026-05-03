@@ -16,12 +16,11 @@ const REQUIRED_COLUMNS = ["Date", "Description", "Amount", "Category"];
 function detectDelimiter(lines: string[]): string {
   const delimiters = ["\t", ",", ";", "|"];
 
-  console.log(`Analyzing ${lines.length} lines for delimiter detection`);
-  console.log(`First line sample: "${lines[0].substring(0, 100)}"`);
+  console.log(`[CSV Parse] Analyzing ${lines.length} lines for delimiter detection`);
+  console.log(`[CSV Parse] First line: "${lines[0].substring(0, 120)}..."`);
 
   // Check each delimiter
-  let bestDelimiter = ",";
-  let bestScore = -Infinity;
+  const results = [];
 
   for (const delim of delimiters) {
     const counts: number[] = [];
@@ -30,24 +29,31 @@ function detectDelimiter(lines: string[]): string {
     }
 
     const avgCount = counts.reduce((a, b) => a + b, 0) / counts.length;
-    const variance = counts.reduce((sum, c) => sum + Math.pow(c - avgCount, 2), 0) / counts.length;
-    const consistency = Math.max(...counts) - Math.min(...counts); // max spread
+    const minCount = Math.min(...counts);
+    const maxCount = Math.max(...counts);
 
-    // We expect 4-5 columns (Date, Description, Amount, Category, Entity)
-    // Tab should give us exactly 5, comma would give 10+ due to commas in descriptions
-    const isGoodMatch = avgCount >= 4 && avgCount <= 5.5;
-    const score = (isGoodMatch ? 10000 : avgCount < 4 ? -1000 : -avgCount) - (consistency * 100);
+    results.push({ delim, avgCount, minCount, maxCount });
+    console.log(`[CSV Parse] Delimiter '${delim === '\t' ? 'TAB' : delim}': min=${minCount}, avg=${avgCount.toFixed(1)}, max=${maxCount} columns`);
+  }
 
-    console.log(`Delimiter "${delim === '\t' ? 'TAB' : delim}": columns=${avgCount.toFixed(1)}, consistency_spread=${consistency}, score=${score.toFixed(0)}`);
+  // RULE 1: If tab produces exactly 4-5 columns consistently, ALWAYS use it
+  const tabResult = results.find(r => r.delim === "\t");
+  if (tabResult && tabResult.avgCount >= 4 && tabResult.avgCount <= 5.5 && tabResult.maxCount <= 6) {
+    console.log(`[CSV Parse] ✓ Using TAB (consistent 4-5 columns)`);
+    return "\t";
+  }
 
-    if (score > bestScore) {
-      bestScore = score;
-      bestDelimiter = delim;
+  // RULE 2: Otherwise pick the one producing 4-5 columns
+  for (const result of results) {
+    if (result.avgCount >= 4 && result.avgCount <= 5.5) {
+      console.log(`[CSV Parse] ✓ Using '${result.delim === '\t' ? 'TAB' : result.delim}' (matches 4-5 column range)`);
+      return result.delim;
     }
   }
 
-  console.log(`✓ Selected delimiter: "${bestDelimiter === '\t' ? 'TAB' : bestDelimiter}"`);
-  return bestDelimiter;
+  // RULE 3: Fallback to comma if nothing matches
+  console.log(`[CSV Parse] ✓ Using comma (fallback)`);
+  return ",";
 }
 
 function parseValue(value: string): string {
