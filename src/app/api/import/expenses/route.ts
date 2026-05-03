@@ -153,59 +153,9 @@ export async function POST(req: NextRequest) {
     const entityMap = new Map(allEntities.map((e) => [e.name.toLowerCase(), e.id]));
     console.log(`Pre-loaded ${allEntities.length} entities, ${allPettyCashPeriods.length} petty cash periods`);
 
-    // Pre-load chart of accounts for petty cash expense lines
-    console.log("Pre-loading chart of accounts...");
-    const expenseAccounts = await prisma.chartOfAccounts.findMany({
-      where: { pfAccount: "OPEX" },
-      select: { id: true, entityId: true },
-    });
-    const expenseAccountMap = new Map(
-      expenseAccounts.map((acc) => [acc.entityId, acc.id])
-    );
-
-    // Create missing OPEX accounts for entities
-    console.log("Creating missing OPEX accounts...");
-    for (const entity of allEntities) {
-      if (!expenseAccountMap.has(entity.id)) {
-        try {
-          // Try to find existing account first
-          const existingAccount = await prisma.chartOfAccounts.findFirst({
-            where: {
-              entityId: entity.id,
-              accountCode: "5000",
-            },
-          });
-
-          if (existingAccount) {
-            expenseAccountMap.set(entity.id, existingAccount.id);
-          } else {
-            const account = await prisma.chartOfAccounts.create({
-              data: {
-                entityId: entity.id,
-                accountCode: "5000",
-                accountName: "Operating Expenses",
-                accountGroup: "expense",
-                pfAccount: "OPEX",
-              },
-            });
-            expenseAccountMap.set(entity.id, account.id);
-            console.log(`Created OPEX account for entity ${entity.name}`);
-          }
-        } catch (err) {
-          console.error(`Failed to get/create OPEX account for entity ${entity.id}:`, err);
-        }
-      }
-    }
-
     // Prepare batch arrays
     const journalEntriesToCreate: any[] = [];
     const pettyCashEntriesToCreate: any[] = [];
-    const journalEntryLinesToCreate: any[] = [];
-    const pettyCashWithJournalData: Array<{
-      pettyCashData: any;
-      journalEntryData: any;
-      lineData: any[];
-    }> = [];
 
     // First pass: validate and collect data
     for (let i = 0; i < rows.length; i++) {
@@ -319,27 +269,7 @@ export async function POST(req: NextRequest) {
             continue;
           }
 
-          const expenseAccountId = expenseAccountMap.get(entityId);
-          if (!expenseAccountId) {
-            errors.push({
-              row: rowNumber,
-              error: "No OPEX account found for this entity",
-            });
-            continue;
-          }
-
-          const journalEntryData = {
-            entityId,
-            date,
-            description: row.Description,
-            status: "FINALIZED" as const,
-            category: row.Category,
-            createdById: null,
-            createdByRole: session.role as "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER",
-            importBatch,
-          };
-
-          const pettyCashData = {
+          pettyCashEntriesToCreate.push({
             periodId: pettyCashPeriod.id,
             entityId,
             date,
@@ -347,23 +277,6 @@ export async function POST(req: NextRequest) {
             amount: Math.abs(amount),
             currency: "BDT",
             createdById: null,
-          };
-
-          const lineData = [
-            {
-              accountId: expenseAccountId,
-              pfAccount: "OPEX" as const,
-              entryType: "DEBIT" as const,
-              amount: Math.abs(amount),
-              currency: "BDT",
-              entityId,
-            },
-          ];
-
-          pettyCashWithJournalData.push({
-            journalEntryData,
-            pettyCashData,
-            lineData,
           });
         }
       } catch (err: unknown) {
@@ -390,34 +303,18 @@ export async function POST(req: NextRequest) {
       console.log(`Successfully created ${successCount}/${journalEntriesToCreate.length} journal entries`);
     }
 
-    if (pettyCashWithJournalData.length > 0) {
+    if (pettyCashEntriesToCreate.length > 0) {
       let successCount = 0;
-      for (const { journalEntryData, pettyCashData, lineData } of pettyCashWithJournalData) {
+      for (const entry of pettyCashEntriesToCreate) {
         try {
-          // Create journal entry first
-          const journalEntry = await prisma.journalEntry.create({
-            data: {
-              ...journalEntryData,
-              lines: {
-                create: lineData,
-              },
-            },
-          });
-
-          // Then create petty cash entry linked to journal entry
-          await prisma.pettyCashEntry.create({
-            data: {
-              ...pettyCashData,
-              journalEntryId: journalEntry.id,
-            },
-          });
+          await prisma.pettyCashEntry.create({ data: entry });
           successCount++;
         } catch (err) {
-          console.error("Failed to create petty cash entry with journal:", err);
+          console.error("Failed to create petty cash entry:", entry, err);
         }
       }
       created += successCount;
-      console.log(`Successfully created ${successCount}/${pettyCashWithJournalData.length} petty cash entries with journals`);
+      console.log(`Successfully created ${successCount}/${pettyCashEntriesToCreate.length} petty cash entries`);
     }
 
     return NextResponse.json({
