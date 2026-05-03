@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureBasicAccounts } from "@/lib/accounts";
 import { TxnType } from "@prisma/client";
 
 interface CSVRow {
@@ -470,6 +471,17 @@ export async function POST(req: NextRequest) {
     if (pettyCashEntriesToCreate.length > 0) {
       console.log(`Creating ${pettyCashEntriesToCreate.length} petty cash entries with journals...`);
       let successCount = 0;
+
+      // Ensure all entities have basic accounts (OPEX, Petty Cash Float)
+      const uniqueEntityIds = [...new Set(pettyCashEntriesToCreate.map(e => e.entityId))];
+      console.log(`Ensuring basic accounts exist for ${uniqueEntityIds.length} entities...`);
+      for (const entityId of uniqueEntityIds) {
+        try {
+          await ensureBasicAccounts(entityId);
+        } catch (err) {
+          console.error(`Failed to ensure basic accounts for entity ${entityId}:`, err);
+        }
+      }
 
       // Get default OPEX and Petty Cash accounts per entity
       const [expenseAccounts, pettyCashAccounts] = await Promise.all([
