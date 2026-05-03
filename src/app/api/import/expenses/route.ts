@@ -14,11 +14,14 @@ interface CSVRow {
 const REQUIRED_COLUMNS = ["Date", "Description", "Amount", "Category"];
 
 function detectDelimiter(lines: string[]): string {
-  const delimiters = ["\t", ",", ";", "|"]; // Tab first since it's most reliable
-  const headerLine = lines[0];
+  const delimiters = ["\t", ",", ";", "|"];
 
+  console.log(`Analyzing ${lines.length} lines for delimiter detection`);
+  console.log(`First line sample: "${lines[0].substring(0, 100)}"`);
+
+  // Check each delimiter
   let bestDelimiter = ",";
-  let bestScore = -1;
+  let bestScore = -Infinity;
 
   for (const delim of delimiters) {
     const counts: number[] = [];
@@ -26,20 +29,16 @@ function detectDelimiter(lines: string[]): string {
       counts.push(lines[i].split(delim).length);
     }
 
-    // Best delimiter should have consistent column count
     const avgCount = counts.reduce((a, b) => a + b, 0) / counts.length;
     const variance = counts.reduce((sum, c) => sum + Math.pow(c - avgCount, 2), 0) / counts.length;
+    const consistency = Math.max(...counts) - Math.min(...counts); // max spread
 
-    // We expect 4-5 columns (Date, Description, Amount, Category, optional Entity)
-    const expectedColumns = 4;
-    const isValidColumnCount = avgCount >= expectedColumns && avgCount <= 6;
+    // We expect 4-5 columns (Date, Description, Amount, Category, Entity)
+    // Tab should give us exactly 5, comma would give 10+ due to commas in descriptions
+    const isGoodMatch = avgCount >= 4 && avgCount <= 5.5;
+    const score = (isGoodMatch ? 10000 : avgCount < 4 ? -1000 : -avgCount) - (consistency * 100);
 
-    // Score based on:
-    // 1. Whether it produces expected number of columns (highest priority)
-    // 2. Consistency (low variance)
-    const score = (isValidColumnCount ? avgCount * 1000 : 0) - variance;
-
-    console.log(`Delimiter "${delim === '\t' ? 'TAB' : delim}": avg=${avgCount.toFixed(1)}, variance=${variance.toFixed(2)}, score=${score.toFixed(1)}`);
+    console.log(`Delimiter "${delim === '\t' ? 'TAB' : delim}": columns=${avgCount.toFixed(1)}, consistency_spread=${consistency}, score=${score.toFixed(0)}`);
 
     if (score > bestScore) {
       bestScore = score;
@@ -47,7 +46,7 @@ function detectDelimiter(lines: string[]): string {
     }
   }
 
-  console.log(`Selected delimiter: "${bestDelimiter === '\t' ? 'TAB' : bestDelimiter}"`);
+  console.log(`✓ Selected delimiter: "${bestDelimiter === '\t' ? 'TAB' : bestDelimiter}"`);
   return bestDelimiter;
 }
 
