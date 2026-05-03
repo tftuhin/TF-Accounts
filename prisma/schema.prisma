@@ -439,8 +439,8 @@ model PettyCashPeriod {
 
 model PettyCashEntry {
   id              String             @id @default(uuid())
-  periodId        String?            @map("period_id")  // Now optional: entries matched by date range
-  period          PettyCashPeriod?   @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  periodId        String             @map("period_id")  // Keep as required in DB
+  period          PettyCashPeriod    @relation(fields: [periodId], references: [id], onDelete: Cascade)
   entityId        String             @map("entity_id")
   entity          Entity             @relation(fields: [entityId], references: [id])
   date            DateTime           @db.Date
