@@ -395,7 +395,7 @@ export function ImportClient({
         >
           <Upload className="w-8 h-8 text-ink-faint mx-auto mb-3" />
           <div className="text-sm text-ink-secondary mb-1">
-            {file ? file.name : "Drop CSV file here or click to browse"}
+            {file ? file.name : "Drop CSV or JSON file here or click to browse"}
           </div>
           <div className="text-2xs text-ink-faint">
             Required columns: Date, Description, Amount, Category | Optional: Entity
