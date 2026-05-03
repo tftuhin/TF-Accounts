@@ -104,7 +104,7 @@ export function ImportClient({
       }
 
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      const timeout = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
       
       const res = await fetch("/api/import/expenses", {
         method: "POST",
@@ -146,7 +146,7 @@ export function ImportClient({
       let msg = "Import failed";
       if (err instanceof Error) {
         if (err.name === "AbortError") {
-          msg = "Import request timed out (2 minutes)";
+          msg = "Import request timed out (5 minutes)";
         } else {
           msg = err.message;
         }

@@ -149,12 +149,34 @@ export async function POST(req: NextRequest) {
     const entityMap = new Map(allEntities.map((e) => [e.name.toLowerCase(), e.id]));
     console.log(`Pre-loaded ${allEntities.length} entities, ${allPettyCashPeriods.length} petty cash periods`);
 
+    // Prepare batch arrays
+    const journalEntriesToCreate: Array<{
+      entityId: string;
+      date: Date;
+      description: string;
+      status: string;
+      category: string;
+      createdById: null;
+      createdByRole: "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER";
+    }> = [];
+
+    const pettyCashEntriesToCreate: Array<{
+      periodId: string;
+      entityId: string;
+      date: Date;
+      description: string;
+      amount: number;
+      currency: string;
+      createdById: null;
+    }> = [];
+
+    // First pass: validate and collect data
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const rowNumber = i + 2; // +2 because header is row 1
 
       if (i % 100 === 0) {
-        console.log(`Processing row ${i}...`);
+        console.log(`Validating row ${i}...`);
       }
 
       try {
@@ -205,7 +227,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (source === "bank") {
-          // Create journal entry for bank transaction
+          // Validate bank transaction
           if (!bankAccountId) {
             errors.push({ row: rowNumber, error: "Bank account not selected" });
             continue;
@@ -219,27 +241,23 @@ export async function POST(req: NextRequest) {
             continue;
           }
 
-          // Create journal entry
+          // Validate role
           const validRoles = ["ADMIN", "ACCOUNTS_MANAGER", "ENTRY_MANAGER"];
           if (!validRoles.includes(session.role)) {
             throw new Error("Invalid user role");
           }
 
-          await prisma.journalEntry.create({
-            data: {
-              entityId,
-              date,
-              description: row.Description,
-              status: "FINALIZED",
-              category: row.Category,
-              createdById: null,
-              createdByRole: session.role as "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER",
-            },
+          journalEntriesToCreate.push({
+            entityId,
+            date,
+            description: row.Description,
+            status: "FINALIZED",
+            category: row.Category,
+            createdById: null,
+            createdByRole: session.role as "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER",
           });
-
-          created++;
         } else if (source === "petty-cash") {
-          // Create petty cash entry (only for expenses)
+          // Validate petty cash transaction
           if (dataType !== "expense") {
             errors.push({
               row: rowNumber,
@@ -263,25 +281,40 @@ export async function POST(req: NextRequest) {
             continue;
           }
 
-          await prisma.pettyCashEntry.create({
-            data: {
-              periodId: pettyCashPeriod.id,
-              entityId,
-              date,
-              description: row.Description,
-              amount: Math.abs(amount),
-              currency: "BDT",
-              createdById: null,
-            },
+          pettyCashEntriesToCreate.push({
+            periodId: pettyCashPeriod.id,
+            entityId,
+            date,
+            description: row.Description,
+            amount: Math.abs(amount),
+            currency: "BDT",
+            createdById: null,
           });
-
-          created++;
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Unknown error";
         console.error(`Row ${rowNumber} error:`, err);
         errors.push({ row: rowNumber, error: msg });
       }
+    }
+
+    // Second pass: batch insert all records
+    console.log(`Batch creating ${journalEntriesToCreate.length} journal entries and ${pettyCashEntriesToCreate.length} petty cash entries...`);
+
+    if (journalEntriesToCreate.length > 0) {
+      await prisma.journalEntry.createMany({
+        data: journalEntriesToCreate,
+      });
+      created += journalEntriesToCreate.length;
+      console.log(`Created ${journalEntriesToCreate.length} journal entries`);
+    }
+
+    if (pettyCashEntriesToCreate.length > 0) {
+      await prisma.pettyCashEntry.createMany({
+        data: pettyCashEntriesToCreate,
+      });
+      created += pettyCashEntriesToCreate.length;
+      console.log(`Created ${pettyCashEntriesToCreate.length} petty cash entries`);
     }
 
     return NextResponse.json({
