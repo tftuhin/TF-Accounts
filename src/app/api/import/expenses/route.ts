@@ -277,6 +277,17 @@ export async function POST(req: NextRequest) {
             amount: Math.abs(amount),
             currency: "BDT",
             createdById: null,
+            journalData: {
+              entityId,
+              date,
+              description: row.Description,
+              status: "FINALIZED" as const,
+              category: row.Category,
+              createdById: null,
+              createdByRole: session.role as "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER",
+              importBatch,
+              amount: Math.abs(amount),
+            },
           });
         }
       } catch (err: unknown) {
@@ -304,17 +315,62 @@ export async function POST(req: NextRequest) {
     }
 
     if (pettyCashEntriesToCreate.length > 0) {
+      console.log(`Creating ${pettyCashEntriesToCreate.length} petty cash entries with journals...`);
       let successCount = 0;
-      for (const entry of pettyCashEntriesToCreate) {
+
+      // Get default OPEX account per entity
+      const expenseAccounts = await prisma.chartOfAccounts.findMany({
+        where: { pfAccount: "OPEX" },
+        select: { id: true, entityId: true },
+      });
+      const expenseAccountMap = new Map(
+        expenseAccounts.map((acc) => [acc.entityId, acc.id])
+      );
+
+      for (const entryWithJournal of pettyCashEntriesToCreate) {
         try {
-          await prisma.pettyCashEntry.create({ data: entry });
+          const { journalData, ...pettyCashData } = entryWithJournal as any;
+          const expenseAccountId = expenseAccountMap.get(pettyCashData.entityId);
+
+          if (!expenseAccountId) {
+            console.warn(`No OPEX account for entity ${pettyCashData.entityId}, skipping journal`);
+            // Create just the petty cash entry without journal
+            await prisma.pettyCashEntry.create({ data: pettyCashData });
+            successCount++;
+            continue;
+          }
+
+          // Create journal entry with lines in one operation
+          const journalEntry = await prisma.journalEntry.create({
+            data: {
+              ...journalData,
+              lines: {
+                create: {
+                  accountId: expenseAccountId,
+                  pfAccount: "OPEX",
+                  entryType: "DEBIT",
+                  amount: journalData.amount,
+                  currency: "BDT",
+                  entityId: journalData.entityId,
+                },
+              },
+            },
+          });
+
+          // Then create petty cash entry linked to journal
+          await prisma.pettyCashEntry.create({
+            data: {
+              ...pettyCashData,
+              journalEntryId: journalEntry.id,
+            },
+          });
           successCount++;
         } catch (err) {
-          console.error("Failed to create petty cash entry:", entry, err);
+          console.error("Failed to create petty cash entry with journal:", err);
         }
       }
       created += successCount;
-      console.log(`Successfully created ${successCount}/${pettyCashEntriesToCreate.length} petty cash entries`);
+      console.log(`Successfully created ${successCount}/${pettyCashEntriesToCreate.length} petty cash entries with journals`);
     }
 
     return NextResponse.json({
