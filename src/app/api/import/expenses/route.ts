@@ -302,12 +302,27 @@ export async function POST(req: NextRequest) {
 
     if (journalEntriesToCreate.length > 0) {
       let successCount = 0;
-      for (const entry of journalEntriesToCreate) {
+      // Create in batches of 100 to avoid memory issues
+      const batchSize = 100;
+      for (let i = 0; i < journalEntriesToCreate.length; i += batchSize) {
+        const batch = journalEntriesToCreate.slice(i, i + batchSize);
         try {
-          await prisma.journalEntry.create({ data: entry });
-          successCount++;
+          await prisma.journalEntry.createMany({
+            data: batch,
+            skipDuplicates: true
+          });
+          successCount += batch.length;
         } catch (err) {
-          console.error("Failed to create journal entry:", entry, err);
+          console.error(`Failed to create journal entry batch [${i}-${i + batchSize}]:`, err);
+          // Fall back to individual creates
+          for (const entry of batch) {
+            try {
+              await prisma.journalEntry.create({ data: entry });
+              successCount++;
+            } catch (batchErr) {
+              console.error("Failed to create journal entry:", entry, batchErr);
+            }
+          }
         }
       }
       created += successCount;
@@ -327,20 +342,41 @@ export async function POST(req: NextRequest) {
         expenseAccounts.map((acc) => [acc.entityId, acc.id])
       );
 
+      // Batch petty cash entries without journals for speed
+      const pettyCashWithoutJournal = [];
+      const pettyCashWithJournal = [];
+
       for (const entryWithJournal of pettyCashEntriesToCreate) {
-        try {
-          const { journalData, ...pettyCashData } = entryWithJournal as any;
-          const expenseAccountId = expenseAccountMap.get(pettyCashData.entityId);
+        const { journalData, ...pettyCashData } = entryWithJournal as any;
+        const expenseAccountId = expenseAccountMap.get(pettyCashData.entityId);
 
-          if (!expenseAccountId) {
-            console.warn(`No OPEX account for entity ${pettyCashData.entityId}, skipping journal`);
-            // Create just the petty cash entry without journal
-            await prisma.pettyCashEntry.create({ data: pettyCashData });
-            successCount++;
-            continue;
+        if (!expenseAccountId) {
+          pettyCashWithoutJournal.push(pettyCashData);
+        } else {
+          pettyCashWithJournal.push({ journalData, pettyCashData, expenseAccountId });
+        }
+      }
+
+      // Batch create petty cash entries without journals
+      const batchSize = 100;
+      if (pettyCashWithoutJournal.length > 0) {
+        for (let i = 0; i < pettyCashWithoutJournal.length; i += batchSize) {
+          const batch = pettyCashWithoutJournal.slice(i, i + batchSize);
+          try {
+            await prisma.pettyCashEntry.createMany({
+              data: batch,
+              skipDuplicates: true
+            });
+            successCount += batch.length;
+          } catch (err) {
+            console.error(`Failed to batch create petty cash entries [${i}-${i + batchSize}]:`, err);
           }
+        }
+      }
 
-          // Create journal entry with lines in one operation
+      // Create petty cash entries with journals (must be sequential to get IDs)
+      for (const { journalData, pettyCashData, expenseAccountId } of pettyCashWithJournal) {
+        try {
           const journalEntry = await prisma.journalEntry.create({
             data: {
               ...journalData,
@@ -357,7 +393,6 @@ export async function POST(req: NextRequest) {
             },
           });
 
-          // Then create petty cash entry linked to journal
           await prisma.pettyCashEntry.create({
             data: {
               ...pettyCashData,
