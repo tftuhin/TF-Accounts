@@ -153,9 +153,25 @@ export async function POST(req: NextRequest) {
     const entityMap = new Map(allEntities.map((e) => [e.name.toLowerCase(), e.id]));
     console.log(`Pre-loaded ${allEntities.length} entities, ${allPettyCashPeriods.length} petty cash periods`);
 
+    // Pre-load chart of accounts for petty cash expense lines
+    console.log("Pre-loading chart of accounts...");
+    const expenseAccounts = await prisma.chartOfAccounts.findMany({
+      where: { pfAccount: "OPEX" },
+      select: { id: true, entityId: true },
+    });
+    const expenseAccountMap = new Map(
+      expenseAccounts.map((acc) => [acc.entityId, acc.id])
+    );
+
     // Prepare batch arrays
     const journalEntriesToCreate: any[] = [];
     const pettyCashEntriesToCreate: any[] = [];
+    const journalEntryLinesToCreate: any[] = [];
+    const pettyCashWithJournalData: Array<{
+      pettyCashData: any;
+      journalEntryData: any;
+      lineData: any[];
+    }> = [];
 
     // First pass: validate and collect data
     for (let i = 0; i < rows.length; i++) {
@@ -269,7 +285,27 @@ export async function POST(req: NextRequest) {
             continue;
           }
 
-          pettyCashEntriesToCreate.push({
+          const expenseAccountId = expenseAccountMap.get(entityId);
+          if (!expenseAccountId) {
+            errors.push({
+              row: rowNumber,
+              error: "No OPEX account found for this entity",
+            });
+            continue;
+          }
+
+          const journalEntryData = {
+            entityId,
+            date,
+            description: row.Description,
+            status: "FINALIZED" as const,
+            category: row.Category,
+            createdById: null,
+            createdByRole: session.role as "ADMIN" | "ACCOUNTS_MANAGER" | "ENTRY_MANAGER",
+            importBatch,
+          };
+
+          const pettyCashData = {
             periodId: pettyCashPeriod.id,
             entityId,
             date,
@@ -277,6 +313,23 @@ export async function POST(req: NextRequest) {
             amount: Math.abs(amount),
             currency: "BDT",
             createdById: null,
+          };
+
+          const lineData = [
+            {
+              accountId: expenseAccountId,
+              pfAccount: "OPEX" as const,
+              entryType: "DEBIT" as const,
+              amount: Math.abs(amount),
+              currency: "BDT",
+              entityId,
+            },
+          ];
+
+          pettyCashWithJournalData.push({
+            journalEntryData,
+            pettyCashData,
+            lineData,
           });
         }
       } catch (err: unknown) {
@@ -303,18 +356,34 @@ export async function POST(req: NextRequest) {
       console.log(`Successfully created ${successCount}/${journalEntriesToCreate.length} journal entries`);
     }
 
-    if (pettyCashEntriesToCreate.length > 0) {
+    if (pettyCashWithJournalData.length > 0) {
       let successCount = 0;
-      for (const entry of pettyCashEntriesToCreate) {
+      for (const { journalEntryData, pettyCashData, lineData } of pettyCashWithJournalData) {
         try {
-          await prisma.pettyCashEntry.create({ data: entry });
+          // Create journal entry first
+          const journalEntry = await prisma.journalEntry.create({
+            data: {
+              ...journalEntryData,
+              lines: {
+                create: lineData,
+              },
+            },
+          });
+
+          // Then create petty cash entry linked to journal entry
+          await prisma.pettyCashEntry.create({
+            data: {
+              ...pettyCashData,
+              journalEntryId: journalEntry.id,
+            },
+          });
           successCount++;
         } catch (err) {
-          console.error("Failed to create petty cash entry:", entry, err);
+          console.error("Failed to create petty cash entry with journal:", err);
         }
       }
       created += successCount;
-      console.log(`Successfully created ${successCount}/${pettyCashEntriesToCreate.length} petty cash entries`);
+      console.log(`Successfully created ${successCount}/${pettyCashWithJournalData.length} petty cash entries with journals`);
     }
 
     return NextResponse.json({
