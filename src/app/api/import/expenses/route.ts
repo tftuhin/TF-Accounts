@@ -126,10 +126,33 @@ export async function POST(req: NextRequest) {
     const errors: Array<{ row: number; error: string }> = [];
     let created = 0;
 
+    // Pre-load all entities and petty cash periods to avoid N+1 queries
+    console.log("Pre-loading entities and petty cash periods...");
+    const [allEntities, allPettyCashPeriods, bankAccount] = await Promise.all([
+      prisma.entity.findMany({
+        select: { id: true, name: true },
+      }),
+      source === "petty-cash"
+        ? prisma.pettyCashPeriod.findMany({
+            where: { isClosed: false },
+            select: { id: true, entityId: true, periodStart: true, periodEnd: true },
+          })
+        : Promise.resolve([]),
+      source === "bank" && bankAccountId
+        ? prisma.bankAccount.findFirst({
+            where: { id: bankAccountId },
+            select: { id: true, entityId: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const entityMap = new Map(allEntities.map((e) => [e.name.toLowerCase(), e.id]));
+    console.log(`Pre-loaded ${allEntities.length} entities, ${allPettyCashPeriods.length} petty cash periods`);
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const rowNumber = i + 2; // +2 because header is row 1
-      
+
       if (i % 100 === 0) {
         console.log(`Processing row ${i}...`);
       }
@@ -170,20 +193,15 @@ export async function POST(req: NextRequest) {
         let entityId = defaultEntityId;
 
         if (row.Entity && row.Entity.trim()) {
-          const entity = await prisma.entity.findFirst({
-            where: {
-              name: { equals: row.Entity, mode: "insensitive" },
-            },
-          });
-
-          if (!entity) {
+          const foundEntityId = entityMap.get(row.Entity.trim().toLowerCase());
+          if (!foundEntityId) {
             errors.push({
               row: rowNumber,
               error: `Entity "${row.Entity}" not found`,
             });
             continue;
           }
-          entityId = entity.id;
+          entityId = foundEntityId;
         }
 
         if (source === "bank") {
@@ -193,14 +211,10 @@ export async function POST(req: NextRequest) {
             continue;
           }
 
-          const bankAccount = await prisma.bankAccount.findFirst({
-            where: { id: bankAccountId, entityId },
-          });
-
           if (!bankAccount) {
             errors.push({
               row: rowNumber,
-              error: "Bank account not found for this entity",
+              error: "Bank account not found",
             });
             continue;
           }
@@ -210,7 +224,7 @@ export async function POST(req: NextRequest) {
           if (!validRoles.includes(session.role)) {
             throw new Error("Invalid user role");
           }
-          
+
           await prisma.journalEntry.create({
             data: {
               entityId,
@@ -234,14 +248,12 @@ export async function POST(req: NextRequest) {
             continue;
           }
 
-          const pettyCashPeriod = await prisma.pettyCashPeriod.findFirst({
-            where: {
-              entityId,
-              periodStart: { lte: date },
-              periodEnd: { gte: date },
-              isClosed: false,
-            },
-          });
+          const pettyCashPeriod = allPettyCashPeriods.find(
+            (p) =>
+              p.entityId === entityId &&
+              p.periodStart <= date &&
+              p.periodEnd >= date
+          );
 
           if (!pettyCashPeriod) {
             errors.push({
