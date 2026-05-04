@@ -254,22 +254,18 @@ export async function POST(req: NextRequest) {
 
     // Pre-load entities and bank accounts
     console.log("Pre-loading entities and bank accounts...");
-    const [allEntities, bankAccounts, chartAccounts] = await Promise.all([
+    const [allEntities, bankAccounts] = await Promise.all([
       prisma.entity.findMany({
         select: { id: true, name: true },
       }),
       prisma.bankAccount.findMany({
-        select: { id: true, entityId: true, accountName: true, accountId: true },
-      }),
-      prisma.chartOfAccounts.findMany({
-        select: { id: true, entityId: true, accountCode: true },
+        select: { id: true, entityId: true, accountName: true },
       }),
     ]);
 
     const entityMap = new Map(allEntities.map((e) => [e.name.toLowerCase(), e.id]));
     const accountMap = new Map(bankAccounts.map((a) => [a.accountName.toLowerCase(), a.id]));
     const entityByAccountMap = new Map(bankAccounts.map((a) => [a.id, a.entityId]));
-    const bankAccountToChartMap = new Map(bankAccounts.map((a) => [a.id, a.accountId]));
 
     console.log(`Pre-loaded ${allEntities.length} entities, ${bankAccounts.length} bank accounts`);
 
@@ -429,12 +425,34 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Get bank accounts
-      const bankAccountDetails = await prisma.bankAccount.findMany({
+      // Get bank accounts with their chart of accounts
+      const bankAccountsWithCharts = await prisma.bankAccount.findMany({
         where: { id: { in: [...new Set(entriesToCreate.map(e => e.bankAccountId))] } },
-        select: { id: true, entityId: true },
+        select: {
+          id: true,
+          entityId: true,
+          accountName: true
+        },
       });
-      const bankAccountMap = new Map(bankAccountDetails.map(a => [a.id, a.entityId]));
+
+      // Find corresponding chart of accounts entries for bank accounts
+      const bankToChartMap = new Map<string, string>();
+      const uniqueEntityIds = [...new Set(bankAccountsWithCharts.map(ba => ba.entityId))];
+
+      for (const entityId of uniqueEntityIds) {
+        const assetAccount = await prisma.chartOfAccounts.findFirst({
+          where: {
+            entityId,
+            accountGroup: "asset"
+          },
+          select: { id: true },
+        });
+        if (assetAccount) {
+          bankAccountsWithCharts
+            .filter(ba => ba.entityId === entityId)
+            .forEach(ba => bankToChartMap.set(ba.id, assetAccount.id));
+        }
+      }
 
       // Create journal entries in parallel batches
       const batchSize = 30;
@@ -446,7 +464,7 @@ export async function POST(req: NextRequest) {
         const promises = batch.map(async (entry) => {
           try {
             const salesAccountId = salesAccountMap.get(entry.entityId);
-            const bankChartAccountId = bankAccountToChartMap.get(entry.bankAccountId);
+            const bankChartAccountId = bankToChartMap.get(entry.bankAccountId);
 
             if (!salesAccountId) {
               console.error(`No Sales Revenue account for entity ${entry.entityId}`);
@@ -454,7 +472,7 @@ export async function POST(req: NextRequest) {
             }
 
             if (!bankChartAccountId) {
-              console.error(`No chart account mapping for bank account ${entry.bankAccountId}`);
+              console.error(`No asset chart account found for bank account ${entry.bankAccountId}`);
               return false;
             }
 
