@@ -535,46 +535,52 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Create petty cash entries with journals (must be sequential to get IDs)
-      for (const { journalData, pettyCashData, expenseAccountId, pettyCashAccountId } of pettyCashWithJournal) {
+      // Create petty cash entries and journals in larger batches with transactions
+      const batchSize = 50; // Process 50 entries per transaction
+      for (let i = 0; i < pettyCashWithJournal.length; i += batchSize) {
+        const batch = pettyCashWithJournal.slice(i, i + batchSize);
         try {
-          const journalEntry = await prisma.journalEntry.create({
-            data: {
-              ...journalData,
-              lines: {
-                create: [
-                  // DEBIT: OPEX account
-                  {
-                    accountId: expenseAccountId,
-                    pfAccount: "OPEX",
-                    entryType: TxnType.DEBIT,
-                    amount: pettyCashData.amount,
-                    currency: "BDT",
-                    entityId: journalData.entityId,
+          await prisma.$transaction(async (tx) => {
+            // Create all journal entries in this batch
+            for (const { journalData, pettyCashData, expenseAccountId, pettyCashAccountId } of batch) {
+              const journalEntry = await tx.journalEntry.create({
+                data: {
+                  ...journalData,
+                  lines: {
+                    create: [
+                      {
+                        accountId: expenseAccountId,
+                        pfAccount: "OPEX",
+                        entryType: TxnType.DEBIT,
+                        amount: pettyCashData.amount,
+                        currency: "BDT",
+                        entityId: journalData.entityId,
+                      },
+                      {
+                        accountId: pettyCashAccountId,
+                        pfAccount: null,
+                        entryType: TxnType.CREDIT,
+                        amount: pettyCashData.amount,
+                        currency: "BDT",
+                        entityId: journalData.entityId,
+                      },
+                    ],
                   },
-                  // CREDIT: Petty Cash Float account
-                  {
-                    accountId: pettyCashAccountId,
-                    pfAccount: null,
-                    entryType: TxnType.CREDIT,
-                    amount: pettyCashData.amount,
-                    currency: "BDT",
-                    entityId: journalData.entityId,
-                  },
-                ],
-              },
-            },
-          });
+                },
+              });
 
-          await prisma.pettyCashEntry.create({
-            data: {
-              ...pettyCashData,
-              journalEntryId: journalEntry.id,
-            },
+              await tx.pettyCashEntry.create({
+                data: {
+                  ...pettyCashData,
+                  journalEntryId: journalEntry.id,
+                },
+              });
+            }
           });
-          successCount++;
+          successCount += batch.length;
+          console.log(`Created ${batch.length} petty cash entries with journals (${i + batch.length}/${pettyCashWithJournal.length})`);
         } catch (err) {
-          console.error("Failed to create petty cash entry with journal:", err);
+          console.error(`Failed to create batch [${i}-${i + batchSize}]:`, err);
         }
       }
       created += successCount;
