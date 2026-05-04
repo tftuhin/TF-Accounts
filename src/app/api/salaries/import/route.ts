@@ -224,9 +224,30 @@ export async function POST(req: NextRequest) {
             return false;
           }
 
+          // Find or create employee
+          let employee = await prisma.employee.findFirst({
+            where: {
+              name: row.employeeName,
+            },
+            select: { id: true },
+          });
+
+          if (!employee) {
+            employee = await prisma.employee.create({
+              data: {
+                name: row.employeeName,
+                baseSalary: row.amount,
+                status: "ACTIVE",
+              },
+              select: { id: true },
+            });
+            console.log(`Created employee: ${row.employeeName} (${employee.id})`);
+          }
+
           // Create salary entry
           const salary = await prisma.salary.create({
             data: {
+              employeeId: employee.id,
               employeeName: row.employeeName,
               amount: row.amount,
               adjustment: row.adjustment || null,
