@@ -437,7 +437,6 @@ export async function POST(req: NextRequest) {
 
       // Find corresponding chart of accounts entries for bank accounts
       const bankToChartMap = new Map<string, string>();
-      const uniqueEntityIds = [...new Set(bankAccountsWithCharts.map(ba => ba.entityId))];
 
       for (const entityId of uniqueEntityIds) {
         const assetAccount = await prisma.chartOfAccounts.findFirst({
