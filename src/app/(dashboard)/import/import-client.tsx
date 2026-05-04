@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Upload, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import { IncomeImportModal } from "./income-import-modal";
 
 interface Entity {
   id: string;
@@ -18,6 +19,15 @@ interface BankAccount {
   entityName: string;
 }
 
+interface ChartAccount {
+  id: string;
+  entityId: string;
+  accountCode: string;
+  accountName: string;
+  accountGroup: string;
+  pfAccount?: string;
+}
+
 interface ImportResult {
   success: boolean;
   created?: number;
@@ -28,9 +38,11 @@ interface ImportResult {
 export function ImportClient({
   entities,
   bankAccounts,
+  chartAccounts,
 }: {
   entities: Entity[];
   bankAccounts: BankAccount[];
+  chartAccounts: ChartAccount[];
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [dataType, setDataType] = useState<"expense" | "income" | "withdraw">("expense");
@@ -42,6 +54,7 @@ export function ImportClient({
   const [status, setStatus] = useState<string>("");
   const [result, setResult] = useState<ImportResult | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [incomeModalOpen, setIncomeModalOpen] = useState(false);
 
   const relevantBankAccounts = bankAccounts.filter(
     (ba) => ba.accountType !== "PETTY_CASH"
@@ -216,6 +229,14 @@ export function ImportClient({
         </p>
       </div>
 
+      {/* Manual Income Import Modal */}
+      <IncomeImportModal
+        isOpen={incomeModalOpen}
+        onClose={() => setIncomeModalOpen(false)}
+        entities={entities}
+        chartAccounts={chartAccounts}
+      />
+
       <form onSubmit={handleImport} className="space-y-6">
         {/* Data Type Selection */}
         <div className="card p-6 space-y-4">
@@ -261,6 +282,21 @@ export function ImportClient({
               </label>
             ))}
           </div>
+
+          {dataType === "income" && (
+            <div className="mt-4 pt-4 border-t border-surface-border/30">
+              <div className="text-sm text-ink-secondary mb-3">
+                📌 Use manual account selection for better control
+              </div>
+              <button
+                type="button"
+                onClick={() => setIncomeModalOpen(true)}
+                className="w-full px-4 py-2.5 rounded-lg bg-accent-green/10 border border-accent-green/30 text-accent-green hover:bg-accent-green/20 transition font-medium text-sm"
+              >
+                ↗ Open Manual Income Import
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Default Entity Selection */}
