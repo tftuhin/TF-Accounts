@@ -535,52 +535,57 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Create petty cash entries and journals in larger batches with transactions
-      const journalBatchSize = 50; // Process 50 entries per transaction
+      // Create petty cash entries and journals sequentially with high concurrency limits
+      const journalBatchSize = 5; // Process 5 entries at a time to avoid timeout
       for (let i = 0; i < pettyCashWithJournal.length; i += journalBatchSize) {
         const batch = pettyCashWithJournal.slice(i, i + journalBatchSize);
-        try {
-          await prisma.$transaction(async (tx) => {
-            // Create all journal entries in this batch
-            for (const { journalData, pettyCashData, expenseAccountId, pettyCashAccountId } of batch) {
-              const journalEntry = await tx.journalEntry.create({
-                data: {
-                  ...journalData,
-                  lines: {
-                    create: [
-                      {
-                        accountId: expenseAccountId,
-                        pfAccount: "OPEX",
-                        entryType: TxnType.DEBIT,
-                        amount: pettyCashData.amount,
-                        currency: "BDT",
-                        entityId: journalData.entityId,
-                      },
-                      {
-                        accountId: pettyCashAccountId,
-                        pfAccount: null,
-                        entryType: TxnType.CREDIT,
-                        amount: pettyCashData.amount,
-                        currency: "BDT",
-                        entityId: journalData.entityId,
-                      },
-                    ],
-                  },
-                },
-              });
 
-              await tx.pettyCashEntry.create({
-                data: {
-                  ...pettyCashData,
-                  journalEntryId: journalEntry.id,
+        // Process batch entries in parallel
+        const promises = batch.map(async ({ journalData, pettyCashData, expenseAccountId, pettyCashAccountId }) => {
+          try {
+            const journalEntry = await prisma.journalEntry.create({
+              data: {
+                ...journalData,
+                lines: {
+                  create: [
+                    {
+                      accountId: expenseAccountId,
+                      pfAccount: "OPEX",
+                      entryType: TxnType.DEBIT,
+                      amount: pettyCashData.amount,
+                      currency: "BDT",
+                      entityId: journalData.entityId,
+                    },
+                    {
+                      accountId: pettyCashAccountId,
+                      pfAccount: null,
+                      entryType: TxnType.CREDIT,
+                      amount: pettyCashData.amount,
+                      currency: "BDT",
+                      entityId: journalData.entityId,
+                    },
+                  ],
                 },
-              });
-            }
-          });
-          successCount += batch.length;
-          console.log(`Created ${batch.length} petty cash entries with journals (${i + batch.length}/${pettyCashWithJournal.length})`);
-        } catch (err) {
-          console.error(`Failed to create batch [${i}-${i + journalBatchSize}]:`, err);
+              },
+            });
+
+            await prisma.pettyCashEntry.create({
+              data: {
+                ...pettyCashData,
+                journalEntryId: journalEntry.id,
+              },
+            });
+            return true;
+          } catch (err) {
+            console.error("Failed to create petty cash entry with journal:", err);
+            return false;
+          }
+        });
+
+        const results = await Promise.all(promises);
+        successCount += results.filter(r => r).length;
+        if (i % 100 === 0) {
+          console.log(`Progress: ${i + batch.length}/${pettyCashWithJournal.length} petty cash entries with journals created`);
         }
       }
       created += successCount;
