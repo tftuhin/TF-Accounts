@@ -7,6 +7,7 @@ import { Upload, X, Loader2 } from "lucide-react";
 interface ParsedSalaryRow {
   employeeName: string;
   amount: number;
+  date?: string;
   adjustment?: number;
   adjustmentNote?: string;
   month?: string;
@@ -72,7 +73,7 @@ function parseCSV(content: string): ParsedSalaryRow[] {
 
     headers.forEach((header, index) => {
       const normalizedHeader = header.toLowerCase();
-      if (["employeename", "amount", "adjustment", "adjustmentnote", "month", "notes"].includes(normalizedHeader)) {
+      if (["employeename", "amount", "date", "adjustment", "adjustmentnote", "month", "notes"].includes(normalizedHeader)) {
         row[normalizedHeader === "employeename" ? "employeeName" : normalizedHeader] = values[index] || "";
       }
     });
@@ -94,6 +95,7 @@ function parseCSV(content: string): ParsedSalaryRow[] {
     rows.push({
       employeeName: row.employeeName,
       amount: Math.abs(amount),
+      date: row.date || undefined,
       adjustment: adjustment && !isNaN(adjustment) ? adjustment : undefined,
       adjustmentNote: row.adjustmentNote || undefined,
       month: row.month || undefined,
@@ -131,6 +133,7 @@ function parseJSON(content: string): ParsedSalaryRow[] {
     return {
       employeeName: employeeName.toString().trim(),
       amount: Math.abs(amount),
+      date: entry.date || entry.payment_date || undefined,
       adjustment: adjustment && !isNaN(adjustment) ? adjustment : undefined,
       adjustmentNote: entry.adjustmentNote || entry.adjustment_note || undefined,
       month: entry.month || undefined,
@@ -195,13 +198,15 @@ export function SalaryImportModal({ isOpen, onClose, entities }: SalaryImportMod
   }
 
   async function handleSubmit() {
-    if (!date) {
-      toast.error("Please select a payment date");
+    if (!entityId) {
+      toast.error("Please select an entity");
       return;
     }
 
-    if (!entityId) {
-      toast.error("Please select an entity");
+    // Check if all entries have dates from file, otherwise require default date
+    const hasMissingDates = parsedData.some(row => !row.date);
+    if (hasMissingDates && !date) {
+      toast.error("Some entries don't have dates in the file — please set a default payment date");
       return;
     }
 
@@ -210,7 +215,7 @@ export function SalaryImportModal({ isOpen, onClose, entities }: SalaryImportMod
       const formData = new FormData();
       if (!file) throw new Error("File not found");
       formData.append("file", file);
-      formData.append("date", date);
+      if (date) formData.append("defaultDate", date);
       formData.append("payPeriod", payPeriod);
       formData.append("entityId", entityId);
 
@@ -375,13 +380,14 @@ export function SalaryImportModal({ isOpen, onClose, entities }: SalaryImportMod
                 </select>
               </div>
               <div>
-                <label className="input-label">Payment Date *</label>
+                <label className="input-label">Default Payment Date</label>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="input"
                 />
+                <div className="text-2xs text-ink-faint mt-1">Used if file doesn't include dates</div>
               </div>
               <div>
                 <label className="input-label">Pay Period (Optional)</label>

@@ -6,6 +6,7 @@ import { TxnType } from "@prisma/client";
 interface SalaryRow {
   employeeName: string;
   amount: number;
+  date?: string;
   adjustment?: number;
   adjustmentNote?: string;
   month?: string;
@@ -70,7 +71,7 @@ function parseCSV(content: string): SalaryRow[] {
 
     headers.forEach((header, index) => {
       const normalizedHeader = header.toLowerCase();
-      if (["employeename", "amount", "adjustment", "adjustmentnote", "month", "notes"].includes(normalizedHeader)) {
+      if (["employeename", "amount", "date", "adjustment", "adjustmentnote", "month", "notes"].includes(normalizedHeader)) {
         row[normalizedHeader === "employeename" ? "employeeName" : normalizedHeader] = values[index] || "";
       }
     });
@@ -92,6 +93,7 @@ function parseCSV(content: string): SalaryRow[] {
     rows.push({
       employeeName: row.employeeName,
       amount: Math.abs(amount),
+      date: row.date || undefined,
       adjustment: adjustment && !isNaN(adjustment) ? adjustment : undefined,
       adjustmentNote: row.adjustmentNote || undefined,
       month: row.month || undefined,
@@ -129,6 +131,7 @@ function parseJSON(content: string): SalaryRow[] {
     return {
       employeeName: employeeName.toString().trim(),
       amount: Math.abs(amount),
+      date: entry.date || entry.payment_date || undefined,
       adjustment: adjustment && !isNaN(adjustment) ? adjustment : undefined,
       adjustmentNote: entry.adjustmentNote || entry.adjustment_note || undefined,
       month: entry.month || undefined,
@@ -148,16 +151,12 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const date = formData.get("date") as string;
+    const defaultDate = formData.get("defaultDate") as string;
     const payPeriod = formData.get("payPeriod") as string;
     const entityId = formData.get("entityId") as string;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
-    if (!date) {
-      return NextResponse.json({ error: "Date required" }, { status: 400 });
     }
 
     if (!entityId) {
@@ -186,9 +185,9 @@ export async function POST(req: NextRequest) {
     const errors: Array<{ row: number; error: string }> = [];
     let created = 0;
 
-    const salaryDate = new Date(date);
-    if (isNaN(salaryDate.getTime())) {
-      return NextResponse.json({ error: "Invalid date format" }, { status: 400 });
+    const defaultSalaryDate = defaultDate ? new Date(defaultDate) : null;
+    if (defaultDate && isNaN(defaultSalaryDate!.getTime())) {
+      return NextResponse.json({ error: "Invalid default date format" }, { status: 400 });
     }
 
     // Ensure OPEX account exists for the entity
@@ -225,6 +224,20 @@ export async function POST(req: NextRequest) {
         try {
           if (!row.employeeName || !row.amount) {
             errors.push({ row: rowNumber, error: "Missing employee name or amount" });
+            return false;
+          }
+
+          // Determine salary date: use row date if available, fallback to defaultDate
+          let salaryDate = defaultSalaryDate;
+          if (row.date) {
+            const rowDate = new Date(row.date);
+            if (!isNaN(rowDate.getTime())) {
+              salaryDate = rowDate;
+            }
+          }
+
+          if (!salaryDate) {
+            errors.push({ row: rowNumber, error: "No date provided in file or as default date" });
             return false;
           }
 
