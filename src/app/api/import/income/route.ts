@@ -179,33 +179,47 @@ function parseJSON(content: string): IncomeRow[] {
   return rows;
 }
 
-async function ensureSalesRevenueAccount(entityId: string): Promise<string> {
-  const existingAccount = await prisma.chartOfAccounts.findFirst({
-    where: {
-      entityId,
-      pfAccount: "INCOME",
-    },
+async function ensureBasicAccounts(entityId: string): Promise<{ assetAccountId: string; revenueAccountId: string }> {
+  // Ensure asset account exists
+  let assetAccount = await prisma.chartOfAccounts.findFirst({
+    where: { entityId, accountGroup: "asset" },
     select: { id: true },
   });
 
-  if (existingAccount) {
-    return existingAccount.id;
+  if (!assetAccount) {
+    assetAccount = await prisma.chartOfAccounts.create({
+      data: {
+        entityId,
+        accountCode: "1000",
+        accountName: "Bank Account",
+        accountGroup: "asset",
+      },
+      select: { id: true },
+    });
+    console.log(`Created asset account ${assetAccount.id} for entity ${entityId}`);
   }
 
-  // Create Sales Revenue account (account code 4000)
-  const newAccount = await prisma.chartOfAccounts.create({
-    data: {
-      entityId,
-      accountCode: "4000",
-      accountName: "Sales Revenue",
-      pfAccount: "INCOME",
-      accountGroup: "revenue",
-    },
+  // Ensure revenue account exists
+  let revenueAccount = await prisma.chartOfAccounts.findFirst({
+    where: { entityId, pfAccount: "INCOME" },
     select: { id: true },
   });
 
-  console.log(`Created Sales Revenue account ${newAccount.id} for entity ${entityId}`);
-  return newAccount.id;
+  if (!revenueAccount) {
+    revenueAccount = await prisma.chartOfAccounts.create({
+      data: {
+        entityId,
+        accountCode: "4000",
+        accountName: "Sales Revenue",
+        pfAccount: "INCOME",
+        accountGroup: "revenue",
+      },
+      select: { id: true },
+    });
+    console.log(`Created Sales Revenue account ${revenueAccount.id} for entity ${entityId}`);
+  }
+
+  return { assetAccountId: assetAccount.id, revenueAccountId: revenueAccount.id };
 }
 
 export async function POST(req: NextRequest) {
@@ -411,17 +425,19 @@ export async function POST(req: NextRequest) {
     console.log(`Creating ${entriesToCreate.length} income journal entries...`);
 
     if (entriesToCreate.length > 0) {
-      // Ensure Sales Revenue accounts exist
+      // Ensure basic accounts exist for all entities
       const uniqueEntityIds = [...new Set(entriesToCreate.map(e => e.entityId))];
-      console.log(`Ensuring Sales Revenue accounts exist for ${uniqueEntityIds.length} entities...`);
+      console.log(`Ensuring basic accounts exist for ${uniqueEntityIds.length} entities...`);
       const salesAccountMap = new Map<string, string>();
+      const assetAccountMap = new Map<string, string>();
 
       for (const entityId of uniqueEntityIds) {
         try {
-          const accountId = await ensureSalesRevenueAccount(entityId);
-          salesAccountMap.set(entityId, accountId);
+          const { assetAccountId, revenueAccountId } = await ensureBasicAccounts(entityId);
+          assetAccountMap.set(entityId, assetAccountId);
+          salesAccountMap.set(entityId, revenueAccountId);
         } catch (err) {
-          console.error(`Failed to ensure Sales Revenue account for entity ${entityId}:`, err);
+          console.error(`Failed to ensure basic accounts for entity ${entityId}:`, err);
         }
       }
 
@@ -435,31 +451,14 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Find corresponding chart of accounts entries for bank accounts
+      // Map bank accounts to asset accounts
       const bankToChartMap = new Map<string, string>();
-
       for (const entityId of uniqueEntityIds) {
-        // Try to find any asset account, or fallback to first account for entity
-        let bankAccount = await prisma.chartOfAccounts.findFirst({
-          where: {
-            entityId,
-            accountGroup: { in: ["asset", "bank"] }
-          },
-          select: { id: true },
-        });
-
-        // If no asset/bank account, use first account for entity
-        if (!bankAccount) {
-          bankAccount = await prisma.chartOfAccounts.findFirst({
-            where: { entityId },
-            select: { id: true },
-          });
-        }
-
-        if (bankAccount) {
+        const assetAccountId = assetAccountMap.get(entityId);
+        if (assetAccountId) {
           bankAccountsWithCharts
             .filter(ba => ba.entityId === entityId)
-            .forEach(ba => bankToChartMap.set(ba.id, bankAccount!.id));
+            .forEach(ba => bankToChartMap.set(ba.id, assetAccountId));
         }
       }
 
