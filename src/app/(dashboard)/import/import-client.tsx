@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Upload, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { IncomeImportModal } from "./income-import-modal";
+import { SalaryImportModal } from "./salary-import-modal";
 
 interface Entity {
   id: string;
@@ -34,7 +35,7 @@ export function ImportClient({
   bankAccounts: BankAccount[];
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [dataType, setDataType] = useState<"expense" | "income" | "withdraw">("expense");
+  const [dataType, setDataType] = useState<"expense" | "income" | "withdraw" | "salary">("expense");
   const [source, setSource] = useState<"bank" | "petty-cash">("bank");
   const [bankAccountId, setBankAccountId] = useState<string>("");
   const [defaultEntityId, setDefaultEntityId] = useState<string>(entities[0]?.id || "");
@@ -44,6 +45,7 @@ export function ImportClient({
   const [result, setResult] = useState<ImportResult | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [incomeModalOpen, setIncomeModalOpen] = useState(false);
+  const [salaryModalOpen, setSalaryModalOpen] = useState(false);
 
   const relevantBankAccounts = bankAccounts.filter(
     (ba) => ba.accountType !== "PETTY_CASH"
@@ -226,17 +228,25 @@ export function ImportClient({
         bankAccounts={bankAccounts}
       />
 
+      {/* Salary Import Modal */}
+      <SalaryImportModal
+        isOpen={salaryModalOpen}
+        onClose={() => setSalaryModalOpen(false)}
+        entities={entities}
+      />
+
       <form onSubmit={handleImport} className="space-y-6">
         {/* Data Type Selection */}
         <div className="card p-6 space-y-4">
           <div className="text-sm font-semibold text-ink-white">
             Transaction Type *
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             {[
               { value: "income", label: "Income", color: "rgb(16, 185, 129)" },
               { value: "expense", label: "Expense", color: "rgb(239, 68, 68)" },
               { value: "withdraw", label: "Withdrawal", color: "rgb(245, 158, 11)" },
+              { value: "salary", label: "Salary", color: "rgb(139, 92, 246)" },
             ].map((type) => (
               <label
                 key={type.value}
@@ -256,8 +266,13 @@ export function ImportClient({
                   value={type.value}
                   checked={dataType === type.value as any}
                   onChange={(e) => {
-                    const newType = e.target.value as "income" | "expense" | "withdraw";
+                    const newType = e.target.value as "income" | "expense" | "withdraw" | "salary";
                     setDataType(newType);
+                    // For salary, open the modal instead
+                    if (newType === "salary") {
+                      setSalaryModalOpen(true);
+                      setDataType("expense"); // Reset to expense
+                    }
                     // For income/withdraw, always use bank source
                     if (newType !== "expense") {
                       setSource("bank");
