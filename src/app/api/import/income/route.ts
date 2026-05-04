@@ -183,7 +183,7 @@ async function ensureSalesRevenueAccount(entityId: string): Promise<string> {
   const existingAccount = await prisma.chartOfAccounts.findFirst({
     where: {
       entityId,
-      pfAccount: "SALES",
+      pfAccount: "INCOME",
     },
     select: { id: true },
   });
@@ -198,7 +198,7 @@ async function ensureSalesRevenueAccount(entityId: string): Promise<string> {
       entityId,
       accountCode: "4000",
       accountName: "Sales Revenue",
-      pfAccount: "SALES",
+      pfAccount: "INCOME",
       currency: "BDT",
     },
     select: { id: true },
@@ -454,7 +454,7 @@ export async function POST(req: NextRequest) {
                     },
                     {
                       accountId: salesAccountId,
-                      pfAccount: "SALES",
+                      pfAccount: "INCOME",
                       entryType: TxnType.CREDIT,
                       amount: entry.amount,
                       currency: entry.currency,
