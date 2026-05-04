@@ -536,9 +536,9 @@ export async function POST(req: NextRequest) {
       }
 
       // Create petty cash entries and journals in larger batches with transactions
-      const batchSize = 50; // Process 50 entries per transaction
-      for (let i = 0; i < pettyCashWithJournal.length; i += batchSize) {
-        const batch = pettyCashWithJournal.slice(i, i + batchSize);
+      const journalBatchSize = 50; // Process 50 entries per transaction
+      for (let i = 0; i < pettyCashWithJournal.length; i += journalBatchSize) {
+        const batch = pettyCashWithJournal.slice(i, i + journalBatchSize);
         try {
           await prisma.$transaction(async (tx) => {
             // Create all journal entries in this batch
@@ -580,7 +580,7 @@ export async function POST(req: NextRequest) {
           successCount += batch.length;
           console.log(`Created ${batch.length} petty cash entries with journals (${i + batch.length}/${pettyCashWithJournal.length})`);
         } catch (err) {
-          console.error(`Failed to create batch [${i}-${i + batchSize}]:`, err);
+          console.error(`Failed to create batch [${i}-${i + journalBatchSize}]:`, err);
         }
       }
       created += successCount;
