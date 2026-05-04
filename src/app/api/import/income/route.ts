@@ -348,20 +348,25 @@ export async function POST(req: NextRequest) {
         // Determine bank account
         let bankAccountId: string | null = null;
         if (row.DepositedAccount && row.DepositedAccount.trim()) {
-          bankAccountId = accountMap.get(row.DepositedAccount.trim().toLowerCase()) || null;
+          // Try exact match first
+          bankAccountId = accountMap.get(row.DepositedAccount.trim().toLowerCase());
+
+          // If no exact match, try partial match (contains the provided name)
+          if (!bankAccountId) {
+            const partialMatch = bankAccounts.find(a =>
+              a.accountName.toLowerCase().includes(row.DepositedAccount!.trim().toLowerCase()) &&
+              a.entityId === entityId
+            );
+            bankAccountId = partialMatch?.id || null;
+          }
+
           if (!bankAccountId) {
             errors.push({
               row: rowNumber,
-              error: `Bank account "${row.DepositedAccount}" not found`,
-            });
-            continue;
-          }
-          // Verify account belongs to same entity
-          const accountEntityId = entityByAccountMap.get(bankAccountId);
-          if (accountEntityId !== entityId) {
-            errors.push({
-              row: rowNumber,
-              error: `Bank account "${row.DepositedAccount}" does not belong to entity`,
+              error: `Bank account "${row.DepositedAccount}" not found. Available accounts: ${bankAccounts
+                .filter(a => a.entityId === entityId)
+                .map(a => a.accountName)
+                .join(", ") || "none"}`,
             });
             continue;
           }
