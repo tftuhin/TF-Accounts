@@ -81,8 +81,13 @@ function parseCSV(content: string): SalaryRow[] {
 
     const amountStr = row.amount.toString().trim().replace(/[^\d.,\-]/g, "").trim();
     const amount = parseFloat(amountStr);
-    if (isNaN(amount) || amount === 0) {
+    if (isNaN(amount)) {
       throw new Error(`Invalid amount at row ${i + 1}: ${row.amount}`);
+    }
+
+    // Skip rows with 0 amount
+    if (amount === 0) {
+      continue;
     }
 
     const adjustment = row.adjustment ? parseFloat(row.adjustment.toString()) : undefined;
@@ -108,7 +113,7 @@ function parseJSON(content: string): SalaryRow[] {
     throw new Error("JSON must contain an array of salary entries");
   }
 
-  const rows: SalaryRow[] = entries.map((entry, idx) => {
+  const rows: (SalaryRow | null)[] = entries.map((entry, idx) => {
     const employeeName = entry.employeeName || entry.employee_name || entry.name;
     if (!employeeName) {
       throw new Error(`Employee name missing at row ${idx + 1}`);
@@ -116,8 +121,13 @@ function parseJSON(content: string): SalaryRow[] {
 
     const amountStr = (entry.amount || "").toString().trim();
     const amount = parseFloat(amountStr);
-    if (isNaN(amount) || amount === 0) {
+    if (isNaN(amount)) {
       throw new Error(`Invalid amount at row ${idx + 1}: ${entry.amount}`);
+    }
+
+    // Skip rows with 0 amount
+    if (amount === 0) {
+      return null;
     }
 
     const adjustment = entry.adjustment ? parseFloat(entry.adjustment.toString()) : undefined;
@@ -132,7 +142,7 @@ function parseJSON(content: string): SalaryRow[] {
     };
   });
 
-  return rows;
+  return rows.filter((row): row is SalaryRow => row !== null);
 }
 
 export async function POST(req: NextRequest) {
