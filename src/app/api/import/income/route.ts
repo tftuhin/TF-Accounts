@@ -349,7 +349,7 @@ export async function POST(req: NextRequest) {
         let bankAccountId: string | null = null;
         if (row.DepositedAccount && row.DepositedAccount.trim()) {
           // Try exact match first
-          bankAccountId = accountMap.get(row.DepositedAccount.trim().toLowerCase());
+          bankAccountId = accountMap.get(row.DepositedAccount.trim().toLowerCase()) || null;
 
           // If no exact match, try partial match (contains the provided name)
           if (!bankAccountId) {
