@@ -199,7 +199,7 @@ async function ensureSalesRevenueAccount(entityId: string): Promise<string> {
       accountCode: "4000",
       accountName: "Sales Revenue",
       pfAccount: "INCOME",
-      currency: "BDT",
+      accountGroup: "revenue",
     },
     select: { id: true },
   });
