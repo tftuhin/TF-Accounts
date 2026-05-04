@@ -439,17 +439,27 @@ export async function POST(req: NextRequest) {
       const bankToChartMap = new Map<string, string>();
 
       for (const entityId of uniqueEntityIds) {
-        const assetAccount = await prisma.chartOfAccounts.findFirst({
+        // Try to find any asset account, or fallback to first account for entity
+        let bankAccount = await prisma.chartOfAccounts.findFirst({
           where: {
             entityId,
-            accountGroup: "asset"
+            accountGroup: { in: ["asset", "bank"] }
           },
           select: { id: true },
         });
-        if (assetAccount) {
+
+        // If no asset/bank account, use first account for entity
+        if (!bankAccount) {
+          bankAccount = await prisma.chartOfAccounts.findFirst({
+            where: { entityId },
+            select: { id: true },
+          });
+        }
+
+        if (bankAccount) {
           bankAccountsWithCharts
             .filter(ba => ba.entityId === entityId)
-            .forEach(ba => bankToChartMap.set(ba.id, assetAccount.id));
+            .forEach(ba => bankToChartMap.set(ba.id, bankAccount!.id));
         }
       }
 
