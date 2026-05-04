@@ -254,18 +254,22 @@ export async function POST(req: NextRequest) {
 
     // Pre-load entities and bank accounts
     console.log("Pre-loading entities and bank accounts...");
-    const [allEntities, bankAccounts] = await Promise.all([
+    const [allEntities, bankAccounts, chartAccounts] = await Promise.all([
       prisma.entity.findMany({
         select: { id: true, name: true },
       }),
       prisma.bankAccount.findMany({
-        select: { id: true, entityId: true, accountName: true },
+        select: { id: true, entityId: true, accountName: true, accountId: true },
+      }),
+      prisma.chartOfAccounts.findMany({
+        select: { id: true, entityId: true, accountCode: true },
       }),
     ]);
 
     const entityMap = new Map(allEntities.map((e) => [e.name.toLowerCase(), e.id]));
     const accountMap = new Map(bankAccounts.map((a) => [a.accountName.toLowerCase(), a.id]));
     const entityByAccountMap = new Map(bankAccounts.map((a) => [a.id, a.entityId]));
+    const bankAccountToChartMap = new Map(bankAccounts.map((a) => [a.id, a.accountId]));
 
     console.log(`Pre-loaded ${allEntities.length} entities, ${bankAccounts.length} bank accounts`);
 
@@ -442,8 +446,15 @@ export async function POST(req: NextRequest) {
         const promises = batch.map(async (entry) => {
           try {
             const salesAccountId = salesAccountMap.get(entry.entityId);
+            const bankChartAccountId = bankAccountToChartMap.get(entry.bankAccountId);
+
             if (!salesAccountId) {
               console.error(`No Sales Revenue account for entity ${entry.entityId}`);
+              return false;
+            }
+
+            if (!bankChartAccountId) {
+              console.error(`No chart account mapping for bank account ${entry.bankAccountId}`);
               return false;
             }
 
@@ -460,7 +471,7 @@ export async function POST(req: NextRequest) {
                 lines: {
                   create: [
                     {
-                      accountId: entry.bankAccountId,
+                      accountId: bankChartAccountId,
                       entryType: TxnType.DEBIT,
                       amount: entry.amount,
                       currency: entry.currency,
