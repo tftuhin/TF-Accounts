@@ -535,8 +535,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Create petty cash entries and journals sequentially with high concurrency limits
-      const journalBatchSize = 5; // Process 5 entries at a time to avoid timeout
+      // Create petty cash entries and journals with high concurrency to minimize import time
+      const journalBatchSize = 30; // Process 30 entries in parallel per batch
       for (let i = 0; i < pettyCashWithJournal.length; i += journalBatchSize) {
         const batch = pettyCashWithJournal.slice(i, i + journalBatchSize);
 
@@ -577,7 +577,7 @@ export async function POST(req: NextRequest) {
             });
             return true;
           } catch (err) {
-            console.error("Failed to create petty cash entry with journal:", err);
+            console.error("Failed to create entry:", err);
             return false;
           }
         });
@@ -585,7 +585,7 @@ export async function POST(req: NextRequest) {
         const results = await Promise.all(promises);
         successCount += results.filter(r => r).length;
         if (i % 100 === 0) {
-          console.log(`Progress: ${i + batch.length}/${pettyCashWithJournal.length} petty cash entries with journals created`);
+          console.log(`Progress: ${i + batch.length}/${pettyCashWithJournal.length}`);
         }
       }
       created += successCount;
