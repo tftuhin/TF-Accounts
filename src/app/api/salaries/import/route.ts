@@ -80,14 +80,11 @@ function parseCSV(content: string): SalaryRow[] {
     }
 
     const amountStr = row.amount.toString().trim().replace(/[^\d.,\-]/g, "").trim();
-    const amount = parseFloat(amountStr);
+    const amount = amountStr === "" ? 0 : parseFloat(amountStr);
+
+    // Skip rows with invalid amount (NaN), but allow 0
     if (isNaN(amount)) {
       throw new Error(`Invalid amount at row ${i + 1}: ${row.amount}`);
-    }
-
-    // Skip rows with 0 amount
-    if (amount === 0) {
-      continue;
     }
 
     const adjustment = row.adjustment ? parseFloat(row.adjustment.toString()) : undefined;
@@ -120,13 +117,10 @@ function parseJSON(content: string): SalaryRow[] {
     }
 
     const amountStr = (entry.amount || "").toString().trim();
-    const amount = parseFloat(amountStr);
-    if (isNaN(amount)) {
-      throw new Error(`Invalid amount at row ${idx + 1}: ${entry.amount}`);
-    }
+    const amount = amountStr === "" ? 0 : parseFloat(amountStr);
 
-    // Skip rows with 0 amount
-    if (amount === 0) {
+    // Skip rows with invalid amount (NaN), but allow 0
+    if (isNaN(amount)) {
       return null;
     }
 
