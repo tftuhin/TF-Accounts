@@ -7,12 +7,12 @@ interface IncomeRow {
   Date: string;
   Description: string;
   Amount: string;
-  Currency: string;
+  Currency?: string;
   Entity?: string;
   DepositedAccount?: string;
 }
 
-const REQUIRED_COLUMNS = ["Date", "Description", "Amount", "Currency"];
+const REQUIRED_COLUMNS = ["Date", "Description", "Amount"];
 
 function detectDelimiter(lines: string[]): string {
   const delimiters = ["\t", ",", ";", "|"];
@@ -282,11 +282,11 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        if (!row.Date || !row.Description || !row.Amount || !row.Currency) {
+        if (!row.Date || !row.Description || !row.Amount) {
           errors.push({
             row: rowNumber,
             error: `Missing field: ${
-              !row.Date ? "Date" : !row.Description ? "Description" : !row.Amount ? "Amount" : "Currency"
+              !row.Date ? "Date" : !row.Description ? "Description" : "Amount"
             }`,
           });
           continue;
@@ -383,7 +383,7 @@ export async function POST(req: NextRequest) {
           date,
           description: row.Description,
           amount: Math.abs(amount),
-          currency: row.Currency,
+          currency: row.Currency || "BDT",
           bankAccountId,
         });
       } catch (err: unknown) {
