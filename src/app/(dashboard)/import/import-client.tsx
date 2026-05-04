@@ -107,8 +107,11 @@ export function ImportClient({
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
-      
-      const res = await fetch("/api/import/expenses", {
+
+      // Route to different endpoints based on dataType
+      const endpoint = dataType === "income" ? "/api/import/income" : "/api/import/expenses";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         body: formData,
         signal: controller.signal,
@@ -398,7 +401,7 @@ export function ImportClient({
             {file ? file.name : "Drop CSV or JSON file here or click to browse"}
           </div>
           <div className="text-2xs text-ink-faint">
-            Required columns: Date, Description, Amount, Category | Optional: Entity
+            Required columns: Date, Description, Amount, {dataType === "income" ? "Currency" : "Category"} | Optional: Entity{dataType === "income" ? ", DepositedAccount" : ""}
             Upload as CSV (tab-separated), JSON, or other delimited formats
           </div>
           <input
@@ -428,12 +431,28 @@ export function ImportClient({
                   <th className="text-left px-3 py-2 text-ink-secondary">
                     Amount
                   </th>
-                  <th className="text-left px-3 py-2 text-ink-secondary">
-                    Category
-                  </th>
-                  <th className="text-left px-3 py-2 text-ink-faint text-opacity-60">
-                    Entity (Optional)
-                  </th>
+                  {dataType === "income" ? (
+                    <>
+                      <th className="text-left px-3 py-2 text-ink-secondary">
+                        Currency
+                      </th>
+                      <th className="text-left px-3 py-2 text-ink-faint text-opacity-60">
+                        DepositedAccount (Optional)
+                      </th>
+                      <th className="text-left px-3 py-2 text-ink-faint text-opacity-60">
+                        Entity (Optional)
+                      </th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="text-left px-3 py-2 text-ink-secondary">
+                        Category
+                      </th>
+                      <th className="text-left px-3 py-2 text-ink-faint text-opacity-60">
+                        Entity (Optional)
+                      </th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -442,15 +461,29 @@ export function ImportClient({
                     2025-05-01
                   </td>
                   <td className="px-3 py-2 text-ink-primary">
-                    Office Supplies
+                    {dataType === "income" ? "Customer Invoice #123" : "Office Supplies"}
                   </td>
                   <td className="px-3 py-2 font-mono text-accent-red">
-                    250.00
+                    {dataType === "income" ? "5000.00" : "250.00"}
                   </td>
-                  <td className="px-3 py-2 text-ink-secondary">Supplies</td>
-                  <td className="px-3 py-2 text-ink-faint text-opacity-60">
-                    (uses default)
-                  </td>
+                  {dataType === "income" ? (
+                    <>
+                      <td className="px-3 py-2 text-ink-secondary">BDT</td>
+                      <td className="px-3 py-2 text-ink-faint text-opacity-60">
+                        Bank Account Name
+                      </td>
+                      <td className="px-3 py-2 text-ink-faint text-opacity-60">
+                        Brand A
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-3 py-2 text-ink-secondary">Supplies</td>
+                      <td className="px-3 py-2 text-ink-faint text-opacity-60">
+                        (uses default)
+                      </td>
+                    </>
+                  )}
                 </tr>
               </tbody>
             </table>
