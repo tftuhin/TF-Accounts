@@ -324,6 +324,9 @@ export function SalaryImportModal({ isOpen, onClose, entities }: SalaryImportMod
                       <th className="text-left px-3 py-2 text-ink-secondary font-medium">
                         Employee
                       </th>
+                      <th className="text-center px-3 py-2 text-ink-secondary font-medium">
+                        Date
+                      </th>
                       <th className="text-right px-3 py-2 text-ink-secondary font-medium">
                         Amount
                       </th>
@@ -342,6 +345,9 @@ export function SalaryImportModal({ isOpen, onClose, entities }: SalaryImportMod
                         className="border-b border-surface-border/50 hover:bg-surface-2/30 transition"
                       >
                         <td className="px-3 py-2 text-ink-white">{row.employeeName}</td>
+                        <td className="px-3 py-2 text-center font-mono text-2xs text-ink-secondary">
+                          {row.date || "-"}
+                        </td>
                         <td className="px-3 py-2 text-right font-mono text-accent-green">
                           {row.amount.toLocaleString()}
                         </td>
