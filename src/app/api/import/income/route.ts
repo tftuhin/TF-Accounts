@@ -348,27 +348,36 @@ export async function POST(req: NextRequest) {
         // Determine bank account
         let bankAccountId: string | null = null;
         if (row.DepositedAccount && row.DepositedAccount.trim()) {
-          // Try exact match first
-          bankAccountId = accountMap.get(row.DepositedAccount.trim().toLowerCase()) || null;
+          const searchName = row.DepositedAccount.trim().toLowerCase();
 
-          // If no exact match, try partial match (contains the provided name)
+          // Try exact match first
+          bankAccountId = accountMap.get(searchName) || null;
+
+          // If no exact match, try partial match (bidirectional - either contains the other)
           if (!bankAccountId) {
-            const partialMatch = bankAccounts.find(a =>
-              a.accountName.toLowerCase().includes(row.DepositedAccount!.trim().toLowerCase()) &&
-              a.entityId === entityId
-            );
+            const partialMatch = bankAccounts.find(a => {
+              const accountNameLower = a.accountName.toLowerCase();
+              return (
+                a.entityId === entityId &&
+                (accountNameLower.includes(searchName) || searchName.includes(accountNameLower))
+              );
+            });
             bankAccountId = partialMatch?.id || null;
           }
 
           if (!bankAccountId) {
-            errors.push({
-              row: rowNumber,
-              error: `Bank account "${row.DepositedAccount}" not found. Available accounts: ${bankAccounts
-                .filter(a => a.entityId === entityId)
-                .map(a => a.accountName)
-                .join(", ") || "none"}`,
-            });
-            continue;
+            // If account not found, fall back to first available account for the entity
+            const entityAccounts = bankAccounts.filter(a => a.entityId === entityId);
+            if (entityAccounts.length > 0) {
+              bankAccountId = entityAccounts[0].id;
+              console.log(`Account "${row.DepositedAccount}" not found for entity, using fallback: ${entityAccounts[0].accountName}`);
+            } else {
+              errors.push({
+                row: rowNumber,
+                error: `Bank account "${row.DepositedAccount}" not found. No accounts available for entity.`,
+              });
+              continue;
+            }
           }
         } else {
           // Find default bank account for entity
