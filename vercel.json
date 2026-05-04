@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "src/app/api/import/expenses/route.ts": {
+      "maxDuration": 900
+    }
+  },
   "crons": [
     {
       "path": "/api/assets/accrue-depreciation",
