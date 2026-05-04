@@ -10,7 +10,7 @@ interface IncomeEntry {
   currency: string;
   entity: string;
   entityId: string;
-  selectedAccountId: string;
+  selectedBankAccountId: string;
 }
 
 async function ensureRevenueAccount(entityId: string): Promise<string> {
@@ -56,25 +56,35 @@ export async function POST(req: NextRequest) {
 
     const importBatch = `import-income-manual-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+    // Pre-load bank accounts
+    console.log("Pre-loading bank accounts...");
+    const bankAccounts = await prisma.bankAccount.findMany({
+      select: { id: true, entityId: true },
+    });
+
+    const bankAccountMap = new Map(bankAccounts.map((a) => [a.id, a.entityId]));
+
     // Validate all entries first
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
       const rowNumber = i + 1;
 
       try {
-        if (!entry.selectedAccountId) {
-          errors.push({ row: rowNumber, error: "No account selected" });
+        if (!entry.selectedBankAccountId) {
+          errors.push({ row: rowNumber, error: "No bank account selected" });
           continue;
         }
 
-        // Verify the account exists and belongs to the entity
-        const account = await prisma.chartOfAccounts.findFirst({
-          where: { id: entry.selectedAccountId, entityId: entry.entityId },
-          select: { id: true },
-        });
+        // Verify the bank account exists
+        const bankAccount = bankAccounts.find((a) => a.id === entry.selectedBankAccountId);
+        if (!bankAccount) {
+          errors.push({ row: rowNumber, error: "Selected bank account not found" });
+          continue;
+        }
 
-        if (!account) {
-          errors.push({ row: rowNumber, error: "Selected account not found for this entity" });
+        // Verify it belongs to the correct entity
+        if (entry.entityId && bankAccount.entityId !== entry.entityId) {
+          errors.push({ row: rowNumber, error: "Bank account does not belong to this entity" });
           continue;
         }
       } catch (err) {
@@ -110,6 +120,20 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Pre-load asset accounts (bank accounts in chart of accounts)
+    const assetAccounts = await prisma.chartOfAccounts.findMany({
+      where: { accountGroup: "asset" },
+      select: { id: true, entityId: true },
+    });
+
+    const assetAccountMap = new Map<string, string>();
+    for (const entity of uniqueEntityIds) {
+      const asset = assetAccounts.find((a) => a.entityId === entity);
+      if (asset) {
+        assetAccountMap.set(entity, asset.id);
+      }
+    }
+
     // Create entries
     for (let i = 0; i < entries.length; i += batchSize) {
       const batch = entries.slice(i, i + batchSize);
@@ -118,14 +142,20 @@ export async function POST(req: NextRequest) {
         const rowNumber = i + batchIndex + 1;
 
         try {
-          if (!entry.selectedAccountId) {
-            errors.push({ row: rowNumber, error: "No account selected" });
+          if (!entry.selectedBankAccountId) {
+            errors.push({ row: rowNumber, error: "No bank account selected" });
             return false;
           }
 
           const revenueAccountId = revenueAccountMap.get(entry.entityId);
           if (!revenueAccountId) {
             errors.push({ row: rowNumber, error: "Revenue account not found" });
+            return false;
+          }
+
+          const assetAccountId = assetAccountMap.get(entry.entityId);
+          if (!assetAccountId) {
+            errors.push({ row: rowNumber, error: "Asset account not found for entity" });
             return false;
           }
 
@@ -153,7 +183,7 @@ export async function POST(req: NextRequest) {
               lines: {
                 create: [
                   {
-                    accountId: entry.selectedAccountId,
+                    accountId: assetAccountId,
                     entryType: TxnType.DEBIT,
                     amount: entry.amount,
                     currency: finalCurrency as "USD" | "BDT",

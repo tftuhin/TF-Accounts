@@ -1,25 +1,14 @@
 import { getSession } from "@/lib/auth";
 import { getActiveEntities, getActiveBankAccounts } from "@/lib/queries";
-import { prisma } from "@/lib/prisma";
 import { ImportClient } from "./import-client";
 
 export default async function ImportPage() {
   const session = await getSession();
   if (!session) return null;
 
-  const [entityRows, bankAccountRows, chartAccountRows] = await Promise.all([
+  const [entityRows, bankAccountRows] = await Promise.all([
     getActiveEntities(),
     getActiveBankAccounts(),
-    prisma.chartOfAccounts.findMany({
-      select: {
-        id: true,
-        entityId: true,
-        accountCode: true,
-        accountName: true,
-        accountGroup: true,
-        pfAccount: true,
-      },
-    }),
   ]);
 
   const entities = entityRows.map((e) => ({
@@ -36,14 +25,5 @@ export default async function ImportPage() {
     entityName: a.entity.name,
   }));
 
-  const chartAccounts = chartAccountRows.map((a) => ({
-    id: a.id,
-    entityId: a.entityId,
-    accountCode: a.accountCode,
-    accountName: a.accountName,
-    accountGroup: a.accountGroup,
-    pfAccount: a.pfAccount || undefined,
-  }));
-
-  return <ImportClient entities={entities} bankAccounts={bankAccounts} chartAccounts={chartAccounts} />;
+  return <ImportClient entities={entities} bankAccounts={bankAccounts} />;
 }

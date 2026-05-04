@@ -19,15 +19,6 @@ interface BankAccount {
   entityName: string;
 }
 
-interface ChartAccount {
-  id: string;
-  entityId: string;
-  accountCode: string;
-  accountName: string;
-  accountGroup: string;
-  pfAccount?: string;
-}
-
 interface ImportResult {
   success: boolean;
   created?: number;
@@ -38,11 +29,9 @@ interface ImportResult {
 export function ImportClient({
   entities,
   bankAccounts,
-  chartAccounts,
 }: {
   entities: Entity[];
   bankAccounts: BankAccount[];
-  chartAccounts: ChartAccount[];
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [dataType, setDataType] = useState<"expense" | "income" | "withdraw">("expense");
@@ -234,7 +223,7 @@ export function ImportClient({
         isOpen={incomeModalOpen}
         onClose={() => setIncomeModalOpen(false)}
         entities={entities}
-        chartAccounts={chartAccounts}
+        bankAccounts={bankAccounts}
       />
 
       <form onSubmit={handleImport} className="space-y-6">

@@ -9,13 +9,12 @@ interface Entity {
   name: string;
 }
 
-interface ChartAccount {
+interface BankAccount {
   id: string;
-  entityId: string;
-  accountCode: string;
   accountName: string;
-  accountGroup: string;
-  pfAccount?: string;
+  currency: string;
+  entityId: string;
+  entityName: string;
 }
 
 interface ParsedIncomeRow {
@@ -25,14 +24,14 @@ interface ParsedIncomeRow {
   currency: string;
   entity: string;
   entityId: string;
-  selectedAccountId?: string;
+  selectedBankAccountId?: string;
 }
 
 interface IncomeImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   entities: Entity[];
-  chartAccounts: ChartAccount[];
+  bankAccounts: BankAccount[];
 }
 
 function detectDelimiter(lines: string[]): string {
@@ -227,7 +226,7 @@ export function IncomeImportModal({
   isOpen,
   onClose,
   entities,
-  chartAccounts,
+  bankAccounts,
 }: IncomeImportModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [parsedData, setParsedData] = useState<ParsedIncomeRow[]>([]);
@@ -281,16 +280,16 @@ export function IncomeImportModal({
     }
   }
 
-  function updateAccountSelection(rowIndex: number, accountId: string) {
+  function updateAccountSelection(rowIndex: number, bankAccountId: string) {
     const updated = [...parsedData];
-    updated[rowIndex].selectedAccountId = accountId;
+    updated[rowIndex].selectedBankAccountId = bankAccountId;
     setParsedData(updated);
   }
 
   async function handleSubmit() {
-    const unselected = parsedData.filter((r) => !r.selectedAccountId);
+    const unselected = parsedData.filter((r) => !r.selectedBankAccountId);
     if (unselected.length > 0) {
-      toast.error(`Please select accounts for all ${unselected.length} transactions`);
+      toast.error(`Please select bank accounts for all ${unselected.length} transactions`);
       return;
     }
 
@@ -406,7 +405,7 @@ export function IncomeImportModal({
                   </thead>
                   <tbody>
                     {parsedData.map((row, idx) => {
-                      const availableAccounts = chartAccounts.filter(
+                      const availableBankAccounts = bankAccounts.filter(
                         (a) => !row.entityId || a.entityId === row.entityId
                       );
 
@@ -441,28 +440,28 @@ export function IncomeImportModal({
                                   setExpandedAccounts(newSet);
                                 }}
                                 className={`w-full px-2 py-1.5 rounded border text-xs flex items-center justify-between transition ${
-                                  row.selectedAccountId
+                                  row.selectedBankAccountId
                                     ? "border-accent-blue/30 bg-accent-blue/5 text-ink-white"
                                     : "border-surface-border text-ink-secondary hover:border-accent-blue/30"
                                 }`}
                               >
                                 <span className="truncate text-left flex-1">
-                                  {row.selectedAccountId
-                                    ? chartAccounts.find((a) => a.id === row.selectedAccountId)
+                                  {row.selectedBankAccountId
+                                    ? bankAccounts.find((a) => a.id === row.selectedBankAccountId)
                                         ?.accountName || "Select..."
-                                    : "Select..."}
+                                    : "Select bank account..."}
                                 </span>
                                 <ChevronDown className="w-3 h-3 flex-shrink-0 ml-1" />
                               </button>
 
                               {expandedAccounts.has(String(idx)) && (
                                 <div className="absolute top-full left-0 right-0 mt-1 bg-surface-2 border border-surface-border rounded shadow-lg z-10 max-h-64 overflow-y-auto">
-                                  {availableAccounts.length === 0 ? (
+                                  {availableBankAccounts.length === 0 ? (
                                     <div className="px-3 py-2 text-2xs text-ink-faint">
-                                      No accounts available
+                                      No bank accounts available for this entity
                                     </div>
                                   ) : (
-                                    availableAccounts.map((account) => (
+                                    availableBankAccounts.map((account) => (
                                       <button
                                         key={account.id}
                                         type="button"
@@ -478,7 +477,7 @@ export function IncomeImportModal({
                                           {account.accountName}
                                         </div>
                                         <div className="text-2xs text-ink-faint">
-                                          {account.accountCode} • {account.accountGroup}
+                                          {account.entityName} • {account.currency}
                                         </div>
                                       </button>
                                     ))
@@ -521,7 +520,7 @@ export function IncomeImportModal({
           {parsedData.length > 0 && (
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting || parsedData.some((r) => !r.selectedAccountId)}
+              disabled={isSubmitting || parsedData.some((r) => !r.selectedBankAccountId)}
               className="flex-1 btn-primary flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSubmitting ? (
