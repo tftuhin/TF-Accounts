@@ -69,26 +69,30 @@ export async function GET(req: NextRequest) {
   // Include petty cash expenses (CASH_EXPENSE, ATM_WITHDRAWAL, CARD_PAYMENT) — these are
   // recorded directly in petty_cash_entries without journal entry lines, so they must be
   // queried separately to appear on the income statement.
-  const [pcExpenseRow] = isConsolidated
-    ? await prisma.$queryRaw<{ total: number }[]>`
-        SELECT COALESCE(SUM(amount), 0)::float8 AS total
+  const pcRows = isConsolidated
+    ? await prisma.$queryRaw<{ category: string | null; total: number }[]>`
+        SELECT category, COALESCE(SUM(amount), 0)::float8 AS total
         FROM petty_cash_entries
         WHERE txn_type IN ('CASH_EXPENSE','ATM_WITHDRAWAL','CARD_PAYMENT')
           AND date >= ${fromDate} AND date <= ${toDate}
+        GROUP BY category
       `
-    : await prisma.$queryRaw<{ total: number }[]>`
-        SELECT COALESCE(SUM(amount), 0)::float8 AS total
+    : await prisma.$queryRaw<{ category: string | null; total: number }[]>`
+        SELECT category, COALESCE(SUM(amount), 0)::float8 AS total
         FROM petty_cash_entries
         WHERE txn_type IN ('CASH_EXPENSE','ATM_WITHDRAWAL','CARD_PAYMENT')
           AND entity_id = ${entityId}
           AND date >= ${fromDate} AND date <= ${toDate}
+        GROUP BY category
       `;
 
-  const pettyCashExpenses = pcExpenseRow?.total ?? 0;
-  if (pettyCashExpenses > 0) {
-    totalExpenses += pettyCashExpenses;
-    expenseByCategory["Petty Cash"] = (expenseByCategory["Petty Cash"] || 0) + pettyCashExpenses;
+  let pettyCashExpenses = 0;
+  for (const row of pcRows) {
+    const categoryName = row.category || "Other";
+    expenseByCategory[categoryName] = (expenseByCategory[categoryName] || 0) + row.total;
+    pettyCashExpenses += row.total;
   }
+  totalExpenses += pettyCashExpenses;
 
   let entityName = "Consolidated";
   if (!isConsolidated) {

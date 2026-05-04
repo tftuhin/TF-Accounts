@@ -448,6 +448,7 @@ model PettyCashEntry {
   amount          Decimal            @db.Decimal(15, 2)
   currency        Currency           @default(BDT)
   txnType         PettyCashTxnType   @map("txn_type") @default(CASH_EXPENSE)
+  category        String?            @default("Other")  // Expense category (e.g., "Refreshment", "Office expenses")
   receiptUrl      String?            @map("receipt_url")     // Optional — not mandatory
   journalEntryId  String?            @map("journal_entry_id")
   journalEntry    JournalEntry?      @relation(fields: [journalEntryId], references: [id])

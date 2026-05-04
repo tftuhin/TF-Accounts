@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { periodId, entityId, date, description, amount, txnType, receiptUrl } = body;
+    const { periodId, entityId, date, description, amount, txnType, category, receiptUrl } = body;
 
     if (!periodId || !description || !amount) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -70,6 +70,7 @@ export async function POST(req: NextRequest) {
         description,
         amount,
         txnType: txnType || "CASH_EXPENSE",
+        category: category || "Other",
         receiptUrl: receiptUrl || null,
         createdById: null,
       },

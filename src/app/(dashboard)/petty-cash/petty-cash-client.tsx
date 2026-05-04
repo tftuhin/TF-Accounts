@@ -111,11 +111,10 @@ export function PettyCashClient({
           periodId:    currentPeriod.id,
           entityId:    currentPeriod.entityId,
           date:        form.date,
-          description: isExpenseTxn && form.category
-            ? `[${form.category} › ${form.subcategory}] ${form.description}`
-            : form.description,
+          description: form.description,
           amount:      parseFloat(form.amount),
           txnType:     form.txnType,
+          category:    isExpenseTxn && form.subcategory ? form.subcategory : form.category,
         }),
       });
       const json = await res.json();
