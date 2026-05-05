@@ -33,6 +33,7 @@ export function DrawingsClient({ drawings, owners, entities, pfBalances, consoli
     ownerId: owners[0]?.id || "",
     sourceAccount: "PROFIT",
     amount: "",
+    currency: "BDT",
     date: new Date().toISOString().split("T")[0],
     note: "",
   });
@@ -85,7 +86,7 @@ export function DrawingsClient({ drawings, owners, entities, pfBalances, consoli
         ownershipPct: owner?.ownershipPct || 0,
         sourceAccount: form.sourceAccount,
         amount: amt,
-        currency: "USD",
+        currency: form.currency,
         status: "PENDING",
         balanceAtDraw: selectedBalance,
         note: form.note,
@@ -146,7 +147,7 @@ export function DrawingsClient({ drawings, owners, entities, pfBalances, consoli
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <div>
             <label className="input-label">Source Account</label>
             <select value={form.sourceAccount} onChange={(e) => { setForm({ ...form, sourceAccount: e.target.value }); setWarning(""); }} className="input">
@@ -155,12 +156,19 @@ export function DrawingsClient({ drawings, owners, entities, pfBalances, consoli
             </select>
           </div>
           <div>
-            <label className="input-label">Amount (USD) *</label>
+            <label className="input-label">Amount *</label>
             <input
               type="number" step="0.01" value={form.amount}
               onChange={(e) => { setForm({ ...form, amount: e.target.value }); setWarning(""); }}
               placeholder="0.00" className="input font-mono" required
             />
+          </div>
+          <div>
+            <label className="input-label">Currency</label>
+            <select value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} className="input">
+              <option value="BDT">BDT</option>
+              <option value="USD">USD</option>
+            </select>
           </div>
           <div>
             <label className="input-label">Date</label>
