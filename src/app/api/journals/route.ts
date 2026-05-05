@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
-  const limit = 50;
+  const limit = 1000;
 
   const where: Record<string, unknown> = {
     ...(entityId && entityId !== "consolidated" ? { entityId } : {}),

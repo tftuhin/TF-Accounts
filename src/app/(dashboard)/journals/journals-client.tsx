@@ -43,7 +43,7 @@ function fmtDateTime(iso: string) {
 
 export function JournalsClient({ entities, userRole }: { entities: Entity[]; userRole: UserRole }) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, pages: 1, limit: 50 });
+  const [pagination, setPagination] = useState<Pagination>({ total: 0, page: 1, pages: 1, limit: 1000 });
   const [loading, setLoading] = useState(false);
 
   const [filterEntity, setFilterEntity] = useState("consolidated");
