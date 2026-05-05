@@ -75,12 +75,12 @@ function parseCSV(content: string): DrawingRow[] {
       }
     });
 
-    if (!row.date || !row.description || !row.amount || !row.sourceAccount || !row.ownershipRegistryId) {
+    if (!row.date || !row.description || row.amount === "" || !row.sourceAccount || !row.ownershipRegistryId) {
       throw new Error(`Missing required fields at row ${i + 1}`);
     }
 
     const amount = parseFloat(row.amount.toString());
-    if (isNaN(amount) || amount <= 0) {
+    if (isNaN(amount) || amount < 0) {
       throw new Error(`Invalid amount at row ${i + 1}: ${row.amount}`);
     }
 
@@ -111,16 +111,16 @@ function parseJSON(content: string): DrawingRow[] {
   const rows: DrawingRow[] = entries.map((entry, idx) => {
     const date = entry.date || entry.Date;
     const description = entry.description || entry.Description;
-    const amount = entry.amount || entry.Amount;
+    const amount = entry.amount !== undefined ? entry.amount : (entry.Amount !== undefined ? entry.Amount : "");
     const sourceAccount = entry.sourceAccount || entry.SourceAccount;
     const ownershipRegistryId = entry.ownershipRegistryId || entry.OwnershipRegistryId;
 
-    if (!date || !description || !amount || !sourceAccount || !ownershipRegistryId) {
+    if (!date || !description || amount === "" || !sourceAccount || !ownershipRegistryId) {
       throw new Error(`Missing required fields at row ${idx + 1}`);
     }
 
     const parsedAmount = parseFloat(amount.toString());
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    if (isNaN(parsedAmount) || parsedAmount < 0) {
       throw new Error(`Invalid amount at row ${idx + 1}: ${amount}`);
     }
 
