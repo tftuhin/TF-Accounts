@@ -1,14 +1,19 @@
 import { getSession } from "@/lib/auth";
 import { getActiveEntities, getActiveBankAccounts } from "@/lib/queries";
+import { prisma } from "@/lib/prisma";
 import { ImportClient } from "./import-client";
 
 export default async function ImportPage() {
   const session = await getSession();
   if (!session) return null;
 
-  const [entityRows, bankAccountRows] = await Promise.all([
+  const [entityRows, bankAccountRows, ownershipRegistryRows] = await Promise.all([
     getActiveEntities(),
     getActiveBankAccounts(),
+    prisma.ownershipRegistry.findMany({
+      select: { id: true, ownerName: true },
+      orderBy: { ownerName: "asc" },
+    }),
   ]);
 
   const entities = entityRows.map((e) => ({
@@ -25,5 +30,16 @@ export default async function ImportPage() {
     entityName: a.entity.name,
   }));
 
-  return <ImportClient entities={entities} bankAccounts={bankAccounts} />;
+  const ownershipRegistries = ownershipRegistryRows.map((o) => ({
+    id: o.id,
+    ownerName: o.ownerName,
+  }));
+
+  return (
+    <ImportClient
+      entities={entities}
+      bankAccounts={bankAccounts}
+      ownershipRegistries={ownershipRegistries}
+    />
+  );
 }

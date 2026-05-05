@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Upload, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { IncomeImportModal } from "./income-import-modal";
 import { SalaryImportModal } from "./salary-import-modal";
+import { OwnerWithdrawalModal } from "./owner-withdrawal-modal";
 
 interface Entity {
   id: string;
@@ -20,6 +21,11 @@ interface BankAccount {
   entityName: string;
 }
 
+interface OwnershipRegistry {
+  id: string;
+  ownerName: string;
+}
+
 interface ImportResult {
   success: boolean;
   created?: number;
@@ -30,9 +36,11 @@ interface ImportResult {
 export function ImportClient({
   entities,
   bankAccounts,
+  ownershipRegistries,
 }: {
   entities: Entity[];
   bankAccounts: BankAccount[];
+  ownershipRegistries: OwnershipRegistry[];
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [dataType, setDataType] = useState<"expense" | "income" | "withdraw" | "salary">("expense");
@@ -46,6 +54,7 @@ export function ImportClient({
   const [deleting, setDeleting] = useState(false);
   const [incomeModalOpen, setIncomeModalOpen] = useState(false);
   const [salaryModalOpen, setSalaryModalOpen] = useState(false);
+  const [ownerWithdrawalModalOpen, setOwnerWithdrawalModalOpen] = useState(false);
 
   const relevantBankAccounts = bankAccounts.filter(
     (ba) => ba.accountType !== "PETTY_CASH"
@@ -235,6 +244,14 @@ export function ImportClient({
         entities={entities}
       />
 
+      {/* Owner Withdrawal Import Modal */}
+      <OwnerWithdrawalModal
+        isOpen={ownerWithdrawalModalOpen}
+        onClose={() => setOwnerWithdrawalModalOpen(false)}
+        entities={entities}
+        ownershipRegistries={ownershipRegistries}
+      />
+
       <form onSubmit={handleImport} className="space-y-6">
         {/* Data Type Selection */}
         <div className="card p-6 space-y-4">
@@ -301,6 +318,23 @@ export function ImportClient({
               </button>
             </div>
           )}
+
+          <div className="mt-4 pt-4 border-t border-surface-border/30 space-y-2">
+            <button
+              type="button"
+              onClick={() => setSalaryModalOpen(true)}
+              className="w-full px-4 py-2.5 rounded-lg bg-accent-purple/10 border border-accent-purple/30 text-accent-purple hover:bg-accent-purple/20 transition font-medium text-sm"
+            >
+              ↗ Import Salaries
+            </button>
+            <button
+              type="button"
+              onClick={() => setOwnerWithdrawalModalOpen(true)}
+              className="w-full px-4 py-2.5 rounded-lg bg-accent-blue/10 border border-accent-blue/30 text-accent-blue hover:bg-accent-blue/20 transition font-medium text-sm"
+            >
+              ↗ Import Owner Withdrawals
+            </button>
+          </div>
         </div>
 
         {/* Default Entity Selection */}
