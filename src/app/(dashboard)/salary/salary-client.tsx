@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Calendar, DollarSign, User, TrendingUp, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, Calendar, DollarSign, User, TrendingUp, ArrowUp, ArrowDown, X } from "lucide-react";
 import { formatBDT } from "@/lib/utils";
 
 interface Employee {
@@ -70,6 +70,8 @@ export function SalaryClient({ userRole }: { userRole: string }) {
   // Filter state
   const [filterEmployee, setFilterEmployee] = useState("");
   const [filterMonth, setFilterMonth] = useState("");
+  const [employeeStatusFilter, setEmployeeStatusFilter] = useState<"ACTIVE" | "RESIGNED" | "ALL">("ACTIVE");
+  const [selectedEmployeeHistory, setSelectedEmployeeHistory] = useState<Employee | null>(null);
 
   const isAdmin = userRole === "ADMIN" || userRole === "ACCOUNTS_MANAGER";
 
@@ -267,6 +269,15 @@ export function SalaryClient({ userRole }: { userRole: string }) {
     return true;
   });
 
+  const filteredEmployees = employees.filter((e) => {
+    if (employeeStatusFilter === "ALL") return true;
+    return e.status === employeeStatusFilter;
+  });
+
+  const employeePaymentHistory = selectedEmployeeHistory
+    ? salaries.filter((s) => s.employeeId === selectedEmployeeHistory.id)
+    : [];
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -380,24 +391,41 @@ export function SalaryClient({ userRole }: { userRole: string }) {
             </form>
           )}
 
-          {/* Employees Grid */}
+          {/* Employees Filter & Grid */}
           {loading ? (
             <div className="text-center text-ink-faint py-8">Loading...</div>
           ) : employees.length === 0 ? (
             <div className="card p-10 text-center text-ink-faint">No employees yet</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {employees.map((emp) => (
-                <div key={emp.id} className="card p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="text-sm font-semibold text-ink-white">{emp.name}</div>
+            <>
+              <div className="flex gap-2">
+                <select
+                  value={employeeStatusFilter}
+                  onChange={(e) => setEmployeeStatusFilter(e.target.value as "ACTIVE" | "RESIGNED" | "ALL")}
+                  className="input text-sm"
+                >
+                  <option value="ACTIVE">Active Employees</option>
+                  <option value="RESIGNED">Resigned Employees</option>
+                  <option value="ALL">All Employees</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {filteredEmployees.map((emp) => (
+                <div
+                  key={emp.id}
+                  onClick={() => setSelectedEmployeeHistory(emp)}
+                  className="card p-3 space-y-2 cursor-pointer hover:bg-surface-2 transition"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-ink-white truncate">{emp.name}</div>
                       {emp.designation && (
-                        <div className="text-2xs text-ink-faint">{emp.designation}</div>
+                        <div className="text-2xs text-ink-faint truncate">{emp.designation}</div>
                       )}
                     </div>
                     <span
-                      className={`text-2xs font-semibold px-2 py-1 rounded ${
+                      className={`text-2xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap ${
                         emp.status === "ACTIVE"
                           ? "bg-accent-green/15 text-accent-green"
                           : emp.status === "RESIGNED"
@@ -409,36 +437,43 @@ export function SalaryClient({ userRole }: { userRole: string }) {
                     </span>
                   </div>
 
-                  <div className="pt-2 border-t border-surface-border space-y-2">
-                    <div className="text-sm">
-                      <div className="text-ink-faint text-2xs">Base Salary</div>
-                      <div className="font-semibold text-accent-green">৳ {formatBDT(emp.baseSalary)}/mo</div>
+                  <div className="pt-2 border-t border-surface-border">
+                    <div className="text-2xs">
+                      <div className="text-ink-faint">Base Salary</div>
+                      <div className="font-semibold text-accent-green">৳ {formatBDT(emp.baseSalary)}</div>
                     </div>
                   </div>
 
                   {isAdmin && (
-                    <div className="flex gap-2 pt-2 border-t border-surface-border">
+                    <div className="flex gap-1 pt-2 border-t border-surface-border">
                       {emp.status === "ACTIVE" && (
                         <button
-                          onClick={() => handleUpdateEmployeeStatus(emp.id, "RESIGNED")}
-                          className="text-2xs px-2 py-1 rounded bg-accent-red/10 text-accent-red hover:bg-accent-red/20 transition flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateEmployeeStatus(emp.id, "RESIGNED");
+                          }}
+                          className="text-2xs px-1.5 py-0.5 rounded bg-accent-red/10 text-accent-red hover:bg-accent-red/20 transition flex-1"
                         >
-                          Mark Resigned
+                          Resign
                         </button>
                       )}
                       {emp.status === "RESIGNED" && (
                         <button
-                          onClick={() => handleUpdateEmployeeStatus(emp.id, "ACTIVE")}
-                          className="text-2xs px-2 py-1 rounded bg-accent-green/10 text-accent-green hover:bg-accent-green/20 transition flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateEmployeeStatus(emp.id, "ACTIVE");
+                          }}
+                          className="text-2xs px-1.5 py-0.5 rounded bg-accent-green/10 text-accent-green hover:bg-accent-green/20 transition flex-1"
                         >
-                          Mark Active
+                          Restore
                         </button>
                       )}
                     </div>
                   )}
                 </div>
               ))}
-            </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -572,6 +607,100 @@ export function SalaryClient({ userRole }: { userRole: string }) {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Payment History Modal */}
+      {selectedEmployeeHistory && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface-1 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-surface-border">
+              <div>
+                <h2 className="text-xl font-semibold text-ink-white">{selectedEmployeeHistory.name}</h2>
+                <p className="text-sm text-ink-faint mt-1">
+                  {selectedEmployeeHistory.designation && `${selectedEmployeeHistory.designation} • `}
+                  Payment History
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedEmployeeHistory(null)}
+                className="p-1 hover:bg-surface-2 rounded transition"
+              >
+                <X className="w-5 h-5 text-ink-secondary" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {employeePaymentHistory.length === 0 ? (
+                <div className="text-center text-ink-faint py-8">No payment records yet</div>
+              ) : (
+                <div className="space-y-3">
+                  {employeePaymentHistory.map((salary) => (
+                    <div key={salary.id} className="card p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-semibold text-ink-white">
+                            ৳ {formatBDT(salary.amount)}
+                          </div>
+                          <div className="text-2xs text-ink-faint">
+                            {new Date(salary.date).toLocaleDateString()}
+                            {salary.payPeriod && ` • ${salary.payPeriod}`}
+                            {salary.month && ` • ${salary.month}`}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          {salary.adjustment && (
+                            <div
+                              className={`text-sm font-semibold ${
+                                salary.adjustment > 0 ? "text-accent-green" : "text-accent-red"
+                              }`}
+                            >
+                              {salary.adjustment > 0 ? "+" : ""}৳ {formatBDT(Math.abs(salary.adjustment))}
+                            </div>
+                          )}
+                          <div className="text-2xs text-ink-faint">
+                            Total: ৳ {formatBDT(salary.amount + (salary.adjustment || 0))}
+                          </div>
+                        </div>
+                      </div>
+                      {(salary.adjustmentNote || salary.notes) && (
+                        <div className="text-2xs text-ink-faint pt-2 border-t border-surface-border">
+                          {salary.adjustmentNote && <div>Adjustment: {salary.adjustmentNote}</div>}
+                          {salary.notes && <div>Notes: {salary.notes}</div>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="border-t border-surface-border p-6">
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <div className="text-2xs text-ink-faint">Total Payments</div>
+                  <div className="text-lg font-bold text-accent-green">
+                    ৳ {formatBDT(employeePaymentHistory.reduce((sum, s) => sum + s.amount, 0))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xs text-ink-faint">Total Adjustments</div>
+                  <div className="text-lg font-bold text-ink-white">
+                    ৳ {formatBDT(employeePaymentHistory.reduce((sum, s) => sum + (s.adjustment || 0), 0))}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedEmployeeHistory(null)}
+                className="w-full btn-primary"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
