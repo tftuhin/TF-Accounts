@@ -302,8 +302,6 @@ export function OwnerWithdrawalModal({ isOpen, onClose, entities, ownershipRegis
                       <th className="text-left px-3 py-2 text-ink-secondary font-medium">Date</th>
                       <th className="text-left px-3 py-2 text-ink-secondary font-medium">Description</th>
                       <th className="text-right px-3 py-2 text-ink-secondary font-medium">Amount</th>
-                      <th className="text-center px-3 py-2 text-ink-secondary font-medium">Source</th>
-                      <th className="text-left px-3 py-2 text-ink-secondary font-medium">Owner</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -316,14 +314,6 @@ export function OwnerWithdrawalModal({ isOpen, onClose, entities, ownershipRegis
                         <td className="px-3 py-2 text-ink-white truncate">{row.description}</td>
                         <td className="px-3 py-2 text-right font-mono text-accent-green">
                           {row.amount.toLocaleString()}
-                        </td>
-                        <td className="px-3 py-2 text-center text-2xs">
-                          <span className={`badge ${row.sourceAccount === "PROFIT" ? "bg-accent-green/10 text-accent-green" : "bg-accent-blue/10 text-accent-blue"}`}>
-                            {row.sourceAccount}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 text-2xs text-ink-faint">
-                          {ownershipMap.get(row.ownershipRegistryId) || "Unknown"}
                         </td>
                       </tr>
                     ))}
