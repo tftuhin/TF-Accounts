@@ -80,7 +80,7 @@ function parseCSV(content: string): DrawingRow[] {
     }
 
     const amount = parseFloat(row.amount.toString());
-    if (isNaN(amount) || amount < 0) {
+    if (isNaN(amount)) {
       throw new Error(`Invalid amount at row ${i + 1}: ${row.amount}`);
     }
 
@@ -120,7 +120,7 @@ function parseJSON(content: string): DrawingRow[] {
     }
 
     const parsedAmount = parseFloat(amount.toString());
-    if (isNaN(parsedAmount) || parsedAmount < 0) {
+    if (isNaN(parsedAmount)) {
       throw new Error(`Invalid amount at row ${idx + 1}: ${amount}`);
     }
 
