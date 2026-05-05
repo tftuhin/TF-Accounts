@@ -12,14 +12,33 @@ export async function PATCH(
 
   try {
     const { id } = await params;
-    const { name, designation, department, status, notes, resignedAt } = await req.json();
+    const {
+      name,
+      designation,
+      department,
+      baseSalary,
+      status,
+      email,
+      phone,
+      profileImage,
+      bankName,
+      bankAccountNumber,
+      notes,
+      resignedAt,
+    } = await req.json();
 
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (designation !== undefined) updateData.designation = designation;
     if (department !== undefined) updateData.department = department;
+    if (baseSalary !== undefined) updateData.baseSalary = parseFloat(baseSalary);
     if (status !== undefined) updateData.status = status;
-    if (notes !== undefined) updateData.notes = notes;
+    if (email !== undefined) updateData.email = email || null;
+    if (phone !== undefined) updateData.phone = phone || null;
+    if (profileImage !== undefined) updateData.profileImage = profileImage || null;
+    if (bankName !== undefined) updateData.bankName = bankName || null;
+    if (bankAccountNumber !== undefined) updateData.bankAccountNumber = bankAccountNumber || null;
+    if (notes !== undefined) updateData.notes = notes || null;
     if (resignedAt !== undefined) updateData.resignedAt = resignedAt ? new Date(resignedAt) : null;
 
     const employee = await prisma.employee.update({
@@ -36,6 +55,11 @@ export async function PATCH(
         department: employee.department,
         baseSalary: Number(employee.baseSalary),
         status: employee.status,
+        email: employee.email,
+        phone: employee.phone,
+        profileImage: employee.profileImage,
+        bankName: employee.bankName,
+        bankAccountNumber: employee.bankAccountNumber,
         notes: employee.notes,
       },
     });
