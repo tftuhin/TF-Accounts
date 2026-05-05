@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
         amount: data.amount,
         currency: data.currency,
         date: drawingDate,
-        status: data.amount > currentBalance ? "PENDING" : "COMPLETED",
+        status: "COMPLETED",
         note: data.note,
         accountBalanceAtDraw: currentBalance,
         createdById: null,

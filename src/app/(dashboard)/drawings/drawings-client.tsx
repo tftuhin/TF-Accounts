@@ -27,6 +27,9 @@ export function DrawingsClient({ drawings, owners, entities, pfBalances, consoli
   const [warning, setWarning] = useState("");
   const [saving, setSaving] = useState(false);
   const [localDrawings, setLocalDrawings] = useState(drawings);
+  const [selectedDrawing, setSelectedDrawing] = useState<DrawingRecord | null>(null);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const [form, setForm] = useState({
     entityId: entities[0]?.id || "",
@@ -48,6 +51,12 @@ export function DrawingsClient({ drawings, owners, entities, pfBalances, consoli
 
   const selectedBalance = getBalance(form.entityId, form.sourceAccount);
   const filteredOwners = owners.filter((o) => !form.entityId || o.entityId === form.entityId);
+
+  const filteredDrawings = localDrawings.filter((d) => {
+    if (dateFrom && d.date < dateFrom) return false;
+    if (dateTo && d.date > dateTo) return false;
+    return true;
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -187,8 +196,24 @@ export function DrawingsClient({ drawings, owners, entities, pfBalances, consoli
 
       {/* History */}
       <div className="table-container">
-        <div className="card-header">
+        <div className="card-header flex items-center justify-between gap-4">
           <span className="text-sm font-semibold text-ink-white">Distribution History</span>
+          <div className="flex gap-2">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              placeholder="From date"
+              className="input text-sm"
+            />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              placeholder="To date"
+              className="input text-sm"
+            />
+          </div>
         </div>
         <table className="w-full">
           <thead>
@@ -199,8 +224,8 @@ export function DrawingsClient({ drawings, owners, entities, pfBalances, consoli
             </tr>
           </thead>
           <tbody>
-            {localDrawings.map((d) => (
-              <tr key={d.id} className="table-row">
+            {filteredDrawings.map((d) => (
+              <tr key={d.id} className="table-row cursor-pointer hover:bg-surface-2/50 transition" onClick={() => setSelectedDrawing(d)}>
                 <td className="table-cell font-mono text-xs text-ink-secondary">{d.date}</td>
                 <td className="table-cell text-ink-white text-sm">{d.ownerName}</td>
                 <td className="table-cell">
@@ -213,7 +238,7 @@ export function DrawingsClient({ drawings, owners, entities, pfBalances, consoli
                     {PF_CONFIG[d.sourceAccount as keyof typeof PF_CONFIG]?.label}
                   </span>
                 </td>
-                <td className="table-cell font-mono font-semibold text-accent-red">-{formatUSD(d.amount)}</td>
+                <td className="table-cell font-mono font-semibold text-accent-red">-{formatUSD(d.amount)} {d.currency}</td>
                 <td className="table-cell">
                   <span className={`badge ${d.status === "COMPLETED" ? "bg-accent-green/10 text-accent-green" : "bg-accent-amber/10 text-accent-amber"}`}>
                     {d.status === "COMPLETED" ? "✓ " : "○ "}{d.status.toLowerCase()}
@@ -221,12 +246,69 @@ export function DrawingsClient({ drawings, owners, entities, pfBalances, consoli
                 </td>
               </tr>
             ))}
-            {localDrawings.length === 0 && (
-              <tr><td colSpan={6} className="table-cell text-center text-ink-faint py-10">No drawings recorded.</td></tr>
+            {filteredDrawings.length === 0 && (
+              <tr><td colSpan={6} className="table-cell text-center text-ink-faint py-10">{localDrawings.length === 0 ? "No drawings recorded." : "No drawings match the selected date range."}</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Details Modal */}
+      {selectedDrawing && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface-1 rounded-lg shadow-xl max-w-lg w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-ink-white">Drawing Details</h2>
+              <button
+                onClick={() => setSelectedDrawing(null)}
+                className="text-ink-secondary hover:text-ink-white transition"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <div className="text-2xs text-ink-faint uppercase font-medium">Date</div>
+                <div className="text-ink-white font-mono">{selectedDrawing.date}</div>
+              </div>
+              <div>
+                <div className="text-2xs text-ink-faint uppercase font-medium">Owner</div>
+                <div className="text-ink-white">{selectedDrawing.ownerName}</div>
+              </div>
+              <div>
+                <div className="text-2xs text-ink-faint uppercase font-medium">Entity</div>
+                <div className="text-ink-white">{selectedDrawing.entityName}</div>
+              </div>
+              <div>
+                <div className="text-2xs text-ink-faint uppercase font-medium">Source Account</div>
+                <div className="text-ink-white">{PF_CONFIG[selectedDrawing.sourceAccount as keyof typeof PF_CONFIG]?.label}</div>
+              </div>
+              <div>
+                <div className="text-2xs text-ink-faint uppercase font-medium">Amount</div>
+                <div className="text-ink-white font-semibold text-accent-red">{formatUSD(selectedDrawing.amount)} {selectedDrawing.currency}</div>
+              </div>
+              <div>
+                <div className="text-2xs text-ink-faint uppercase font-medium">Status</div>
+                <div className={`inline-block px-2 py-1 rounded text-2xs font-medium ${selectedDrawing.status === "COMPLETED" ? "bg-accent-green/10 text-accent-green" : "bg-accent-amber/10 text-accent-amber"}`}>
+                  {selectedDrawing.status === "COMPLETED" ? "✓" : "○"} {selectedDrawing.status}
+                </div>
+              </div>
+              {selectedDrawing.note && (
+                <div>
+                  <div className="text-2xs text-ink-faint uppercase font-medium">Description</div>
+                  <div className="text-ink-white text-sm">{selectedDrawing.note}</div>
+                </div>
+              )}
+              {selectedDrawing.balanceAtDraw !== null && (
+                <div>
+                  <div className="text-2xs text-ink-faint uppercase font-medium">Balance at Draw</div>
+                  <div className="text-ink-white font-mono">{formatUSD(selectedDrawing.balanceAtDraw)}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
