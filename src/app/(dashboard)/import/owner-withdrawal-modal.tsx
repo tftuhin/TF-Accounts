@@ -10,6 +10,7 @@ interface ParsedDrawingRow {
   amount: number;
   sourceAccount: "PROFIT" | "OWNERS_COMP";
   ownershipRegistryId: string;
+  currency?: string;
 }
 
 interface Entity {
@@ -95,6 +96,7 @@ function parseCSV(content: string): ParsedDrawingRow[] {
       amount,
       sourceAccount: row.sourceaccount.toUpperCase() as "PROFIT" | "OWNERS_COMP",
       ownershipRegistryId: row.ownershipregistryid,
+      currency: row.currency || undefined,
     });
   }
 
@@ -115,6 +117,7 @@ function parseJSON(content: string): ParsedDrawingRow[] {
     const amount = entry.amount || entry.Amount;
     const sourceAccount = entry.sourceAccount || entry.SourceAccount;
     const ownershipRegistryId = entry.ownershipRegistryId || entry.OwnershipRegistryId;
+    const currency = entry.currency || entry.Currency;
 
     const parsedAmount = parseFloat(amount?.toString() || "0");
 
@@ -124,6 +127,7 @@ function parseJSON(content: string): ParsedDrawingRow[] {
       amount: parsedAmount,
       sourceAccount: sourceAccount?.toUpperCase() as "PROFIT" | "OWNERS_COMP",
       ownershipRegistryId,
+      currency,
     };
   });
 
@@ -280,12 +284,13 @@ export function OwnerWithdrawalModal({ isOpen, onClose, entities, ownershipRegis
               <div className="card p-4 bg-surface-2 space-y-3">
                 <div className="text-sm font-semibold text-ink-white">CSV Format Example:</div>
                 <div className="text-2xs font-mono text-ink-secondary space-y-1">
-                  <div>Date,Description,Amount,SourceAccount,OwnershipRegistryId</div>
-                  <div>2026-05-01,Monthly dividend,50000,PROFIT,{ownershipRegistries[0]?.id}</div>
-                  <div>2026-05-15,Owner compensation,100000,OWNERS_COMP,{ownershipRegistries[0]?.id}</div>
+                  <div>Date,Description,Amount,SourceAccount,OwnershipRegistryId,Currency</div>
+                  <div>2026-05-01,Monthly dividend,50000,PROFIT,{ownershipRegistries[0]?.id},BDT</div>
+                  <div>2026-05-15,Owner compensation,100000,OWNERS_COMP,{ownershipRegistries[0]?.id},USD</div>
                 </div>
-                <div className="text-2xs text-ink-faint mt-3">
-                  <strong>SourceAccount:</strong> PROFIT or OWNERS_COMP
+                <div className="text-2xs text-ink-faint mt-3 space-y-1">
+                  <div><strong>SourceAccount:</strong> PROFIT or OWNERS_COMP</div>
+                  <div><strong>Currency:</strong> Optional (defaults to BDT)</div>
                 </div>
               </div>
             </div>
