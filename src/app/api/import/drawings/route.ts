@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
 
     // Ensure basic accounts exist for entity
     console.log(`Ensuring basic accounts exist for entity ${entityId}`);
-    await ensureBasicAccounts(entityId);
+    const accounts = await ensureBasicAccounts(entityId);
 
     const importBatchId = `import-drawings-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -227,9 +227,6 @@ export async function POST(req: NextRequest) {
             const amt = Number(l.amount);
             return sum + (l.entryType === "CREDIT" ? amt : -amt);
           }, 0);
-
-          // Get accounts
-          const accounts = await ensureBasicAccounts(entityId);
 
           // Create journal entry
           const sourceLabel = row.sourceAccount === "PROFIT" ? "Profit" : "Owners Compensation";
