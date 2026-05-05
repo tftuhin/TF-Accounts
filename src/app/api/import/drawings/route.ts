@@ -89,13 +89,18 @@ function parseCSV(content: string): DrawingRow[] {
       throw new Error(`Invalid sourceAccount at row ${i + 1}: ${row.sourceAccount}. Must be PROFIT or OWNERS_COMP`);
     }
 
+    const currency = (row.currency || "BDT").toString().toUpperCase();
+    if (!["USD", "BDT"].includes(currency)) {
+      throw new Error(`Invalid currency at row ${i + 1}: ${row.currency}. Must be USD or BDT`);
+    }
+
     rows.push({
       date: row.date,
       description: row.description,
       amount,
       sourceAccount: row.sourceAccount.toUpperCase() as "PROFIT" | "OWNERS_COMP",
       ownershipRegistryId: row.ownershipRegistryId,
-      currency: row.currency || "BDT",
+      currency,
     });
   }
 
@@ -116,10 +121,15 @@ function parseJSON(content: string): DrawingRow[] {
     const amount = entry.amount !== undefined ? entry.amount : (entry.Amount !== undefined ? entry.Amount : "");
     const sourceAccount = entry.sourceAccount || entry.SourceAccount;
     const ownershipRegistryId = entry.ownershipRegistryId || entry.OwnershipRegistryId;
-    const currency = entry.currency || entry.Currency || "BDT";
+    const rawCurrency = entry.currency || entry.Currency || "BDT";
+    const currency = rawCurrency.toString().toUpperCase();
 
     if (!date || !description || amount === "" || !sourceAccount || !ownershipRegistryId) {
       throw new Error(`Missing required fields at row ${idx + 1}`);
+    }
+
+    if (!["USD", "BDT"].includes(currency)) {
+      throw new Error(`Invalid currency at row ${idx + 1}: ${rawCurrency}. Must be USD or BDT`);
     }
 
     const parsedAmount = parseFloat(amount.toString());
