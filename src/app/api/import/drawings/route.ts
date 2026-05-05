@@ -10,6 +10,7 @@ interface DrawingRow {
   amount: number;
   sourceAccount: "PROFIT" | "OWNERS_COMP";
   ownershipRegistryId: string;
+  currency?: string;
 }
 
 const REQUIRED_COLUMNS = ["date", "description", "amount", "sourceAccount", "ownershipRegistryId"];
@@ -70,7 +71,7 @@ function parseCSV(content: string): DrawingRow[] {
 
     headers.forEach((header, index) => {
       const normalizedHeader = header.toLowerCase();
-      if (REQUIRED_COLUMNS.includes(normalizedHeader)) {
+      if (REQUIRED_COLUMNS.includes(normalizedHeader) || normalizedHeader === "currency") {
         row[normalizedHeader] = values[index] || "";
       }
     });
@@ -94,6 +95,7 @@ function parseCSV(content: string): DrawingRow[] {
       amount,
       sourceAccount: row.sourceAccount.toUpperCase() as "PROFIT" | "OWNERS_COMP",
       ownershipRegistryId: row.ownershipRegistryId,
+      currency: row.currency || "BDT",
     });
   }
 
@@ -114,6 +116,7 @@ function parseJSON(content: string): DrawingRow[] {
     const amount = entry.amount !== undefined ? entry.amount : (entry.Amount !== undefined ? entry.Amount : "");
     const sourceAccount = entry.sourceAccount || entry.SourceAccount;
     const ownershipRegistryId = entry.ownershipRegistryId || entry.OwnershipRegistryId;
+    const currency = entry.currency || entry.Currency || "BDT";
 
     if (!date || !description || amount === "" || !sourceAccount || !ownershipRegistryId) {
       throw new Error(`Missing required fields at row ${idx + 1}`);
@@ -134,6 +137,7 @@ function parseJSON(content: string): DrawingRow[] {
       amount: parsedAmount,
       sourceAccount: sourceAccount.toUpperCase() as "PROFIT" | "OWNERS_COMP",
       ownershipRegistryId,
+      currency,
     };
   });
 
@@ -247,7 +251,7 @@ export async function POST(req: NextRequest) {
                     pfAccount: row.sourceAccount,
                     entryType: TxnType.DEBIT,
                     amount: row.amount,
-                    currency: "BDT",
+                    currency: row.currency,
                     entityId,
                     memo: `${ownershipRegistry.ownerName} drawing from ${sourceLabel}`,
                   },
@@ -256,7 +260,7 @@ export async function POST(req: NextRequest) {
                     pfAccount: null,
                     entryType: TxnType.CREDIT,
                     amount: row.amount,
-                    currency: "BDT",
+                    currency: row.currency,
                     entityId,
                     memo: `Funds withdrawn - ${ownershipRegistry.ownerName}`,
                   },
