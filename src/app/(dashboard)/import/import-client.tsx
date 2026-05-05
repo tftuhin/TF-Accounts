@@ -43,7 +43,7 @@ export function ImportClient({
   ownershipRegistries: OwnershipRegistry[];
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [dataType, setDataType] = useState<"expense" | "income" | "withdraw" | "salary">("expense");
+  const [dataType, setDataType] = useState<"expense" | "income" | "withdraw" | "salary" | "owner-withdrawal">("expense");
   const [source, setSource] = useState<"bank" | "petty-cash">("bank");
   const [bankAccountId, setBankAccountId] = useState<string>("");
   const [defaultEntityId, setDefaultEntityId] = useState<string>(entities[0]?.id || "");
@@ -284,7 +284,7 @@ export function ImportClient({
                   value={type.value}
                   checked={dataType === type.value as any}
                   onChange={(e) => {
-                    const newType = e.target.value as "income" | "expense" | "withdraw" | "salary";
+                    const newType = e.target.value as "income" | "expense" | "withdraw" | "salary" | "owner-withdrawal";
                     setDataType(newType);
                     // For salary, open the modal instead
                     if (newType === "salary") {
