@@ -241,24 +241,35 @@ export async function POST(req: NextRequest) {
             return false;
           }
 
-          // Find or create employee
+          // Normalize employee name to avoid duplicates from whitespace
+          const normalizedName = row.employeeName.trim();
+
+          // Find or create employee by name
           let employee = await prisma.employee.findFirst({
             where: {
-              name: row.employeeName,
+              name: normalizedName,
             },
-            select: { id: true },
+            select: { id: true, baseSalary: true },
           });
 
           if (!employee) {
             employee = await prisma.employee.create({
               data: {
-                name: row.employeeName,
+                name: normalizedName,
                 baseSalary: row.amount,
                 status: "ACTIVE",
               },
               select: { id: true },
             });
-            console.log(`Created employee: ${row.employeeName} (${employee.id})`);
+            console.log(`Created employee: ${normalizedName} (${employee.id})`);
+          } else {
+            // Update base salary if this entry has a higher amount
+            if (row.amount > (employee.baseSalary || 0)) {
+              await prisma.employee.update({
+                where: { id: employee.id },
+                data: { baseSalary: row.amount },
+              });
+            }
           }
 
           // Create salary entry
