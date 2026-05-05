@@ -267,7 +267,8 @@ export async function POST(req: NextRequest) {
           } else {
             employee = { id: existingEmployee.id };
             // Update base salary if this entry has a higher amount
-            if (row.amount > (existingEmployee.baseSalary || 0)) {
+            const existingSalary = Number(existingEmployee.baseSalary || 0);
+            if (row.amount > existingSalary) {
               await prisma.employee.update({
                 where: { id: employee.id },
                 data: { baseSalary: row.amount },
