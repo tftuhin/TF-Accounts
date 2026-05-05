@@ -652,19 +652,24 @@ model Salary {
 // ─── EMPLOYEES ──────────────────────────────────────────────
 
 model Employee {
-  id          String         @id @default(uuid())
-  name        String
-  designation String?
-  department  String?
-  baseSalary  Decimal        @map("base_salary") @db.Decimal(15, 2)
-  status      EmployeeStatus @default(ACTIVE)
-  joinedAt    DateTime?      @db.Date @map("joined_at")
-  resignedAt  DateTime?      @db.Date @map("resigned_at")
-  notes       String?
-  createdById String?        @map("created_by")
-  creator     User?          @relation(fields: [createdById], references: [id])
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
+  id                  String         @id @default(uuid())
+  name                String
+  designation         String?
+  department          String?
+  baseSalary          Decimal        @map("base_salary") @db.Decimal(15, 2)
+  status              EmployeeStatus @default(ACTIVE)
+  joinedAt            DateTime?      @db.Date @map("joined_at")
+  resignedAt          DateTime?      @db.Date @map("resigned_at")
+  profileImage        String?        @map("profile_image")
+  email               String?
+  phone               String?
+  bankName            String?        @map("bank_name")
+  bankAccountNumber   String?        @map("bank_account_number")
+  notes               String?
+  createdById         String?        @map("created_by")
+  creator             User?          @relation(fields: [createdById], references: [id])
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
 
   salaries   Salary[]
   increments SalaryIncrement[]

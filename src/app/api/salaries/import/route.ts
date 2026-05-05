@@ -245,14 +245,16 @@ export async function POST(req: NextRequest) {
           const normalizedName = row.employeeName.trim();
 
           // Find or create employee by name
-          let employee = await prisma.employee.findFirst({
+          let existingEmployee = await prisma.employee.findFirst({
             where: {
               name: normalizedName,
             },
             select: { id: true, baseSalary: true },
           });
 
-          if (!employee) {
+          let employee: { id: string };
+
+          if (!existingEmployee) {
             employee = await prisma.employee.create({
               data: {
                 name: normalizedName,
@@ -263,8 +265,9 @@ export async function POST(req: NextRequest) {
             });
             console.log(`Created employee: ${normalizedName} (${employee.id})`);
           } else {
+            employee = { id: existingEmployee.id };
             // Update base salary if this entry has a higher amount
-            if (row.amount > (employee.baseSalary || 0)) {
+            if (row.amount > (existingEmployee.baseSalary || 0)) {
               await prisma.employee.update({
                 where: { id: employee.id },
                 data: { baseSalary: row.amount },

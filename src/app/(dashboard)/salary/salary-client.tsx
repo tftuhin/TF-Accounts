@@ -13,6 +13,11 @@ interface Employee {
   baseSalary: number;
   status: "ACTIVE" | "RESIGNED" | "ON_LEAVE";
   joinedAt: string | null;
+  email: string | null;
+  phone: string | null;
+  profileImage: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
   notes: string | null;
   incrementCount: number;
 }
@@ -72,6 +77,18 @@ export function SalaryClient({ userRole }: { userRole: string }) {
   const [filterMonth, setFilterMonth] = useState("");
   const [employeeStatusFilter, setEmployeeStatusFilter] = useState<"ACTIVE" | "RESIGNED" | "ALL">("ACTIVE");
   const [selectedEmployeeHistory, setSelectedEmployeeHistory] = useState<Employee | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    designation: "",
+    department: "",
+    baseSalary: "",
+    email: "",
+    phone: "",
+    bankName: "",
+    bankAccountNumber: "",
+    notes: "",
+  });
 
   const isAdmin = userRole === "ADMIN" || userRole === "ACCOUNTS_MANAGER";
 
@@ -157,6 +174,62 @@ export function SalaryClient({ userRole }: { userRole: string }) {
       }
     } catch (err) {
       toast.error("Error updating employee");
+    }
+  }
+
+  function handleEditEmployee(emp: Employee) {
+    setEditingEmployee(emp);
+    setEditForm({
+      name: emp.name,
+      designation: emp.designation || "",
+      department: emp.department || "",
+      baseSalary: emp.baseSalary.toString(),
+      email: emp.email || "",
+      phone: emp.phone || "",
+      bankName: emp.bankName || "",
+      bankAccountNumber: emp.bankAccountNumber || "",
+      notes: emp.notes || "",
+    });
+  }
+
+  async function handleSaveEmployee(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingEmployee || !editForm.name || !editForm.baseSalary) {
+      toast.error("Name and salary are required");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/employees/${editingEmployee.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editForm.name,
+          designation: editForm.designation || null,
+          department: editForm.department || null,
+          baseSalary: parseFloat(editForm.baseSalary),
+          email: editForm.email || null,
+          phone: editForm.phone || null,
+          bankName: editForm.bankName || null,
+          bankAccountNumber: editForm.bankAccountNumber || null,
+          notes: editForm.notes || null,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setEmployees((prev) =>
+          prev.map((e) => (e.id === editingEmployee.id ? { ...e, ...json.data } : e))
+        );
+        toast.success("Employee updated successfully");
+        setEditingEmployee(null);
+      } else {
+        toast.error(json.error || "Failed to update employee");
+      }
+    } catch (err) {
+      toast.error("Error updating employee");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -446,6 +519,15 @@ export function SalaryClient({ userRole }: { userRole: string }) {
 
                   {isAdmin && (
                     <div className="flex gap-1 pt-2 border-t border-surface-border">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditEmployee(emp);
+                        }}
+                        className="text-2xs px-1.5 py-0.5 rounded bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/20 transition flex-1"
+                      >
+                        Edit
+                      </button>
                       {emp.status === "ACTIVE" && (
                         <button
                           onClick={(e) => {
@@ -700,6 +782,143 @@ export function SalaryClient({ userRole }: { userRole: string }) {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Employee Modal */}
+      {editingEmployee && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-surface-1 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-surface-border">
+              <div>
+                <h2 className="text-xl font-semibold text-ink-white">Edit Employee</h2>
+                <p className="text-sm text-ink-faint mt-1">{editingEmployee.name}</p>
+              </div>
+              <button
+                onClick={() => setEditingEmployee(null)}
+                className="p-1 hover:bg-surface-2 rounded transition"
+              >
+                <X className="w-5 h-5 text-ink-secondary" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <form onSubmit={handleSaveEmployee} className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="input-label">Name *</label>
+                  <input
+                    type="text"
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">Email</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="input-label">Designation</label>
+                  <input
+                    type="text"
+                    value={editForm.designation}
+                    onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">Phone</label>
+                  <input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="input-label">Department</label>
+                  <input
+                    type="text"
+                    value={editForm.department}
+                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">Base Salary *</label>
+                  <input
+                    type="number"
+                    value={editForm.baseSalary}
+                    onChange={(e) => setEditForm({ ...editForm, baseSalary: e.target.value })}
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="input-label">Bank Name</label>
+                  <input
+                    type="text"
+                    value={editForm.bankName}
+                    onChange={(e) => setEditForm({ ...editForm, bankName: e.target.value })}
+                    placeholder="e.g., ABC Bank"
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="input-label">Account Number</label>
+                  <input
+                    type="text"
+                    value={editForm.bankAccountNumber}
+                    onChange={(e) => setEditForm({ ...editForm, bankAccountNumber: e.target.value })}
+                    placeholder="e.g., 123456789"
+                    className="input"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="input-label">Notes</label>
+                <textarea
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  className="input"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn-primary flex-1"
+                >
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingEmployee(null)}
+                  className="btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
