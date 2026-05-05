@@ -258,12 +258,13 @@ export function ImportClient({
           <div className="text-sm font-semibold text-ink-white">
             Transaction Type *
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {[
               { value: "income", label: "Income", color: "rgb(16, 185, 129)" },
               { value: "expense", label: "Expense", color: "rgb(239, 68, 68)" },
               { value: "withdraw", label: "Withdrawal", color: "rgb(245, 158, 11)" },
               { value: "salary", label: "Salary", color: "rgb(139, 92, 246)" },
+              { value: "owner-withdrawal", label: "Owner Withdrawal", color: "rgb(59, 130, 246)" },
             ].map((type) => (
               <label
                 key={type.value}
@@ -290,8 +291,13 @@ export function ImportClient({
                       setSalaryModalOpen(true);
                       setDataType("expense"); // Reset to expense
                     }
+                    // For owner-withdrawal, open the modal
+                    if (newType === "owner-withdrawal") {
+                      setOwnerWithdrawalModalOpen(true);
+                      setDataType("expense"); // Reset to expense
+                    }
                     // For income/withdraw, always use bank source
-                    if (newType !== "expense") {
+                    if (newType !== "expense" && newType !== "owner-withdrawal") {
                       setSource("bank");
                       setBankAccountId("");
                     }
@@ -302,6 +308,7 @@ export function ImportClient({
                 </div>
               </label>
             ))}
+
           </div>
 
           {dataType === "income" && (
@@ -319,22 +326,6 @@ export function ImportClient({
             </div>
           )}
 
-          <div className="mt-4 pt-4 border-t border-surface-border/30 space-y-2">
-            <button
-              type="button"
-              onClick={() => setSalaryModalOpen(true)}
-              className="w-full px-4 py-2.5 rounded-lg bg-accent-purple/10 border border-accent-purple/30 text-accent-purple hover:bg-accent-purple/20 transition font-medium text-sm"
-            >
-              ↗ Import Salaries
-            </button>
-            <button
-              type="button"
-              onClick={() => setOwnerWithdrawalModalOpen(true)}
-              className="w-full px-4 py-2.5 rounded-lg bg-accent-blue/10 border border-accent-blue/30 text-accent-blue hover:bg-accent-blue/20 transition font-medium text-sm"
-            >
-              ↗ Import Owner Withdrawals
-            </button>
-          </div>
         </div>
 
         {/* Default Entity Selection */}
