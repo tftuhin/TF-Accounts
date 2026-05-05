@@ -286,6 +286,7 @@ export async function POST(req: NextRequest) {
               ownershipRegistryId: row.ownershipRegistryId,
               sourceAccount: row.sourceAccount,
               amount: row.amount,
+              currency: row.currency as any,
               date: drawingDate,
               status: row.amount > currentBalance ? "PENDING" : "COMPLETED",
               note: `Imported from ${file.name}`,
