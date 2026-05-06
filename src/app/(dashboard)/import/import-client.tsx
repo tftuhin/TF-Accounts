@@ -6,6 +6,7 @@ import { Upload, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { IncomeImportModal } from "./income-import-modal";
 import { SalaryImportModal } from "./salary-import-modal";
 import { OwnerWithdrawalModal } from "./owner-withdrawal-modal";
+import { AssetImportModal } from "./asset-import-modal";
 
 interface Entity {
   id: string;
@@ -43,7 +44,7 @@ export function ImportClient({
   ownershipRegistries: OwnershipRegistry[];
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [dataType, setDataType] = useState<"expense" | "income" | "withdraw" | "salary" | "owner-withdrawal">("expense");
+  const [dataType, setDataType] = useState<"expense" | "income" | "withdraw" | "salary" | "owner-withdrawal" | "asset">("expense");
   const [source, setSource] = useState<"bank" | "petty-cash">("bank");
   const [bankAccountId, setBankAccountId] = useState<string>("");
   const [defaultEntityId, setDefaultEntityId] = useState<string>(entities[0]?.id || "");
@@ -55,6 +56,7 @@ export function ImportClient({
   const [incomeModalOpen, setIncomeModalOpen] = useState(false);
   const [salaryModalOpen, setSalaryModalOpen] = useState(false);
   const [ownerWithdrawalModalOpen, setOwnerWithdrawalModalOpen] = useState(false);
+  const [assetModalOpen, setAssetModalOpen] = useState(false);
 
   const relevantBankAccounts = bankAccounts.filter(
     (ba) => ba.accountType !== "PETTY_CASH"
@@ -252,19 +254,27 @@ export function ImportClient({
         ownershipRegistries={ownershipRegistries}
       />
 
+      {/* Asset Import Modal */}
+      <AssetImportModal
+        isOpen={assetModalOpen}
+        onClose={() => setAssetModalOpen(false)}
+        entities={entities}
+      />
+
       <form onSubmit={handleImport} className="space-y-6">
         {/* Data Type Selection */}
         <div className="card p-6 space-y-4">
           <div className="text-sm font-semibold text-ink-white">
             Transaction Type *
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             {[
               { value: "income", label: "Income", color: "rgb(16, 185, 129)" },
               { value: "expense", label: "Expense", color: "rgb(239, 68, 68)" },
               { value: "withdraw", label: "Withdrawal", color: "rgb(245, 158, 11)" },
               { value: "salary", label: "Salary", color: "rgb(139, 92, 246)" },
               { value: "owner-withdrawal", label: "Owner Withdrawal", color: "rgb(59, 130, 246)" },
+              { value: "asset", label: "Asset", color: "rgb(168, 85, 247)" },
             ].map((type) => (
               <label
                 key={type.value}
@@ -284,7 +294,7 @@ export function ImportClient({
                   value={type.value}
                   checked={dataType === type.value as any}
                   onChange={(e) => {
-                    const newType = e.target.value as "income" | "expense" | "withdraw" | "salary" | "owner-withdrawal";
+                    const newType = e.target.value as "income" | "expense" | "withdraw" | "salary" | "owner-withdrawal" | "asset";
                     setDataType(newType);
                     // For salary, open the modal instead
                     if (newType === "salary") {
@@ -296,8 +306,13 @@ export function ImportClient({
                       setOwnerWithdrawalModalOpen(true);
                       setDataType("expense"); // Reset to expense
                     }
+                    // For asset, open the modal
+                    if (newType === "asset") {
+                      setAssetModalOpen(true);
+                      setDataType("expense"); // Reset to expense
+                    }
                     // For income/withdraw, always use bank source
-                    if (newType !== "expense" && newType !== "owner-withdrawal") {
+                    if (newType !== "expense" && newType !== "owner-withdrawal" && newType !== "asset") {
                       setSource("bank");
                       setBankAccountId("");
                     }
