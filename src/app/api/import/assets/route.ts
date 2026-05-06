@@ -271,6 +271,7 @@ export async function POST(req: NextRequest) {
           });
 
           // Create fixed asset record
+          // Note: createdById must be set due to database constraint, use session.id if available
           await prisma.fixedAsset.create({
             data: {
               entityId,
@@ -283,6 +284,7 @@ export async function POST(req: NextRequest) {
               usefulLifeYears: row.usefulLifeYears,
               salvageValue: row.salvageValue || 0,
               journalEntryId: journalEntry.id,
+              createdById: session.id,
             },
           });
 
