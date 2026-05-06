@@ -7,6 +7,7 @@ import { IncomeImportModal } from "./income-import-modal";
 import { SalaryImportModal } from "./salary-import-modal";
 import { OwnerWithdrawalModal } from "./owner-withdrawal-modal";
 import { AssetImportModal } from "./asset-import-modal";
+import { InvestmentImportModal } from "./investment-import-modal";
 
 interface Entity {
   id: string;
@@ -44,7 +45,7 @@ export function ImportClient({
   ownershipRegistries: OwnershipRegistry[];
 }) {
   const [file, setFile] = useState<File | null>(null);
-  const [dataType, setDataType] = useState<"expense" | "income" | "withdraw" | "salary" | "owner-withdrawal" | "asset">("expense");
+  const [dataType, setDataType] = useState<"expense" | "income" | "withdraw" | "salary" | "owner-withdrawal" | "asset" | "investment">("expense");
   const [source, setSource] = useState<"bank" | "petty-cash">("bank");
   const [bankAccountId, setBankAccountId] = useState<string>("");
   const [defaultEntityId, setDefaultEntityId] = useState<string>(entities[0]?.id || "");
@@ -57,6 +58,7 @@ export function ImportClient({
   const [salaryModalOpen, setSalaryModalOpen] = useState(false);
   const [ownerWithdrawalModalOpen, setOwnerWithdrawalModalOpen] = useState(false);
   const [assetModalOpen, setAssetModalOpen] = useState(false);
+  const [investmentModalOpen, setInvestmentModalOpen] = useState(false);
 
   const relevantBankAccounts = bankAccounts.filter(
     (ba) => ba.accountType !== "PETTY_CASH"
@@ -261,6 +263,13 @@ export function ImportClient({
         entities={entities}
       />
 
+      {/* Investment Import Modal */}
+      <InvestmentImportModal
+        isOpen={investmentModalOpen}
+        onClose={() => setInvestmentModalOpen(false)}
+        entities={entities}
+      />
+
       <form onSubmit={handleImport} className="space-y-6">
         {/* Data Type Selection */}
         <div className="card p-6 space-y-4">
@@ -268,7 +277,7 @@ export function ImportClient({
           <select
             value={dataType}
             onChange={(e) => {
-              const newType = e.target.value as "income" | "expense" | "withdraw" | "salary" | "owner-withdrawal" | "asset";
+              const newType = e.target.value as "income" | "expense" | "withdraw" | "salary" | "owner-withdrawal" | "asset" | "investment";
               setDataType(newType);
               // For salary, open the modal instead
               if (newType === "salary") {
@@ -285,8 +294,13 @@ export function ImportClient({
                 setAssetModalOpen(true);
                 setDataType("expense"); // Reset to expense
               }
+              // For investment, open the modal
+              if (newType === "investment") {
+                setInvestmentModalOpen(true);
+                setDataType("expense"); // Reset to expense
+              }
               // For income/withdraw, always use bank source
-              if (newType !== "expense" && newType !== "owner-withdrawal" && newType !== "asset") {
+              if (newType !== "expense" && newType !== "owner-withdrawal" && newType !== "asset" && newType !== "investment") {
                 setSource("bank");
                 setBankAccountId("");
               }
@@ -299,6 +313,7 @@ export function ImportClient({
             <option value="salary">Salary</option>
             <option value="owner-withdrawal">Owner Withdrawal</option>
             <option value="asset">Asset</option>
+            <option value="investment">Investment</option>
           </select>
 
           {dataType === "income" && (

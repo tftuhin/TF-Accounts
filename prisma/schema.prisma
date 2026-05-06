@@ -135,6 +135,25 @@ enum AssetStatus {
   @@map("asset_status")
 }
 
+enum InvestmentCategory {
+  WEB_THEME
+  PLUGIN
+  SOFTWARE_SUBSCRIPTION
+  TEMPLATE
+  DIGITAL_LICENSE
+  OTHER
+
+  @@map("investment_category")
+}
+
+enum InvestmentStatus {
+  ACTIVE
+  FULLY_PAID
+  EXPIRED
+
+  @@map("investment_status")
+}
+
 // ─── ENTITIES (Multi-Tenancy) ───────────────────────────────
 
 model Entity {
@@ -163,9 +182,11 @@ model Entity {
   splitAllocations SplitAllocation[]
   transfersFrom   InterBrandTransfer[] @relation("TransferFrom")
   transfersTo     InterBrandTransfer[] @relation("TransferTo")
-  userAccess      UserEntityAccess[]
-  fundTransfers   FundTransfer[]
-  fixedAssets     FixedAsset[]
+  userAccess        UserEntityAccess[]
+  fundTransfers     FundTransfer[]
+  fixedAssets       FixedAsset[]
+  investments       Investment[]
+  investmentPayments InvestmentPayment[]
 
   @@map("entities")
 }
@@ -313,14 +334,15 @@ model JournalEntry {
   createdAt         DateTime     @default(now()) @map("created_at")
   updatedAt         DateTime     @updatedAt @map("updated_at")
 
-  lines            JournalEntryLine[]
-  splitAllocations SplitAllocation[]
-  drawings         Drawing[]
-  fundTransfer     FundTransfer?
-  evidenceFiles    EvidenceFile[]
+  lines              JournalEntryLine[]
+  splitAllocations   SplitAllocation[]
+  drawings           Drawing[]
+  fundTransfer       FundTransfer?
+  evidenceFiles      EvidenceFile[]
   bankStatementItems BankStatementItem[]
-  pettyCashEntries PettyCashEntry[]
-  fixedAsset       FixedAsset?
+  pettyCashEntries   PettyCashEntry[]
+  fixedAsset         FixedAsset?
+  investmentPayment  InvestmentPayment?
 
   @@index([entityId, date(sort: Desc)])
   @@index([status])
@@ -524,6 +546,7 @@ model User {
   employees        Employee[]
   salaryIncrements SalaryIncrement[]
   fixedAssets      FixedAsset[]
+  investments      Investment[]
 
   @@map("profiles")
 }
@@ -623,6 +646,48 @@ model FixedAsset {
 
   @@index([entityId])
   @@map("fixed_assets")
+}
+
+// ─── INVESTMENTS ────────────────────────────────────────────
+
+model Investment {
+  id          String              @id @default(uuid())
+  entityId    String              @map("entity_id")
+  entity      Entity              @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  category    InvestmentCategory
+  status      InvestmentStatus    @default(ACTIVE)
+  createdById String?             @map("created_by")
+  creator     User?               @relation(fields: [createdById], references: [id])
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  payments    InvestmentPayment[]
+
+  @@unique([entityId, name])
+  @@index([entityId])
+  @@map("investments")
+}
+
+model InvestmentPayment {
+  id             String        @id @default(uuid())
+  investmentId   String        @map("investment_id")
+  investment     Investment    @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  entityId       String        @map("entity_id")
+  entity         Entity        @relation(fields: [entityId], references: [id])
+  amount         Decimal       @db.Decimal(15, 2)
+  currency       Currency      @default(BDT)
+  paymentDate    DateTime      @db.Date @map("payment_date")
+  source         String        // "bank" or "cash"
+  note           String?
+  importBatch    String?       @map("import_batch")
+  journalEntryId String?       @unique @map("journal_entry_id")
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  @@index([investmentId])
+  @@index([entityId])
+  @@map("investment_payments")
 }
 
 // ─── SALARY PAYMENTS ────────────────────────────────────────

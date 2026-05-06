@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 // Auto-creates essential chart_of_accounts entries for an entity if they don't exist.
 // Uses parallel upserts and returns results directly — no extra findUnique round trips.
 export async function ensureBasicAccounts(entityId: string) {
-  const [cash, income, opex, fixedAssets, accumulatedDepreciation, depreciationExpense, gainOnDisposal, lossOnDisposal, drawings, pettyCash, interEntity] = await Promise.all([
+  const [cash, income, opex, fixedAssets, accumulatedDepreciation, depreciationExpense, gainOnDisposal, lossOnDisposal, drawings, pettyCash, interEntity, investments] = await Promise.all([
     prisma.chartOfAccounts.upsert({
       where: { entityId_accountCode: { entityId, accountCode: "1000" } },
       update: {},
@@ -62,6 +62,12 @@ export async function ensureBasicAccounts(entityId: string) {
       update: {},
       create: { entityId, accountCode: "3000", accountName: "Inter-entity Transfer", accountGroup: "asset", pfAccount: null, isActive: true },
     }),
+    // 1600: Investments — long-term digital asset investments (themes, plugins, licenses, etc.)
+    prisma.chartOfAccounts.upsert({
+      where: { entityId_accountCode: { entityId, accountCode: "1600" } },
+      update: {},
+      create: { entityId, accountCode: "1600", accountName: "Investments", accountGroup: "asset", pfAccount: null, isActive: true },
+    }),
   ]);
-  return { cash, income, opex, fixedAssets, accumulatedDepreciation, depreciationExpense, gainOnDisposal, lossOnDisposal, drawings, pettyCash, interEntity };
+  return { cash, income, opex, fixedAssets, accumulatedDepreciation, depreciationExpense, gainOnDisposal, lossOnDisposal, drawings, pettyCash, interEntity, investments };
 }
